@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Circle?>
+
+<?import javafx.scene.layout.StackPane?>
+<AnchorPane prefHeight="990.0" prefWidth="1040.0" style="-fx-background-color: transparent; -fx-cursor: hand;"
+            xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.eouna.configtool.ui.controllers.HorseRaceLampController" fx:id="root">
+    <children>
+        <BorderPane prefHeight="990.0" prefWidth="1040.0">
+            <center>
+                <StackPane prefHeight="970.0" prefWidth="1000.0" BorderPane.alignment="CENTER">
+                </StackPane>
+            </center>
+            <top>
+                <HBox prefWidth="1040" prefHeight="20.0" BorderPane.alignment="CENTER" fx:id="top">
+                </HBox>
+            </top>
+            <bottom>
+                <HBox prefWidth="1040" prefHeight="20.0" BorderPane.alignment="CENTER" alignment="CENTER_RIGHT"
+                      fx:id="bottom">
+                </HBox>
+            </bottom>
+            <left>
+                <VBox prefHeight="970.0" prefWidth="20.0" BorderPane.alignment="CENTER" alignment="BOTTOM_CENTER"
+                      fx:id="left">
+                </VBox>
+            </left>
+            <right>
+                <VBox prefHeight="970.0" prefWidth="20.0" BorderPane.alignment="CENTER" fx:id="right">
+                </VBox>
+            </right>
+        </BorderPane>
+    </children>
+</AnchorPane>

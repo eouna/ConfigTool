@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<?import com.eouna.configtool.ui.component.FileChoosePane?>
+<AnchorPane xmlns="http://javafx.com/javafx"
+			xmlns:fx="http://javafx.com/fxml"
+			fx:controller="com.eouna.configtool.ui.controllers.TestController"
+			prefHeight="400.0" prefWidth="600.0">
+	<FileChoosePane onFileChoose="#onChange" prefWidth="600" prefHeight="400" useMultiSelect="true"/>
+</AnchorPane>

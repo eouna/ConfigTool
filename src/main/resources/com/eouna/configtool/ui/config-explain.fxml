@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.control.TableView?>
+<Pane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity"
+	  minWidth="-Infinity" prefHeight="600.0" prefWidth="1100.0"
+	  xmlns="http://javafx.com/javafx/17"
+	  fx:controller="com.eouna.configtool.ui.controllers.ConfigExplainController"
+	  xmlns:fx="http://javafx.com/fxml/1">
+	<TableView layoutX="1.0" minHeight="600.0" prefWidth="1200" fx:id="tableView">
+		<columns>
+			<TableColumn minWidth="100" text="字段类型"
+						 fx:id="fieldTypeCol"/>
+			<TableColumn minWidth="200" text="字段范围"
+						 fx:id="fieldDataRange"/>
+			<TableColumn minWidth="300" text="字段配置"
+						 fx:id="fieldConfigCol"/>
+			<TableColumn minWidth="800" text="配置方式说明"
+						 fx:id="fieldExplainCol"/>
+		</columns>
+	</TableView>
+</Pane>
