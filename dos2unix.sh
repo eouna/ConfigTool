@@ -1,0 +1,1 @@
+find ./ -name "*" | xargs dos2unix

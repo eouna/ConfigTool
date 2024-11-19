@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.TextFlow?>
+<VBox alignment="CENTER" prefHeight="650" prefWidth="800"
+      style="-fx-background-color: white;-fx-border-color: white;-fx-border-width: 0; -fx-selection-bar: white;-fx-selection-bar-non-focused: white;-fx-selection-bar-focused: white;"
+      xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.eouna.configtool.ui.controllers.ShowModalController">
+    <ScrollPane fx:id="scrollPane" prefHeight="600" prefWidth="800"
+                style="-fx-border-color: white;-fx-border-width: 0; -fx-selection-bar: white;-fx-selection-bar-non-focused: white;-fx-selection-bar-focused: white;">
+        <StackPane minHeight="598.0" prefWidth="795.0" fx:id="stackPane">
+            <AnchorPane fx:id="backBlurPane" minHeight="598.0" prefWidth="795"/>
+            <TextFlow fx:id="errorShowArea" minHeight="598" prefWidth="780"
+                      style="-fx-background-color: #FFFFFF22;-fx-border-color: white;-fx-border-width: 0; -fx-padding: 3; -fx-selection-bar: white;-fx-selection-bar-non-focused: white;-fx-selection-bar-focused: white;">
+                <VBox.margin>
+                    <Insets top="-570"/>
+                </VBox.margin>
+            </TextFlow>
+        </StackPane>
+    </ScrollPane>
+    <HBox alignment="CENTER" prefHeight="50.0">
+        <Button alignment="CENTER" contentDisplay="CENTER" onAction="#closeWindow"
+                prefHeight="25.0" prefWidth="100.0" text="关闭"
+                textOverrun="CENTER_ELLIPSIS">
+            <VBox.margin>
+                <Insets top="3.0"/>
+            </VBox.margin>
+            <HBox.margin>
+                <Insets/>
+            </HBox.margin>
+        </Button>
+    </HBox>
+</VBox>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF8"?>
+<!-- This configuration added to prevent logback default of DEBUG output -->
+<configuration>
+    <!--定义日志文件的存储地址 勿在 LogBack 的配置中使用相对路径-->
+    <property name="LOG_HOME" value="./log"/>
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%4d{yyyy-MM-dd HH:mm:ss} %highlight(%-5level) [%thread] at %class.%method \(%file:%line\) - %m%n
+            </pattern>
+        </encoder>
+    </appender>
+    <!-- ch.qos.logback.core.rolling.RollingFileAppender 文件日志输出 -->
+    <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <File>${LOG_HOME}/ConfigTool.log</File>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${LOG_HOME}/ConfigTool-%d{yyyy-MM-dd}.log</FileNamePattern>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%4d{yyyy-MM-dd HH:mm:ss} [%thread] [%F : %L] %-5p - %c - %m%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.eouna" level="debug"/>
+    <logger name="org.apache.commons.httpclient" level="error"/>
+
+    <root level="info">
+        <appender-ref ref="console"/>
+        <appender-ref ref="file"/>
+    </root>
+</configuration>

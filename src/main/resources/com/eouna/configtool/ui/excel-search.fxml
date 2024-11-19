@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Button?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+<?import javafx.scene.text.Font?>
+<AnchorPane xmlns="http://javafx.com/javafx"
+			xmlns:fx="http://javafx.com/fxml"
+			fx:controller="com.eouna.configtool.ui.controllers.ExcelSearchController"
+			minHeight="200.0" prefWidth="600.0">
+	<VBox>
+		<HBox minHeight="40" alignment="CENTER" style="-fx-alignment: center">
+			<TextField prefWidth="520"/>
+			<Button text="搜索" prefWidth="80" onAction="#searchExcelFieldData"
+					style="-fx-border-radius: 20;">
+				<graphic>
+					<FontIcon iconLiteral="fa-search"/>
+				</graphic>
+				<font>
+					<Font size="12.0"/>
+				</font>
+			</Button>
+		</HBox>
+		<TextArea style="-fx-font-size: 14px" disable="true"/>
+	</VBox>
+</AnchorPane>

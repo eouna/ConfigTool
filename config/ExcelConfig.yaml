@@ -1,0 +1,37 @@
+javaTemplateConf:
+  packageName: genpackage
+  dataRangeServerSkipStr: client
+  dataRangeClientSkipStr: server
+  dataManagerClassName: GameDataManager
+  dataManagerLoadDataCaller: loadAllData
+  baseBeanIdName: id
+  keepBindExcelRelativePath: false
+syncConfig:
+  serverList: 本地(Local),测试服
+  resourcePath: resources/sample
+  targetServer:
+    serverIp: 127.0.0.1
+    username: name
+    userPass: pass
+    port: 22
+    serverPath: /
+    uploadTempFilePath: /data/package/
+  executeCommand: cd /
+excelConf:
+  fieldRow:
+    fieldDescRow: 0
+    fieldTypeRow: 1
+    fieldNameRow: 2
+    fieldDataRangeRow: 3
+    isUnderLineTransUpper: false
+  path:
+    excelConfigLoadPath: example
+    templateFileGenTargetDir: gentemppath/genpackage
+    templatePath: ftl
+jsonTemplateConf:
+  isSplitMultiJson: true
+cache:
+  sqliteConfig:
+    enable: false
+    user: admin
+    pass: pass

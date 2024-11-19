@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane prefHeight="100.0" prefWidth="300.0" xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.eouna.configtool.ui.controllers.AboutController">
+    <VBox alignment="CENTER" prefHeight="80.0" prefWidth="300.0">
+        <children>
+            <HBox alignment="CENTER">
+                <children>
+                    <Label text="作者">
+                        <font>
+                            <Font size="15.0"/>
+                        </font>
+                    </Label>
+                    <Label text="：">
+                        <font>
+                            <Font size="15.0"/>
+                        </font>
+                    </Label>
+                    <Label alignment="CENTER" style="-fx-text-fill: red"
+                           text="CCL" fx:id="authorName" onMouseClicked="#onAuthorClicked">
+                        <font>
+                            <Font size="15.0"/>
+                        </font>
+                    </Label>
+                </children>
+            </HBox>
+            <HBox alignment="CENTER">
+                <children>
+                    <Label text="版本">
+                        <font>
+                            <Font size="15.0"/>
+                        </font>
+                    </Label>
+                    <Label text="：">
+                        <font>
+                            <Font size="15.0"/>
+                        </font>
+                    </Label>
+                    <Label alignment="CENTER" text="V_0.1" fx:id="versionId">
+                        <font>
+                            <Font size="15.0"/>
+                        </font>
+                    </Label>
+                </children>
+            </HBox>
+            <HBox alignment="CENTER">
+                <children>
+                    <Label alignment="CENTER" text="Power By ** Company" fx:id="powerName">
+                        <font>
+                            <Font size="15.0"/>
+                        </font>
+                    </Label>
+                </children>
+            </HBox>
+            <HBox alignment="CENTER">
+                <children>
+                    <Label alignment="CENTER"
+                           text="Copyright © 2018–2023 ** " fx:id="copyRightName">
+                        <font>
+                            <Font size="15.0"/>
+                        </font>
+                    </Label>
+                </children>
+            </HBox>
+        </children>
+    </VBox>
+</AnchorPane>

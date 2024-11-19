@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToolBar?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+<?import javafx.scene.text.TextFlow?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+<VBox fx:id="rootBox" alignment="CENTER" prefHeight="920.0" prefWidth="1000"
+      spacing="5" xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.eouna.configtool.ui.controllers.ExcelGenWindowController">
+    <MenuBar prefHeight="20">
+        <menus>
+            <Menu mnemonicParsing="false" text="配置">
+                <graphic>
+                    <FontIcon iconLiteral="fa-gears" iconSize="14"/>
+                </graphic>
+                <items>
+                    <MenuItem mnemonicParsing="false" text="生成配置"
+                              onAction="#onSettingClick">
+                        <graphic>
+                            <FontIcon iconLiteral="fa-gear" iconSize="14"/>
+                        </graphic>
+                    </MenuItem>
+                </items>
+            </Menu>
+            <Menu mnemonicParsing="false" text="帮助">
+                <graphic>
+                    <FontIcon iconLiteral="fa-question" iconSize="14"/>
+                </graphic>
+                <items>
+                    <MenuItem mnemonicParsing="false" text="配置表说明"
+                              onAction="#onConfigExplainClick">
+                        <graphic>
+                            <FontIcon iconLiteral="fa-file-excel-o" iconSize="14"/>
+                        </graphic>
+                    </MenuItem>
+                </items>
+                <items>
+                    <MenuItem mnemonicParsing="false" text="关于"
+                              onAction="#onAboutClick"/>
+                </items>
+            </Menu>
+            <Menu>
+                <graphic>
+                    <Label text="全选" onMouseClicked="#selectedAll" prefHeight="20">
+                        <graphic>
+                            <FontIcon iconLiteral="fa-list-ul" iconSize="14"/>
+                        </graphic>
+                    </Label>
+                </graphic>
+            </Menu>
+            <Menu>
+                <graphic>
+                    <Label text="反选" onMouseClicked="#cancelAll" prefHeight="20">
+                        <graphic>
+                            <FontIcon iconLiteral="fa-server" iconSize="14"/>
+                        </graphic>
+                    </Label>
+                </graphic>
+            </Menu>
+        </menus>
+    </MenuBar>
+    <ScrollPane prefHeight="450.0" fx:id="excelShowListContainer" pannable="true"
+          style="-fx-background-color: white; -fx-padding: 0 10 0 10;">
+    </ScrollPane>
+    <HBox prefHeight="430.0">
+        <ScrollPane prefHeight="430.0" prefWidth="600.0" fx:id="logShowScrollPane"
+                    style="-fx-background-color: white;-fx-border-color: white;-fx-border-width: 0; -fx-padding: 3; -fx-selection-bar: white;-fx-selection-bar-non-focused: white;-fx-selection-bar-focused: white;">
+            <TextFlow fx:id="logShowArea" prefWidth="570.0"/>
+        </ScrollPane>
+        <Separator orientation="VERTICAL"/>
+        <VBox fx:id="textFormBox" prefHeight="430" prefWidth="400"
+              style="-fx-background-color: #EEE">
+            <Separator/>
+            <VBox alignment="TOP_CENTER" prefHeight="40.0">
+                <HBox>
+                    <Label contentDisplay="CENTER" prefHeight="19.0" prefWidth="104.0"
+                           text="excel配置目录" textAlignment="JUSTIFY">
+                        <font>
+                            <Font size="13.0"/>
+                        </font>
+                        <HBox.margin>
+                            <Insets top="10.0"/>
+                        </HBox.margin>
+                        <padding>
+                            <Insets left="5.0"/>
+                        </padding>
+                    </Label>
+                    <Label text=": ">
+                        <HBox.margin>
+                            <Insets top="12.0"/>
+                        </HBox.margin>
+                    </Label>
+                    <TextField fx:id="excelConfigPathField" disable="true"
+                               minWidth="200.0" prefHeight="23.0" prefWidth="200.0">
+                        <opaqueInsets>
+                            <Insets/>
+                        </opaqueInsets>
+                        <HBox.margin>
+                            <Insets left="3.0" right="3.0" top="10.0"/>
+                        </HBox.margin>
+                    </TextField>
+                    <Button fx:id="excelConfigPathButton"
+                            onAction="#onExcelConfigPathSelectClick" prefHeight="23.0"
+                            prefWidth="53.0" text="选择">
+                        <HBox.margin>
+                            <Insets left="7.0" right="5.0" top="10.0"/>
+                        </HBox.margin>
+                        <VBox.margin>
+                            <Insets top="10.0"/>
+                        </VBox.margin>
+                    </Button>
+                    <padding>
+                        <Insets bottom="10.0"/>
+                    </padding>
+                </HBox>
+                <Separator/>
+            </VBox>
+            <VBox alignment="TOP_CENTER" prefHeight="40.0" spacing="6.0">
+                <HBox>
+                    <Label contentDisplay="CENTER" ellipsisString="" prefHeight="19.0"
+                           prefWidth="104.0" text="生成目录" wrapText="true">
+                        <opaqueInsets>
+                            <Insets/>
+                        </opaqueInsets>
+                        <HBox.margin>
+                            <Insets top="11.0"/>
+                        </HBox.margin>
+                        <font>
+                            <Font size="13.0"/>
+                        </font>
+                        <padding>
+                            <Insets left="5.0"/>
+                        </padding>
+                    </Label>
+                    <Label text=": ">
+                        <HBox.margin>
+                            <Insets top="12.0"/>
+                        </HBox.margin>
+                    </Label>
+                    <TextField fx:id="templateGenTargetPathField" disable="true"
+                               minWidth="200.0" prefHeight="23.0" prefWidth="200.0">
+                        <HBox.margin>
+                            <Insets left="3.0" right="3.0" top="10.0"/>
+                        </HBox.margin>
+                    </TextField>
+                    <Button fx:id="templateGenTargetPathButton"
+                            onAction="#onTemplateGenTargetConfigPathSelectClick"
+                            prefHeight="23.0" prefWidth="53.0" text="选择">
+                        <HBox.margin>
+                            <Insets left="7.0" right="5.0" top="10.0"/>
+                        </HBox.margin>
+                        <VBox.margin>
+                            <Insets top="10.0"/>
+                        </VBox.margin>
+                    </Button>
+                </HBox>
+                <Separator/>
+            </VBox>
+            <VBox alignment="TOP_CENTER" prefHeight="40.0" spacing="6.0">
+                <HBox>
+                    <Label contentDisplay="CENTER" ellipsisString="" prefHeight="19.0"
+                           prefWidth="104.0" text="模板目录" wrapText="true">
+                        <opaqueInsets>
+                            <Insets/>
+                        </opaqueInsets>
+                        <HBox.margin>
+                            <Insets top="11.0"/>
+                        </HBox.margin>
+                        <font>
+                            <Font size="13.0"/>
+                        </font>
+                    </Label>
+                    <Label text=": ">
+                        <HBox.margin>
+                            <Insets left="-5.0" top="12.0"/>
+                        </HBox.margin>
+                    </Label>
+                    <TextField fx:id="templatePathField" disable="true" minWidth="200.0"
+                               prefHeight="23.0" prefWidth="200.0">
+                        <HBox.margin>
+                            <Insets left="3.0" right="3.0" top="10.0"/>
+                        </HBox.margin>
+                    </TextField>
+                    <Button fx:id="templatePathButton"
+                            onAction="#onTemplatePathSelectClick" prefHeight="23.0"
+                            prefWidth="53.0" text="选择">
+                        <HBox.margin>
+                            <Insets left="7.0" right="5.0" top="10.0"/>
+                        </HBox.margin>
+                        <VBox.margin>
+                            <Insets top="10.0"/>
+                        </VBox.margin>
+                    </Button>
+                    <padding>
+                        <Insets left="5.0"/>
+                    </padding>
+                </HBox>
+                <Separator/>
+            </VBox>
+            <VBox alignment="TOP_CENTER" prefHeight="80.0">
+                <HBox>
+                    <HBox>
+                        <Label contentDisplay="CENTER" ellipsisString="" prefHeight="19.0"
+                               prefWidth="154.0" text="字段描述列" wrapText="true">
+                            <opaqueInsets>
+                                <Insets/>
+                            </opaqueInsets>
+                            <HBox.margin>
+                                <Insets top="11.0"/>
+                            </HBox.margin>
+                            <font>
+                                <Font size="13.0"/>
+                            </font>
+                        </Label>
+                        <Label text=": ">
+                            <HBox.margin>
+                                <Insets left="-5.0" top="12.0"/>
+                            </HBox.margin>
+                        </Label>
+                        <TextField fx:id="excelFileDescRowField"
+                                   accessibleRole="CHECK_MENU_ITEM" maxWidth="300"
+                                   minWidth="82.0"
+                                   onKeyReleased="#onExcelFileDescRowFieldChange"
+                                   prefHeight="23.0" prefWidth="170.0">
+                            <HBox.margin>
+                                <Insets left="3.0" right="3.0" top="10.0"/>
+                            </HBox.margin>
+                        </TextField>
+                    </HBox>
+                    <HBox>
+                        <Label contentDisplay="CENTER" ellipsisString="" prefHeight="19.0"
+                               prefWidth="154.0" text="字段类型列" wrapText="true">
+                            <opaqueInsets>
+                                <Insets/>
+                            </opaqueInsets>
+                            <HBox.margin>
+                                <Insets top="11.0"/>
+                            </HBox.margin>
+                            <font>
+                                <Font size="13.0"/>
+                            </font>
+                        </Label>
+                        <Label text=": ">
+                            <HBox.margin>
+                                <Insets left="-5.0" top="12.0"/>
+                            </HBox.margin>
+                        </Label>
+                        <TextField fx:id="excelFileTypeRowField"
+                                   accessibleRole="CHECK_MENU_ITEM" maxWidth="300"
+                                   minWidth="82.0"
+                                   onKeyReleased="#onExcelFileTypeRowFieldChange"
+                                   prefHeight="23.0" prefWidth="170.0">
+                            <HBox.margin>
+                                <Insets left="3.0" right="3.0" top="10.0"/>
+                            </HBox.margin>
+                        </TextField>
+                    </HBox>
+                </HBox>
+                <HBox>
+                    <HBox>
+                        <Label contentDisplay="CENTER" ellipsisString="" prefHeight="19.0"
+                               prefWidth="154.0" text="字段名列" wrapText="true">
+                            <opaqueInsets>
+                                <Insets/>
+                            </opaqueInsets>
+                            <HBox.margin>
+                                <Insets top="11.0"/>
+                            </HBox.margin>
+                            <font>
+                                <Font size="13.0"/>
+                            </font>
+                        </Label>
+                        <Label text=": ">
+                            <HBox.margin>
+                                <Insets left="-5.0" top="12.0"/>
+                            </HBox.margin>
+                        </Label>
+                        <TextField fx:id="excelFileNameRowField"
+                                   accessibleRole="CHECK_MENU_ITEM" maxWidth="300"
+                                   minWidth="82.0"
+                                   onKeyReleased="#onExcelFileNameRowFieldChange"
+                                   prefHeight="23.0" prefWidth="170.0">
+                            <HBox.margin>
+                                <Insets left="3.0" right="3.0" top="10.0"/>
+                            </HBox.margin>
+                        </TextField>
+                    </HBox>
+                    <HBox>
+                        <Label contentDisplay="CENTER" ellipsisString="" prefHeight="19.0"
+                               prefWidth="154.0" text="字段数值范围列" wrapText="true">
+                            <opaqueInsets>
+                                <Insets/>
+                            </opaqueInsets>
+                            <HBox.margin>
+                                <Insets top="11.0"/>
+                            </HBox.margin>
+                            <font>
+                                <Font size="13.0"/>
+                            </font>
+                        </Label>
+                        <Label text=": ">
+                            <HBox.margin>
+                                <Insets left="-5.0" top="12.0"/>
+                            </HBox.margin>
+                        </Label>
+                        <TextField fx:id="excelFileDataRangeRowField"
+                                   accessibleRole="CHECK_MENU_ITEM" maxWidth="300"
+                                   minWidth="82.0"
+                                   onKeyReleased="#onExcelFileDataRangeRowFieldChange"
+                                   prefHeight="23.0" prefWidth="170.0">
+                            <HBox.margin>
+                                <Insets left="3.0" right="3.0" top="10.0"/>
+                            </HBox.margin>
+                        </TextField>
+                    </HBox>
+                </HBox>
+                <Separator prefHeight="0.0" prefWidth="387.0">
+                    <padding>
+                        <Insets top="10.0"/>
+                    </padding>
+                </Separator>
+            </VBox>
+            <HBox alignment="TOP_CENTER" spacing="5" prefHeight="40"
+                  fx:id="templateCheckBoxGroup">
+                <CheckBox mnemonicParsing="false" prefHeight="30.0" prefWidth="50.0"
+                          text="java" onAction="#onTemplateCheckBoxClicked"
+                          selected="true"/>
+                <CheckBox mnemonicParsing="false" prefHeight="30.0" prefWidth="50.0"
+                          text="json" onAction="#onTemplateCheckBoxClicked"/>
+            </HBox>
+            <ToolBar nodeOrientation="RIGHT_TO_LEFT" prefHeight="50.0">
+                <VBox.margin>
+                    <Insets/>
+                </VBox.margin>
+                <Button fx:id="generateTemplateBtn" mnemonicParsing="false"
+                        onAction="#generateTemplateFiles" prefHeight="31.0"
+                        prefWidth="100.0" style="-fx-border-radius: 20"
+                        text="生成模板">
+                    <graphic>
+                        <FontIcon iconLiteral="fa-fighter-jet" iconSize="14"/>
+                    </graphic>
+                    <font>
+                        <Font size="12.0"/>
+                    </font>
+                </Button>
+                <Button fx:id="preLoadBtn" mnemonicParsing="false"
+                        onAction="#tryLoadAndCheckGameData" prefHeight="31.0"
+                        prefWidth="100" style="-fx-border-radius: 20"
+                        text="Java预加载">
+                    <graphic>
+                        <FontIcon iconLiteral="fa-coffee" iconSize="14"/>
+                    </graphic>
+                    <font>
+                        <Font size="12.0"/>
+                    </font>
+                </Button>
+                <Button mnemonicParsing="false" onAction="#clearLogArea"
+                        prefHeight="31.0" prefWidth="100.0" text="清除日志">
+                    <graphic>
+                        <FontIcon iconLiteral="fa-remove" iconSize="16"/>
+                    </graphic>
+                    <font>
+                        <Font size="12.0"/>
+                    </font>
+                </Button>
+                <Button mnemonicParsing="false" onAction="#reloadExcelList"
+                        prefHeight="31.0" prefWidth="60.0" text="刷新">
+                    <graphic>
+                        <FontIcon iconLiteral="fa-rotate-left" iconSize="16"/>
+                    </graphic>
+                    <font>
+                        <Font size="12.0"/>
+                    </font>
+                </Button>
+            </ToolBar>
+            <HBox alignment="CENTER" prefHeight="100" spacing="10">
+                <VBox.margin>
+                    <Insets top="5"/>
+                </VBox.margin>
+                <Label text="服务器列表: "/>
+                <ScrollPane prefHeight="100" prefWidth="210">
+                    <VBox fx:id="serverSelector" spacing="5" style="-fx-padding: 5"/>
+                </ScrollPane>
+                <Button text="同步配置表" fx:id="syncConfBtn" onAction="#syncExcelConfigToServer"/>
+            </HBox>
+        </VBox>
+    </HBox>
+    <HBox prefHeight="10" style="-fx-background-color: white">
+        <HBox fx:id="currentProgress" prefHeight="10"
+              style="-fx-background-color: #3CED0DFF"/>
+        <Label fx:id="currentProgressTips" prefWidth="50"/>
+    </HBox>
+</VBox>
