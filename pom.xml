@@ -241,6 +241,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
                 <executions>
+                    <!--复制配置文件-->
                     <execution>
                         <id>copy-config</id>
                         <phase>process-sources</phase>
@@ -260,6 +261,7 @@
                             </resources>
                         </configuration>
                     </execution>
+                    <!--复制java运行环境-->
                     <execution>
                         <id>copy-jre</id>
                         <phase>process-sources</phase>
@@ -278,6 +280,7 @@
                             </resources>
                         </configuration>
                     </execution>
+                    <!--复制热加载时需要引用的jar文件-->
                     <execution>
                         <id>copy-lib</id>
                         <phase>process-sources</phase>
@@ -296,6 +299,7 @@
                             </resources>
                         </configuration>
                     </execution>
+                    <!--复制配置表实例文件-->
                     <execution>
                         <id>copy-example</id>
                         <phase>process-sources</phase>
@@ -314,6 +318,7 @@
                             </resources>
                         </configuration>
                     </execution>
+                    <!--复制java模板文件-->
                     <execution>
                         <id>copy-ftl</id>
                         <phase>process-sources</phase>
