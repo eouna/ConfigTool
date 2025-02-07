@@ -359,41 +359,6 @@
                     </dependency>
                 </dependencies>
             </plugin>
-            <!--antrun 执行exe打包，生成运行脚本 exe4jc -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>1.8</version>
-                <executions>
-                    <execution>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <target name="write-file">
-                                <echo file="target/run.bat" message=".\jre\bin\java.exe -jar ConfigTool-${version}.jar"/>
-                            </target>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>post-package</id>
-                        <phase>package</phase>
-                        <configuration>
-                            <target>
-                                <!-- 执行你的 BAT 脚本 -->
-                                <exec executable="cmd">
-                                    <arg value="/c"/>
-                                    <arg value="S:\Program\exe4j\bin\exe4jc P:\java\ConfigTool\config\ConfigTool.exe4j"/>
-                                </exec>
-                            </target>
-                        </configuration>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
         <resources>
             <resource>
