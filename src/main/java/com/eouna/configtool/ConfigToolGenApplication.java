@@ -53,7 +53,6 @@ public class ConfigToolGenApplication extends Application {
 
   public static void main(String[] args) throws Exception {
     FileUtils.genServerPid();
-    Thread.sleep(3000);
     ConfigToolGenApplication.launch(args);
   }
 }
