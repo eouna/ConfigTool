@@ -20,7 +20,7 @@ import org.apache.commons.io.FileUtils;
  * @author CCL
  * @date 2023/4/4
  */
-public class ExcelUploader {
+public class ResourceUploader {
 
   /** 临时压缩文件名 */
   private static final String TEMP_ZIP_FILE_NAME = "excel.zip";
@@ -63,7 +63,7 @@ public class ExcelUploader {
     if (selectedServerCopy.stream().anyMatch(s -> s.contains(LOCAL_KEY))) {
       // 本地同步模式
       if (syncFileToLocalPath(syncConfig, moduleDirOfFile)) {
-        textAreaStepLogger.success("配置表同步成功");
+        textAreaStepLogger.success("本地配置表同步成功");
       }
       selectedServerCopy.removeIf(s -> s.contains(LOCAL_KEY));
       if (selectedServerCopy.isEmpty()) {
@@ -73,35 +73,9 @@ public class ExcelUploader {
     textAreaStepLogger.info("开始压缩excel文件");
     // 压缩excel文件
     File zipFile = zipExcelFileList(moduleDirOfFile);
-    if (zipFile == null) {
-      LoggerUtils.getTextareaLogger().error("压缩文件失败");
-      return;
-    }
     textAreaStepLogger.info("压缩excel文件结束");
-    // 获取服务器的Session
-    Session session =
-        JschUtils.getSession(SystemConfigHolder.getInstance().getSyncConfig().getTargetServer());
-    try {
-      textAreaStepLogger.info("开始上传excel压缩文件");
-      // 上传压缩文件
-      JschUtils.uploadFile(session, zipFile, syncConfig.getTargetServer().getUploadTempFilePath());
-      textAreaStepLogger.info("上传excel压缩文件结束");
-      // 检测excel文件所属的文件并分发到服务器各个模块下 解压文件分发配置表到各个服务器
-      textAreaStepLogger.info("构建迁移命令");
-      // 构建excel文件迁移命令
-      String excelCommandStr = SystemConfigHolder.getInstance().getSyncConfig().getExecuteCommand();
-      LoggerUtils.getTextareaLogger().info("执行命令: {}", excelCommandStr);
-      textAreaStepLogger.info("开始执行远端解压缩和复制文件命令");
-      // 执行远程命令
-      JschUtils.executeCommand(session, excelCommandStr);
-      textAreaStepLogger.success("执行命令结束, 配置表上传成功");
-    } catch (Exception e) {
-      LoggerUtils.showErrorDialog("同步配置异常,err: " + e.getMessage(), e);
-    } finally {
-      if (session != null) {
-        session.disconnect();
-      }
-    }
+    // 同步文件到远端
+    syncFileToServers(selectedServerCopy, zipFile, textAreaStepLogger);
   }
 
   /**
@@ -145,13 +119,19 @@ public class ExcelUploader {
           continue;
         }
         for (ConfigDataBean.ServerLoadExcelDirConfBean excelDirConfBean : bindLocalExcelDir) {
+          String resourcePlacePath = syncConfig.getLocalResourcePlacePath();
+          boolean isAbstractPath =
+              com.eouna.configtool.utils.FileUtils.isAbsolutePath(
+                  syncConfig.getLocalResourcePlacePath());
           // 目标路径
           String targetPath =
-              baseProjectDir
-                  + File.separator
-                  + excelDirConfBean.getBindAppModuleDir()
-                  + File.separator
-                  + syncConfig.getResourcePath();
+              isAbstractPath
+                  ? baseProjectDir
+                      + File.separator
+                      + excelDirConfBean.getBindAppModuleDir()
+                      + File.separator
+                      + resourcePlacePath
+                  : resourcePlacePath;
           // 如果只是绑定了变化的某几个文件
           if (!excelDirConfBean.getBindExcelFileList().isEmpty()) {
             List<String> excelNameList =
@@ -177,6 +157,60 @@ public class ExcelUploader {
     }
     return false;
   }
+
+
+  /**
+   * 将配置表同步到远端
+   *
+   * @param selectedServer 选择的服务器
+   * @param zipFile 压缩的excel文件
+   * @param textAreaStepLogger logger
+   */
+  private static void syncFileToServers(
+      List<String> selectedServer, File zipFile, TextAreaStepLogger textAreaStepLogger) {
+    List<ConfigDataBean.ServerConnectInfo> serverConnectInfosAll =
+        SystemConfigHolder.getInstance().getSyncConfig().getTargetServer();
+    List<ConfigDataBean.ServerConnectInfo> serverConnectInfos =
+        serverConnectInfosAll.stream()
+            .filter(
+                serInfo -> selectedServer.stream().anyMatch(k -> k.equals(serInfo.getServerName())))
+            .collect(Collectors.toList());
+    Map<String, Session> sessionCache = new HashMap<>(serverConnectInfos.size());
+    try {
+      for (ConfigDataBean.ServerConnectInfo serverConnectInfo : serverConnectInfos) {
+        // 获取服务器的Session
+        Session session =
+            sessionCache.computeIfAbsent(
+                serverConnectInfo.getServerIp(), k -> JschUtils.getSession(serverConnectInfo));
+        textAreaStepLogger.info("开始上传[{}]excel压缩文件", serverConnectInfo.getServerName());
+        // 上传压缩文件
+        JschUtils.uploadFile(session, zipFile, serverConnectInfo.getUploadTempFilePath());
+        textAreaStepLogger.info("上传[{}]excel压缩文件结束", serverConnectInfo.getServerName());
+        // 检测excel文件所属的文件并分发到服务器各个模块下 解压文件分发配置表到各个服务器
+        textAreaStepLogger.info("构建迁移命令");
+        // 构建excel文件迁移命令
+        String excelCommandStr = serverConnectInfo.getExecuteCommand();
+        LoggerUtils.getTextareaLogger()
+            .info("执行服务器[{}]命令: {}", serverConnectInfo.getServerName(), excelCommandStr);
+        textAreaStepLogger.info("开始执行远端解压缩和复制文件命令");
+        // 执行远程命令
+        JschUtils.executeCommand(session, excelCommandStr);
+        textAreaStepLogger.success("执行服务器[{}]命令结束, 配置表上传成功", serverConnectInfo.getServerName());
+      }
+    } catch (Exception e) {
+      LoggerUtils.showErrorDialog("同步配置异常,err: " + e.getMessage(), e);
+    } finally {
+      sessionCache
+          .values()
+          .forEach(
+              session -> {
+                if (session != null) {
+                  session.disconnect();
+                }
+              });
+    }
+  }
+
 
   /**
    * 压缩excel文件

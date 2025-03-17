@@ -49,4 +49,4 @@ jre
 server.pid
 
 #### config ####
-config/icon/.*
+config/icon

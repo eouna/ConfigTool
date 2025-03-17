@@ -38,7 +38,8 @@ public class ConfigToolApplicationBoot implements ApplicationListener<FxApplicat
         | IllegalAccessException
         | InstantiationException
         | InvocationTargetException e) {
-      throw new RuntimeException(e);
+      LoggerUtils.showErrorDialog("系统配置加载失败，请检查系统配置是否正确", e);
+      throw new RuntimeException("系统配置加载失败，请检查系统配置是否正确", e);
     }
     // 禁止窗口重新设置大小
     stage.setResizable(false);
