@@ -47,3 +47,6 @@ log
 ~$*xlsx
 jre
 server.pid
+
+#### config ####
+config/icon/.*
