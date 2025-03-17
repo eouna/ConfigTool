@@ -80,6 +80,10 @@ more:
 
 1. 为了便于参考,项目中放置了一份基础的excel文档,罗列了一些基本用法.[参考文档](example/example.xlsx)
 
+# 配置表excel结构放置说明
+
+工具支持将策划使用的配置目录映射到到程序使用的工程目录，详细配置文件在```ExcelDirBindServerModuleConfLocal.txt```中
+
 # 工具界面
 
 1. 主界面

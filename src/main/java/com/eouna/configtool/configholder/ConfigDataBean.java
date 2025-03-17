@@ -235,14 +235,11 @@ public class ConfigDataBean {
     /** 服务器列表 */
     private String serverList;
     /** excel资源放置路径 */
-    @ConfigSettingControl(desc = "excel资源放置路径")
-    private String resourcePath;
+    @ConfigSettingControl(desc = "本地同步是excel资源放置的路径，注意：如果填相对路径则是相对目标工程的相对目录")
+    private String localResourcePlacePath;
     /** 服务器连接信息 */
     @ConfigSettingControl(desc = "服务器连接信息")
-    private ServerConnectInfo targetServer;
-    /** 脚本执行命令行 */
-    @ConfigSettingControl(desc = "远程命令行", bindTextFieldComponent = TextArea.class)
-    private String executeCommand;
+    private List<ServerConnectInfo> targetServer;
 
     public String getServerList() {
       return serverList;
@@ -252,34 +249,28 @@ public class ConfigDataBean {
       this.serverList = serverList;
     }
 
-    public ServerConnectInfo getTargetServer() {
+    public List<ServerConnectInfo> getTargetServer() {
       return targetServer;
     }
 
-    public void setTargetServer(ServerConnectInfo targetServer) {
+    public void setTargetServer(List<ServerConnectInfo> targetServer) {
       this.targetServer = targetServer;
     }
 
-    public String getResourcePath() {
-      return resourcePath;
+    public String getLocalResourcePlacePath() {
+      return localResourcePlacePath;
     }
 
-    public void setResourcePath(String resourcePath) {
-      this.resourcePath = resourcePath;
-    }
-
-    public String getExecuteCommand() {
-      return executeCommand;
-    }
-
-    public void setExecuteCommand(String executeCommand) {
-      this.executeCommand = executeCommand;
+    public void setLocalResourcePlacePath(String localResourcePlacePath) {
+      this.localResourcePlacePath = localResourcePlacePath;
     }
   }
 
   @CfgDataBean
   public static class ServerConnectInfo {
-
+    /** 需要同步的服务器IP */
+    @ConfigSettingControl(desc = "服务器名字", bindTextFieldComponent = TextField.class)
+    private String serverName;
     /** 需要同步的服务器IP */
     @ConfigSettingControl(desc = "ip", bindTextFieldComponent = TextField.class)
     private String serverIp;
@@ -292,6 +283,9 @@ public class ConfigDataBean {
     /** 连接端口 */
     @ConfigSettingControl(desc = "端口", bindTextFieldComponent = TextField.class)
     private int port;
+    /** 脚本执行命令行 */
+    @ConfigSettingControl(desc = "远程命令行", bindTextFieldComponent = TextArea.class)
+    private String executeCommand;
     /** 服务器路径 */
     private String serverPath;
     /** 文件上传临时路径 */
@@ -343,6 +337,22 @@ public class ConfigDataBean {
 
     public void setUploadTempFilePath(String uploadTempFilePath) {
       this.uploadTempFilePath = uploadTempFilePath;
+    }
+
+    public String getServerName() {
+      return serverName;
+    }
+
+    public void setServerName(String serverName) {
+      this.serverName = serverName;
+    }
+
+    public String getExecuteCommand() {
+      return executeCommand;
+    }
+
+    public void setExecuteCommand(String executeCommand) {
+      this.executeCommand = executeCommand;
     }
   }
 

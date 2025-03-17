@@ -24,6 +24,12 @@ public class ConfigToolGenApplication extends Application {
   public void start(Stage stage) {
     // 初始化全局stage
     FxApplicationLoader.run(ConfigToolGenApplication.class, stage, getParameters());
+    // 注册和初始系统服务
+    registerSysServices();
+  }
+
+
+  private void registerSysServices(){
     // 设置主机服务
     NodeUtils.hostServices = ConfigToolGenApplication.this.getHostServices();
     // 添加关闭监听事件

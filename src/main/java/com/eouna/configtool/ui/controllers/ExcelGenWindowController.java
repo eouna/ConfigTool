@@ -11,7 +11,7 @@ import com.eouna.configtool.constant.EExcelUpdateState;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant.ColorDefine;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
-import com.eouna.configtool.utils.ExcelUploader;
+import com.eouna.configtool.utils.ResourceUploader;
 import com.eouna.configtool.utils.FileUtils;
 import com.eouna.configtool.utils.HotClassLoaderUtils;
 import com.eouna.configtool.utils.HotClassLoaderUtils.MethodArgDataTuple;
@@ -327,7 +327,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     // 异步线程同步 不然会阻塞UI界面
     DefaultFuture.runAsync(
             () -> {
-              ExcelUploader.syncExcelToServer(syncExcelList, selectedServerList);
+              ResourceUploader.syncExcelToServer(syncExcelList, selectedServerList);
               updateExcelProcessBtnUsage(EExcelUpdateState.SYNC_DATA);
             })
         .whenComplete(
