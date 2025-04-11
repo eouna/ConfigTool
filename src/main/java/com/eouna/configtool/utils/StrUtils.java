@@ -1,6 +1,7 @@
 package com.eouna.configtool.utils;
 
 import org.apache.commons.lang3.CharUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -91,5 +92,20 @@ public class StrUtils {
       matcher.appendReplacement(stringBuilder, matcher.group(1).toUpperCase());
     }
     return stringBuilder.toString();
+  }
+
+  /**
+   * 替换目标字符串中最后一个找到的字符
+   *
+   * @param oldStr 旧的字符串
+   * @param findStr 需要找到的字符串
+   * @param replacedStr 替换字符串
+   * @return 替换后的字符串
+   */
+  public static String replaceLast(String oldStr, String findStr, String replacedStr) {
+    int lastIndexOfFindStr = oldStr.lastIndexOf(findStr);
+    return oldStr.substring(0, lastIndexOfFindStr - 1)
+        + replacedStr
+        + oldStr.substring(lastIndexOfFindStr + 1);
   }
 }
