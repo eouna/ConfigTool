@@ -357,7 +357,6 @@ public class WindowManager {
     T baseWindowController = getOrCreateController(controllerClass, stage, args);
     if (!baseWindowController.isMounted()) {
       Scene scene = baseWindowController.getStage().getScene();
-      stage.setTitle(baseWindowController.getTitle());
       baseWindowController.getStage().initOwner(stage);
       baseWindowController.getStage().setScene(scene);
       baseWindowController

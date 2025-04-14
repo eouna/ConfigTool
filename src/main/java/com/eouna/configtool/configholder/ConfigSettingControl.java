@@ -5,10 +5,9 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.function.Consumer;
 
 import com.eouna.configtool.ui.component.IgnoreConfigBindField;
-import javafx.scene.control.TextInputControl;
+import javafx.scene.control.Control;
 
 /**
  * 配置设置注解用于标示是否展示在设置界面
@@ -46,5 +45,5 @@ public @interface ConfigSettingControl {
    *
    * @return 输入组件
    */
-  Class<? extends TextInputControl> bindTextFieldComponent() default IgnoreConfigBindField.class;
+  Class<? extends Control> bindComponent() default IgnoreConfigBindField.class;
 }

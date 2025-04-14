@@ -5,9 +5,9 @@ module com.eouna.configtool {
   requires org.controlsfx.controls;
   requires org.kordamp.bootstrapfx.core;
   requires org.apache.commons.codec;
-  requires poi;
-  requires poi.ooxml;
-  requires poi.ooxml.schemas;
+  requires org.apache.poi.poi;
+  requires org.apache.poi.ooxml;
+  requires org.apache.poi.ooxml.schemas;
   requires org.apache.commons.lang3;
   requires org.yaml.snakeyaml;
   requires com.google.common;
@@ -25,9 +25,9 @@ module com.eouna.configtool {
   requires org.aspectj.runtime;
   requires maven.model;
   requires plexus.utils;
-	requires java.desktop;
+  requires java.desktop;
 
-	opens com.eouna.configtool.ui.controllers to
+  opens com.eouna.configtool.ui.controllers to
       javafx.fxml,
       javafx.base,
       javafx.controls,
@@ -40,6 +40,9 @@ module com.eouna.configtool {
 
   exports com.eouna.configtool.generator.bean to
       freemarker;
-  opens com.eouna.configtool to java.base;
+
+  opens com.eouna.configtool to
+      java.base;
+
   exports com.eouna.configtool;
 }
