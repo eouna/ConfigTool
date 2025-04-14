@@ -150,3 +150,4 @@ java.rmi/sun.rmi.transport=ALL-UNNAMED
 
 1. [多语言支持](#multiLan)后续支持多语言扩展和选择.
 2. 程序命令行支持
+3. 配置界面数组配置的展示组件

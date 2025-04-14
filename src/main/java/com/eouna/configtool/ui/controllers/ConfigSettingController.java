@@ -14,17 +14,12 @@ import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
-import javafx.scene.Parent;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextInputControl;
-import javafx.scene.control.TreeItem;
-import javafx.scene.control.TreeView;
+import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import org.apache.commons.lang3.reflect.FieldUtils;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -205,26 +200,18 @@ public class ConfigSettingController extends BaseWindowController {
     ConfigSettingControl configSettingControl = entitySettingItem.configSettingControl;
     try {
       // 通过注解ConfigSettingControl获取绑定的字段组件
-      Class<? extends TextInputControl> bindTextFieldComponent =
-          configSettingControl.bindTextFieldComponent();
-      Label label = new Label(configSettingControl.desc());
+      Class<? extends Control> bindComponent = configSettingControl.bindComponent();
       String fieldPath = getSettingItemFieldPath(entitySettingItem.getSettingItem()).substring(1);
-      TextInputControl textInputControl =
-          bindTextFieldComponent.getDeclaredConstructor().newInstance();
-      textInputControl.setPromptText(configSettingControl.placeholder());
-      // 通过路径获取具体配置值
-      textInputControl.setText(
-          SystemConfigHolder.getInstance().getConfigValByFieldPath(fieldPath).toString());
-      textInputControl.setOnKeyReleased(
-          (eventHandle) ->
-              onTextFieldChange(
-                  eventHandle,
-                  fieldPath,
-                  entitySettingItem.getSettingItem().getItemField().getType().getName()));
-      textInputControl.setPrefWidth(300);
-      settingArea.add(label, 0, rowIdx);
-      settingArea.add(new Label(": "), 1, rowIdx);
-      settingArea.add(textInputControl, 2, rowIdx);
+      Control bindControl = bindComponent.getDeclaredConstructor().newInstance();
+      // 多种控件
+      if (bindControl instanceof TextInputControl) {
+        attachTextInputToGridPanel(
+            (TextInputControl) bindControl,
+            configSettingControl,
+            fieldPath,
+            entitySettingItem,
+            rowIdx);
+      }
     } catch (InstantiationException
         | IllegalAccessException
         | NoSuchMethodException
@@ -232,6 +219,30 @@ public class ConfigSettingController extends BaseWindowController {
       LoggerUtils.showErrorDialog("更新配置时出现异常", e);
       throw new RuntimeException(e);
     }
+  }
+
+  /** 文本类输入添加到右侧面板 */
+  private void attachTextInputToGridPanel(
+      TextInputControl bindControl,
+      ConfigSettingControl configSettingControl,
+      String fieldPath,
+      EntitySettingItem<?> entitySettingItem,
+      int rowIdx) {
+    Label label = new Label(configSettingControl.desc());
+    bindControl.setPromptText(configSettingControl.placeholder());
+    // 通过路径获取具体配置值
+    bindControl.setText(
+        SystemConfigHolder.getInstance().getConfigValByFieldPath(fieldPath).toString());
+    bindControl.setOnKeyReleased(
+        (eventHandle) ->
+            onTextFieldChange(
+                eventHandle,
+                fieldPath,
+                entitySettingItem.getSettingItem().getItemField().getType().getName()));
+    bindControl.setPrefWidth(300);
+    settingArea.add(label, 0, rowIdx);
+    settingArea.add(new Label(": "), 1, rowIdx);
+    settingArea.add(bindControl, 2, rowIdx);
   }
 
   /** 获取类字段中所有注解了ConfigSettingControl的字段 */

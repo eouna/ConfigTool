@@ -10,25 +10,22 @@ syncConfig:
   serverList: 本地(Local),测试服1,测试服2
   localResourcePlacePath: resources/sample
   targetServer:
-    -
-      servername: 测试服1
-      serverIp: 127.0.0.1
-      username: name
-      userPass: pass
-      port: 22
-      serverPath: /
-      uploadTempFilePath: /temp/
-      executeCommand: cp -r /data/temp/ /destination/
-    -
-      servername: 测试服2
-      serverIp: 127.0.0.2
-      username: name
-      userPass: pass
-      port: 22
-      serverPath: /
-      uploadTempFilePath: /data/temp/
-      executeCommand: cp -r /data/temp/ /destination/
-
+  - servername: 测试服1
+    serverIp: 127.0.0.1
+    username: name
+    userPass: pass
+    port: 22
+    serverPath: /
+    uploadTempFilePath: /temp/
+    executeCommand: cp -r /data/temp/ /destination/
+  - servername: 测试服2
+    serverIp: 127.0.0.2
+    username: name
+    userPass: pass
+    port: 22
+    serverPath: /
+    uploadTempFilePath: /data/temp/
+    executeCommand: cp -r /data/temp/ /destination/
 excelConf:
   fieldRow:
     fieldDescRow: 0
