@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.eouna.configtool.core.factory.anno.Component;
 import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.utils.UiUtils;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
@@ -119,7 +119,7 @@ public class WindowManager {
     try {
       controllerClass = (Class<T>) Class.forName(controllerClassName);
     } catch (ClassNotFoundException e) {
-      LoggerUtils.getTextareaLogger().error("找不到窗口控制器: {}", controllerClassName);
+      LoggerUtils.getLogger().error("找不到窗口控制器: {}", controllerClassName);
       throw new RuntimeException("找不到窗口控制器: " + controllerClassName);
     }
     // 打开新窗口

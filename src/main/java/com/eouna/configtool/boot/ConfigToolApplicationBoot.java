@@ -7,11 +7,11 @@ import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.core.boot.context.ApplicationContext;
 import com.eouna.configtool.core.event.FxApplicationStartedEvent;
 import com.eouna.configtool.core.context.ApplicationListener;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.core.window.WindowManager;
 import com.eouna.configtool.ui.controllers.ExcelGenWindowController;
 import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.utils.LoggerUtils;
-import com.eouna.configtool.utils.NodeUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import javafx.stage.Stage;
 
 /**
@@ -38,7 +38,7 @@ public class ConfigToolApplicationBoot implements ApplicationListener<FxApplicat
         | IllegalAccessException
         | InstantiationException
         | InvocationTargetException e) {
-      LoggerUtils.showErrorDialog("系统配置加载失败，请检查系统配置是否正确", e);
+      LoggerUtils.getLogger().error("系统配置加载失败，请检查系统配置是否正确", e);
       throw new RuntimeException("系统配置加载失败，请检查系统配置是否正确", e);
     }
     // 禁止窗口重新设置大小
@@ -47,9 +47,11 @@ public class ConfigToolApplicationBoot implements ApplicationListener<FxApplicat
     // 从pom文件中读取版本信息
     stage.setTitle("配置表工具" + FileUtils.getAppVersion());
     // 加载主场景
-    WindowManager.getInstance().openWindowWithStage(stage, ExcelGenWindowController.class);
+    ExcelGenWindowController mainController =
+        WindowManager.getInstance().openWindowWithStage(stage, ExcelGenWindowController.class);
+    TextAreaLogger textAreaLogger = new TextAreaLogger(mainController.getLogShowArea());
     // 加载主场景结束日志
-    LoggerUtils.getTextareaLogger().info("加载主场景结束,程序PID: " + FileUtils.getPid());
+    textAreaLogger.info("加载主场景结束,程序PID: " + FileUtils.getPid());
     // 监听主窗口关闭事件 主窗口关闭则关闭所有窗口
     stage.setOnCloseRequest((e) -> WindowManager.getInstance().destroyAllWindow());
   }

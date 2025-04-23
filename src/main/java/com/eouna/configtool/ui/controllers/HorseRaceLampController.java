@@ -2,7 +2,7 @@ package com.eouna.configtool.ui.controllers;
 
 import com.eouna.configtool.core.window.BaseWindowController;
 import com.eouna.configtool.core.window.WindowManager;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;

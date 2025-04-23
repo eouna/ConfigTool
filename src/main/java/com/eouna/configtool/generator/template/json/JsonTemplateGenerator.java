@@ -2,6 +2,7 @@ package com.eouna.configtool.generator.template.json;
 
 import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
 import com.eouna.configtool.generator.base.ExcelFileStructure;
 import com.eouna.configtool.generator.bean.ExcelDataStruct;
@@ -14,7 +15,7 @@ import com.eouna.configtool.generator.template.AbstractTemplateHandler;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
 import com.eouna.configtool.utils.ExcelUtils;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.utils.MemUsageUtils;
 import com.eouna.configtool.utils.StrUtils;
 import com.google.gson.Gson;
@@ -73,7 +74,8 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
         // 过滤父类
         if (currentDealFile != fileStureValue.getParentFile()) {
           String parentName =
-              currentDealFile.getName().split(DefaultEnvConfigConstant.EXCEL_STRUCTURE_DELIMITER)[0];
+              currentDealFile.getName()
+                  .split(DefaultEnvConfigConstant.EXCEL_STRUCTURE_DELIMITER)[0];
           // 加载父类数据
           loadSheetData(
               currentDealFile, new ExcelSheetBean(currentDealFile, parentName), fileStureValue);
@@ -282,17 +284,18 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
   }
 
   @Override
-  public void generatorAfter(Map<File, ExcelFileStructure> excelFileStructureMap) {
+  public void generatorAfter(
+      TextAreaLogger textAreaLogger, Map<File, ExcelFileStructure> excelFileStructureMap) {
     // 是否分为多个json文件
     if (SystemConfigHolder.getInstance().getJsonTemplateConf().isSplitMultiJson()) {
-      splitMultiJsonFile();
+      splitMultiJsonFile(textAreaLogger);
     } else {
-      mergeSingleJsonFile();
+      mergeSingleJsonFile(textAreaLogger);
     }
   }
 
   /** 将excel数据合并为一个大的json文件 */
-  private void mergeSingleJsonFile() {
+  private void mergeSingleJsonFile(TextAreaLogger textAreaLogger) {
     File outJsonFile =
         new File(
             SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplateFileGenTargetDir()
@@ -302,15 +305,14 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
       Gson gson = getGsonSerialize();
       String luaDataJsonStr = gson.toJson(jsonDataKeeper);
       FileUtils.writeStringToFile(outJsonFile, luaDataJsonStr, StandardCharsets.UTF_8);
-      LoggerUtils.getTextareaLogger()
-          .info("生成json文件模板结束,文件大小: {}", MemUsageUtils.humanSizeOf(luaDataJsonStr));
+      textAreaLogger.info("生成json文件模板结束,文件大小: {}", MemUsageUtils.humanSizeOf(luaDataJsonStr));
     } catch (IOException ioException) {
-      LoggerUtils.getTextareaLogger().error("导出json文件错误");
+      textAreaLogger.error("导出json文件错误");
     }
   }
 
   /** 将excel导出为多个不同的json文件 */
-  private void splitMultiJsonFile() {
+  private void splitMultiJsonFile(TextAreaLogger textAreaLogger) {
     try {
       for (Entry<String, HashMap<Integer, Object>> entry : jsonDataKeeper.entrySet()) {
         String sheetName = entry.getKey();
@@ -330,9 +332,9 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
         String jsonDataJsonStr = gson.toJson(entry.getValue());
         FileUtils.writeStringToFile(outJsonFile, jsonDataJsonStr, StandardCharsets.UTF_8);
       }
-      LoggerUtils.getTextareaLogger().info("生成json文件模板结束");
+      textAreaLogger.info("生成json文件模板结束");
     } catch (IOException ioException) {
-      LoggerUtils.getTextareaLogger().error("导出json文件错误");
+      textAreaLogger.error("导出json文件错误");
     } catch (Exception e) {
       LoggerUtils.getLogger().error("", e);
     }

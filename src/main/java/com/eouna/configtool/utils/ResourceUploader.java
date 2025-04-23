@@ -2,6 +2,8 @@ package com.eouna.configtool.utils;
 
 import com.eouna.configtool.configholder.ConfigDataBean;
 import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.core.logger.TextAreaStepLogger;
 import com.jcraft.jsch.Session;
 import java.io.File;
@@ -12,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+
+import javafx.scene.text.TextFlow;
 import org.apache.commons.io.FileUtils;
 
 /**
@@ -34,12 +38,13 @@ public class ResourceUploader {
    * @param excelFileList 待同步的服务器
    */
   public static synchronized void syncExcelToServer(
-      List<File> excelFileList, List<String> selectedServer) {
+      TextFlow textArea, List<File> excelFileList, List<String> selectedServer) {
     List<String> selectedServerCopy = new ArrayList<>(selectedServer);
     if (excelFileList.isEmpty()) {
       return;
     }
-    TextAreaStepLogger textAreaStepLogger = new TextAreaStepLogger();
+    TextAreaLogger textAreaLogger = new TextAreaLogger(textArea);
+    TextAreaStepLogger textAreaStepLogger = new TextAreaStepLogger(textArea);
     textAreaStepLogger.info("开始同步excel文件");
     // 构建带目录结构的excel文件夹
     String excelBasePath =
@@ -62,7 +67,7 @@ public class ResourceUploader {
         });
     if (selectedServerCopy.stream().anyMatch(s -> s.contains(LOCAL_KEY))) {
       // 本地同步模式
-      if (syncFileToLocalPath(syncConfig, moduleDirOfFile)) {
+      if (syncFileToLocalPath(textAreaLogger, syncConfig, moduleDirOfFile)) {
         textAreaStepLogger.success("本地配置表同步成功");
       }
       selectedServerCopy.removeIf(s -> s.contains(LOCAL_KEY));
@@ -72,10 +77,10 @@ public class ResourceUploader {
     }
     textAreaStepLogger.info("开始压缩excel文件");
     // 压缩excel文件
-    File zipFile = zipExcelFileList(moduleDirOfFile);
+    File zipFile = zipExcelFileList(textAreaLogger, moduleDirOfFile);
     textAreaStepLogger.info("压缩excel文件结束");
     // 同步文件到远端
-    syncFileToServers(selectedServerCopy, zipFile, textAreaStepLogger);
+    syncFileToServers(textAreaLogger, selectedServerCopy, zipFile, textAreaStepLogger);
   }
 
   /**
@@ -89,14 +94,16 @@ public class ResourceUploader {
    * @param syncConfig 同步配置
    */
   private static boolean syncFileToLocalPath(
-      ConfigDataBean.SyncConfig syncConfig, Map<String, List<File>> moduleDirOfFile) {
+      TextAreaLogger textAreaLogger,
+      ConfigDataBean.SyncConfig syncConfig,
+      Map<String, List<File>> moduleDirOfFile) {
     // 先判断生成目录是否合理
     String templateFileGenTargetDir =
         SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplateFileGenTargetDir();
     String packageName = SystemConfigHolder.getInstance().getJavaTemplateConf().getPackageName();
     if (templateFileGenTargetDir.isEmpty()
         || !templateFileGenTargetDir.replace(File.separator, ".").contains(packageName)) {
-      LoggerUtils.showErrorDialog("同步失败", "同步目标目录不为游戏工程路径, 当前路径: " + templateFileGenTargetDir);
+      ToolsLoggerUtils.showErrorDialog("同步失败", "同步目标目录不为游戏工程路径, 当前路径: " + templateFileGenTargetDir);
       return false;
     }
     String projectName = packageName.substring(packageName.lastIndexOf(".") + 1);
@@ -153,11 +160,10 @@ public class ResourceUploader {
       }
       return true;
     } catch (IOException e) {
-      LoggerUtils.getTextareaLogger().error("复制文件错误", e);
+      textAreaLogger.error("复制文件错误", e);
     }
     return false;
   }
-
 
   /**
    * 将配置表同步到远端
@@ -167,7 +173,10 @@ public class ResourceUploader {
    * @param textAreaStepLogger logger
    */
   private static void syncFileToServers(
-      List<String> selectedServer, File zipFile, TextAreaStepLogger textAreaStepLogger) {
+      TextAreaLogger textAreaLogger,
+      List<String> selectedServer,
+      File zipFile,
+      TextAreaStepLogger textAreaStepLogger) {
     List<ConfigDataBean.ServerConnectInfo> serverConnectInfosAll =
         SystemConfigHolder.getInstance().getSyncConfig().getTargetServer();
     List<ConfigDataBean.ServerConnectInfo> serverConnectInfos =
@@ -181,24 +190,23 @@ public class ResourceUploader {
         // 获取服务器的Session
         Session session =
             sessionCache.computeIfAbsent(
-                serverConnectInfo.getServerIp(), k -> JschUtils.getSession(serverConnectInfo));
+                serverConnectInfo.getServerIp(), k -> JschUtils.getSession(textAreaLogger, serverConnectInfo));
         textAreaStepLogger.info("开始上传[{}]excel压缩文件", serverConnectInfo.getServerName());
         // 上传压缩文件
-        JschUtils.uploadFile(session, zipFile, serverConnectInfo.getUploadTempFilePath());
+        JschUtils.uploadFile(textAreaLogger, session, zipFile, serverConnectInfo.getUploadTempFilePath());
         textAreaStepLogger.info("上传[{}]excel压缩文件结束", serverConnectInfo.getServerName());
         // 检测excel文件所属的文件并分发到服务器各个模块下 解压文件分发配置表到各个服务器
         textAreaStepLogger.info("构建迁移命令");
         // 构建excel文件迁移命令
         String excelCommandStr = serverConnectInfo.getExecuteCommand();
-        LoggerUtils.getTextareaLogger()
-            .info("执行服务器[{}]命令: {}", serverConnectInfo.getServerName(), excelCommandStr);
+        textAreaLogger.info("执行服务器[{}]命令: {}", serverConnectInfo.getServerName(), excelCommandStr);
         textAreaStepLogger.info("开始执行远端解压缩和复制文件命令");
         // 执行远程命令
-        JschUtils.executeCommand(session, excelCommandStr);
+        JschUtils.executeCommand(textAreaLogger, session, excelCommandStr);
         textAreaStepLogger.success("执行服务器[{}]命令结束, 配置表上传成功", serverConnectInfo.getServerName());
       }
     } catch (Exception e) {
-      LoggerUtils.showErrorDialog("同步配置异常,err: " + e.getMessage(), e);
+      ToolsLoggerUtils.showErrorDialog("同步配置异常,err: " + e.getMessage(), e);
     } finally {
       sessionCache
           .values()
@@ -211,13 +219,12 @@ public class ResourceUploader {
     }
   }
 
-
   /**
    * 压缩excel文件
    *
    * @param excelFileList excel文件列表
    */
-  private static File zipExcelFileList(Map<String, List<File>> excelFileList) {
+  private static File zipExcelFileList(TextAreaLogger textAreaLogger,Map<String, List<File>> excelFileList) {
     File genDir =
         new File(
             SystemConfigHolder.getInstance()
@@ -225,7 +232,7 @@ public class ResourceUploader {
                 .getPath()
                 .getTemplateFileGenTargetDir());
     if (!genDir.exists() && !genDir.mkdirs()) {
-      LoggerUtils.getTextareaLogger().error("创建文件夹" + genDir.getAbsolutePath() + "失败");
+      textAreaLogger.error("创建文件夹" + genDir.getAbsolutePath() + "失败");
       throw new RuntimeException("创建文件夹" + genDir.getAbsolutePath() + "失败");
     }
     // 将临时文件文件输出到生成文件夹中

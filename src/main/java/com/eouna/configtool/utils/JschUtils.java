@@ -1,8 +1,8 @@
 package com.eouna.configtool.utils;
 
-import com.eouna.configtool.configholder.ConfigDataBean;
 import com.eouna.configtool.configholder.ConfigDataBean.ServerConnectInfo;
-import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.core.window.IWindowLogger;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.ChannelSftp;
@@ -33,7 +33,8 @@ public class JschUtils {
    *
    * @return 会话
    */
-  public static Session getSession(ServerConnectInfo serverConnectInfo) {
+  public static Session getSession(
+      TextAreaLogger textAreaLogger, ServerConnectInfo serverConnectInfo) {
     JSch jSch = new JSch();
     Session session = null;
     try {
@@ -50,10 +51,10 @@ public class JschUtils {
       if (session.isConnected()) {
         return session;
       }
-      LoggerUtils.getTextareaLogger().error("连接服务器: {} 失败", serverConnectInfo.getServerIp());
+      textAreaLogger.error("连接服务器: {} 失败", serverConnectInfo.getServerIp());
       return null;
     } catch (JSchException jSchException) {
-      LoggerUtils.getTextareaLogger().error("连接服务器异常", jSchException);
+      textAreaLogger.error("连接服务器异常", jSchException);
     }
     return session;
   }
@@ -78,8 +79,9 @@ public class JschUtils {
     return stringMsg.toString();
   }
 
-  public static void uploadFile(Session session, File zipFile, String destPath) {
-    uploadFile(session, zipFile, destPath, null);
+  public static void uploadFile(
+      TextAreaLogger textAreaLogger, Session session, File zipFile, String destPath) {
+    uploadFile(textAreaLogger, session, zipFile, destPath, null);
   }
 
   /**
@@ -91,9 +93,13 @@ public class JschUtils {
    * @param monitor 文件进度检测
    */
   public static void uploadFile(
-      Session session, File zipFile, String destPath, SftpProgressMonitor monitor) {
+      TextAreaLogger textAreaLogger,
+      Session session,
+      File zipFile,
+      String destPath,
+      SftpProgressMonitor monitor) {
     if (!zipFile.exists() || zipFile.isDirectory()) {
-      LoggerUtils.getTextareaLogger().error("文件: {} 不存在或者是一个文件夹", zipFile);
+      textAreaLogger.error("文件: {} 不存在或者是一个文件夹", zipFile);
       return;
     }
     ChannelSftp channelSftp = null;
@@ -106,12 +112,11 @@ public class JschUtils {
       channelSftp.connect();
       channelSftp.put(new FileInputStream(zipFile), destPath + zipFile.getName(), monitor);
     } catch (SftpException sftpException) {
-      LoggerUtils.getTextareaLogger().error("上传文件失败", sftpException);
+      textAreaLogger.error("上传文件失败", sftpException);
     } catch (FileNotFoundException fileNotFoundException) {
-      LoggerUtils.getTextareaLogger()
-          .error("查找文件: " + zipFile.getPath() + " 失败", fileNotFoundException);
+      textAreaLogger.error("查找文件: " + zipFile.getPath() + " 失败", fileNotFoundException);
     } catch (JSchException jSchException) {
-      LoggerUtils.getTextareaLogger().error("连接失败 ", jSchException);
+      textAreaLogger.error("连接失败 ", jSchException);
     } finally {
       if (channelSftp != null && !channelSftp.isClosed()) {
         channelSftp.disconnect();
@@ -125,8 +130,9 @@ public class JschUtils {
    * @param session session
    * @param command 执行的命令
    */
-  public static void executeCommand(Session session, String command) {
-    executeCommand(session, command, null);
+  public static void executeCommand(
+      TextAreaLogger textAreaLogger, Session session, String command) {
+    executeCommand(textAreaLogger, session, command, null);
   }
 
   /**
@@ -137,7 +143,10 @@ public class JschUtils {
    * @param callBack 执行完成后的回调
    */
   public static void executeCommand(
-      Session session, String command, CommandExecuteCallBack callBack) {
+      TextAreaLogger textAreaLogger,
+      Session session,
+      String command,
+      CommandExecuteCallBack callBack) {
     ChannelExec channelExec = null;
     try {
       if (session == null) {
@@ -161,7 +170,7 @@ public class JschUtils {
         }
       }
     } catch (JSchException | IOException jSchException) {
-      LoggerUtils.getTextareaLogger().error("连接失败 ", jSchException);
+      textAreaLogger.error("连接失败 ", jSchException);
     } finally {
       if (channelExec != null) {
         channelExec.disconnect();

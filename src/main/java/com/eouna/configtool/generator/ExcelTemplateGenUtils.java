@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import com.eouna.configtool.configholder.ConfigDataBean;
 import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelEnumFieldInfo;
 import com.eouna.configtool.generator.exceptions.BaseExcelException;
 import com.eouna.configtool.generator.exceptions.ExcelFormatCheckException;
@@ -38,9 +39,10 @@ import com.eouna.configtool.generator.template.ExcelFieldParseAdapter.EnumFieldA
 import com.eouna.configtool.generator.template.IFieldAdapter;
 import com.eouna.configtool.core.window.WindowManager;
 import com.eouna.configtool.ui.controllers.ExcelGenWindowController;
+import com.eouna.configtool.utils.ToolsLoggerUtils;
 import com.eouna.configtool.utils.ExcelUtils;
 import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.generator.base.ExcelFileStructure;
 import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo;
 import com.eouna.configtool.generator.bean.ExcelDataStruct.FieldMetadata;
@@ -73,12 +75,16 @@ public class ExcelTemplateGenUtils {
               + "{0,"
               + DefaultEnvConfigConstant.EXCEL_STRUCTURE_MAX_DEPTH
               + "}[a-zA-Z]+\\.(xlsx|xls)");
+
   /** 普通异常收集 */
   public static final List<Exception> NORMAL_EXCEPTION_COLLECTOR = new ArrayList<>();
+
   /** 并行异常收集 */
   public static final List<Exception> EXCEPTION_COLLECTOR = new CopyOnWriteArrayList<>();
+
   /** excel生成模板的线程工厂 */
   private static final ThreadPoolExecutor EXCEL_GEN_EXECUTOR;
+
   /** 并行模板生成锁 */
   private static final AtomicBoolean PARALLEL_GEN_LOCKER = new AtomicBoolean(false);
 
@@ -104,6 +110,7 @@ public class ExcelTemplateGenUtils {
    * @param excelFileList excel文件列表
    */
   public static void generateByTemplate(
+      TextAreaLogger textAreaLogger,
       Collection<File> excelFileList,
       Set<ETemplateGenerator> templateGenerators,
       Consumer<Boolean> finishedCallBack) {
@@ -129,6 +136,7 @@ public class ExcelTemplateGenUtils {
       }
       // 生成一个模板
       generateOneExcelByTemplate(
+          textAreaLogger,
           fileSture.getKey(),
           templateGenerators,
           successGenList,
@@ -137,6 +145,7 @@ public class ExcelTemplateGenUtils {
     }
     // 完成后调用
     whenGenTemplateFinished(
+        textAreaLogger,
         templateGenerators,
         finishedCallBack,
         excelFileStructure,
@@ -151,8 +160,10 @@ public class ExcelTemplateGenUtils {
    * @param excelFileList excel文件列表
    */
   public static void generateByTemplateParallel(
-      Collection<File> excelFileList, Set<ETemplateGenerator> templateGenerators) {
-    generateByTemplateParallel(excelFileList, templateGenerators, (res) -> {});
+      TextAreaLogger textAreaLogger,
+      Collection<File> excelFileList,
+      Set<ETemplateGenerator> templateGenerators) {
+    generateByTemplateParallel(textAreaLogger, excelFileList, templateGenerators, (res) -> {});
   }
 
   /**
@@ -163,11 +174,12 @@ public class ExcelTemplateGenUtils {
    * @param templateGenerators 需要生成的模板列表
    */
   public static void generateByTemplateParallel(
+      TextAreaLogger textAreaLogger,
       Collection<File> excelFileList,
       Set<ETemplateGenerator> templateGenerators,
       Consumer<Boolean> finishedCallBack) {
     generateByTemplateParallel(
-        excelFileList, templateGenerators, finishedCallBack, EXCEL_GEN_EXECUTOR);
+        textAreaLogger, excelFileList, templateGenerators, finishedCallBack, EXCEL_GEN_EXECUTOR);
   }
 
   /**
@@ -179,13 +191,14 @@ public class ExcelTemplateGenUtils {
    * @param excelGenExecutorPool excel生成使用的线程池
    */
   public static void generateByTemplateParallel(
+      TextAreaLogger textAreaLogger,
       Collection<File> excelFileList,
       Set<ETemplateGenerator> templateGenerators,
       Consumer<Boolean> finishedCallBack,
       ThreadPoolExecutor excelGenExecutorPool) {
     synchronized (PARALLEL_GEN_LOCKER) {
       if (!PARALLEL_GEN_LOCKER.compareAndSet(false, true)) {
-        LoggerUtils.getTextareaLogger().error("当前已有模板生成任务正在进行中...");
+        textAreaLogger.error("当前已有模板生成任务正在进行中...");
         return;
       }
     }
@@ -219,6 +232,7 @@ public class ExcelTemplateGenUtils {
           () -> {
             try {
               generateOneExcelByTemplate(
+                  textAreaLogger,
                   currentDealFile,
                   templateGenerators,
                   successGenList,
@@ -227,11 +241,8 @@ public class ExcelTemplateGenUtils {
             } catch (Exception e) {
               LoggerUtils.getLogger()
                   .error(e.getMessage() + " trace: \n{}", ExceptionUtils.getStackTrace(e));
-              LoggerUtils.getTextareaLogger()
-                  .info(
-                      "生成配置表: {}, 异常: {}",
-                      currentDealFile.getName(),
-                      ExceptionUtils.getStackTrace(e));
+              textAreaLogger.info(
+                  "生成配置表: {}, 异常: {}", currentDealFile.getName(), ExceptionUtils.getStackTrace(e));
               // 发生异常时是否立即退出
               if (DefaultEnvConfigConstant.IS_GEN_EXCEL_ERROR_EXIT_NOW) {
                 generatorCounter.set(0);
@@ -253,6 +264,7 @@ public class ExcelTemplateGenUtils {
             (t, throwable) ->
                 // 完成时调用
                 whenGenTemplateFinished(
+                    textAreaLogger,
                     templateGenerators,
                     finishedCallBack,
                     excelFileStructureMap,
@@ -274,12 +286,13 @@ public class ExcelTemplateGenUtils {
           exceptionMsgBuilder.append(ExceptionUtils.getStackTrace(exception)).append("\n");
         }
       }
-      LoggerUtils.showErrorDialog("生成模板文件时发生异常", exceptionMsgBuilder.toString());
+      ToolsLoggerUtils.showErrorDialog("生成模板文件时发生异常", exceptionMsgBuilder.toString());
     }
   }
 
   /** 完成生成后调用 */
   private static void whenGenTemplateFinished(
+      TextAreaLogger textAreaLogger,
       Set<ETemplateGenerator> templateGenerators,
       Consumer<Boolean> finishedCallBack,
       Map<File, ExcelFileStructure> excelFileStructureMap,
@@ -294,17 +307,18 @@ public class ExcelTemplateGenUtils {
         // 调用模板生成之后的逻辑
         templateGenerators.forEach(
             templateGenerator ->
-                templateGenerator.getTemplateGenerator().generatorAfter(excelFileStructureMap));
+                templateGenerator
+                    .getTemplateGenerator()
+                    .generatorAfter(textAreaLogger, excelFileStructureMap));
       }
       // 调用此方法的逻辑
       finishedCallBack.accept(exceptionCollector.isEmpty());
-      LoggerUtils.getTextareaLogger()
-          .info(
-              "生成模板文件结束,总耗时: {}ms,生成文件数: {}",
-              System.currentTimeMillis() - startTime,
-              successGenList.size());
+      textAreaLogger.info(
+          "生成模板文件结束,总耗时: {}ms,生成文件数: {}",
+          System.currentTimeMillis() - startTime,
+          successGenList.size());
     } catch (Exception e) {
-      LoggerUtils.showErrorDialog("调用生成成功回调异常", e);
+      ToolsLoggerUtils.showErrorDialog("调用生成成功回调异常", e);
     } finally {
       exceptionCollector.clear();
     }
@@ -324,7 +338,8 @@ public class ExcelTemplateGenUtils {
       // 获取或者创建文件路径
       FileUtils.getOrCreateDir(basePath);
       // 创建container目录
-      String containerBasePath = genTargetDir + File.separator + DefaultEnvConfigConstant.CONTAINER_PATH;
+      String containerBasePath =
+          genTargetDir + File.separator + DefaultEnvConfigConstant.CONTAINER_PATH;
       // 获取或者创建文件路径
       FileUtils.getOrCreateDir(containerBasePath);
     } catch (Exception e) {
@@ -383,6 +398,7 @@ public class ExcelTemplateGenUtils {
    * @param file excel文件
    */
   public static void generateOneExcelByTemplate(
+      TextAreaLogger textAreaLogger,
       File file,
       Set<ETemplateGenerator> templateGenerators,
       List<File> successGenList,
@@ -414,9 +430,9 @@ public class ExcelTemplateGenUtils {
       if (e instanceof TemplateException) {
         LoggerUtils.getLogger().error("模板解析错误: " + file.getName(), e);
       } else if (e instanceof IOException) {
-        LoggerUtils.getTextareaLogger().error("资源查找错误,文件名: {}", e, file.getName());
+        textAreaLogger.error("资源查找错误,文件名: {}", e, file.getName());
       } else {
-        LoggerUtils.getTextareaLogger().error("解析文件 {} 时发生异常", e, file.getName());
+        textAreaLogger.error("解析文件 {} 时发生异常", e, file.getName());
       }
       Platform.runLater(() -> controller.updateExcelProgress(file.getName(), false));
       // 收集异常
@@ -459,7 +475,8 @@ public class ExcelTemplateGenUtils {
   }
 
   /** 获取excel中所有的字段 */
-  public static Set<ExcelFieldInfo> getExcelFields(File file, Sheet sheet, Set<Integer> skipColList) {
+  public static Set<ExcelFieldInfo> getExcelFields(
+      File file, Sheet sheet, Set<Integer> skipColList) {
     // 字段信息
     Set<ExcelFieldInfo> excelFieldInfos = new HashSet<>();
     // sheetBean

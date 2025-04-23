@@ -30,7 +30,7 @@ import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.configholder.ConfigDataBean.ExcelConf;
 import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
 import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.yaml.snakeyaml.DumperOptions;
@@ -330,12 +330,12 @@ public class SystemConfigHolder {
         }
         serverLoadExcelDirConfBeanMap.put(excelDir, serverLoadExcelDirConfBeans);
       }
-      LoggerUtils.getTextareaLogger()
+      LoggerUtils.getLogger()
           .info("加载excel绑定服务器模块信息成功,加载配置条数: {}", serverLoadExcelDirConfBeanMap.size());
     } catch (FileNotFoundException e) {
-      LoggerUtils.getTextareaLogger().error("当前执行文件, 缺少配置文件: {}", configFile.getName());
+      LoggerUtils.getLogger().error("当前执行文件, 缺少配置文件: {}", configFile.getName());
     } catch (IOException e) {
-      LoggerUtils.getTextareaLogger().error("读取配置表: " + configFile.getName() + " 发生异常", e);
+      LoggerUtils.getLogger().error("读取配置表: " + configFile.getName() + " 发生异常", e);
     }
     return serverLoadExcelDirConfBeanMap;
   }

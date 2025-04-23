@@ -5,8 +5,7 @@ import java.util.stream.Collectors;
 
 import com.eouna.configtool.core.window.BaseWindowController;
 import com.eouna.configtool.ui.component.FileChoosePane.FileChooseChangeEvent;
-import com.eouna.configtool.utils.LoggerUtils;
-import javafx.event.Event;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import javafx.fxml.FXML;
 
 /**

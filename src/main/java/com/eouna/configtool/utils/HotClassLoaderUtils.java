@@ -1,6 +1,9 @@
 package com.eouna.configtool.utils;
 
+import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.core.logger.TextAreaStepLogger;
+import javafx.scene.text.TextFlow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,6 +53,7 @@ public class HotClassLoaderUtils {
    * @throws IllegalAccessException e
    */
   public static synchronized void loadClassAndRun(
+      TextFlow logShowArea,
       String javaFilePath,
       String javaClassPath,
       String javaDependencyLibPath,
@@ -58,7 +62,7 @@ public class HotClassLoaderUtils {
       String runMethodName,
       MethodArgDataTuple<?>... args)
       throws Exception {
-    TextAreaStepLogger textAreaStepLogger = new TextAreaStepLogger();
+    TextAreaStepLogger textAreaStepLogger = new TextAreaStepLogger(logShowArea);
     textAreaStepLogger.info("开始热加载生成的配置表java文件");
     // java生成后的class路径
     File javaClassPathDir = checkDir(javaClassPath, false);
@@ -102,7 +106,7 @@ public class HotClassLoaderUtils {
           // 调用目标方法
           method.invoke(instance, Stream.of(args).map(MethodArgDataTuple::getData).toArray());
           logWhenCallMethodFinished(
-              instance, runMethodName, startTime, javaClassPathDir, packageName);
+              logShowArea, instance, runMethodName, startTime, javaClassPathDir, packageName);
         } catch (InvocationTargetException invocationTargetException) {
           throw new Exception(invocationTargetException.getTargetException());
         }
@@ -110,7 +114,7 @@ public class HotClassLoaderUtils {
         Method method = aClass.getMethod(runMethodName);
         method.invoke(instance);
         logWhenCallMethodFinished(
-            instance, runMethodName, startTime, javaClassPathDir, packageName);
+            logShowArea, instance, runMethodName, startTime, javaClassPathDir, packageName);
       }
     } else {
       StringBuilder error = new StringBuilder();
@@ -129,25 +133,26 @@ public class HotClassLoaderUtils {
    * @param startTime 开始运行时间
    */
   private static void logWhenCallMethodFinished(
+      TextFlow textFlow,
       Object instance,
       String runMethodName,
       long startTime,
       File javaClassPathDir,
       String packageName) {
+    TextAreaLogger textAreaLogger = new TextAreaLogger(textFlow);
     try {
       Object instanceRef = instance.getClass().getMethod("getInstance").invoke(null);
-      LoggerUtils.getTextareaLogger()
-          .info(
-              "运行类: "
-                  + instance.getClass().getSimpleName()
-                  + " 的方法: "
-                  + runMethodName
-                  + " 结束,耗时: "
-                  + (System.currentTimeMillis() - startTime)
-                  + "ms"
-                  /*+ "文件大小: "
-                  + MemUsageUtils.humanSizeOf(
-                      instanceRef, (field) -> !field.getType().isAssignableFrom(Logger.class))*/);
+      textAreaLogger.info(
+          "运行类: "
+              + instance.getClass().getSimpleName()
+              + " 的方法: "
+              + runMethodName
+              + " 结束,耗时: "
+              + (System.currentTimeMillis() - startTime)
+              + "ms"
+          /*+ "文件大小: "
+          + MemUsageUtils.humanSizeOf(
+              instanceRef, (field) -> !field.getType().isAssignableFrom(Logger.class))*/ );
       // 删除class路径
       String classPath =
           javaClassPathDir.getPath()
@@ -157,7 +162,7 @@ public class HotClassLoaderUtils {
                   : packageName);
       org.apache.commons.io.FileUtils.deleteDirectory(new File(classPath));
     } catch (IOException e) {
-      LoggerUtils.getTextareaLogger().error("删除class热载文件夹失败", e);
+      textAreaLogger.error("删除class热载文件夹失败", e);
     } catch (InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
       throw new RuntimeException(e);
     }
@@ -255,6 +260,7 @@ public class HotClassLoaderUtils {
   public static class MethodArgDataTuple<T> {
     /** 类名 */
     Class<T> className;
+
     /** 数据 */
     T data;
 

@@ -12,10 +12,6 @@ import javafx.scene.text.TextFlow;
  */
 public class TextAreaStepLogger extends TextAreaLogger {
 
-  public TextAreaStepLogger() {
-    super();
-  }
-
   public TextAreaStepLogger(TextFlow specifyLoggerArea) {
     super(specifyLoggerArea);
   }
@@ -23,7 +19,7 @@ public class TextAreaStepLogger extends TextAreaLogger {
   /** 步数计数器 */
   private final AtomicInteger stepper = new AtomicInteger(0);
 
-  private String decorateMsg(String msg) {
+  protected String decorateMsg(String msg) {
     int stepCount = stepper.incrementAndGet();
     return "[step" + stepCount + "]#" + msg;
   }
@@ -40,6 +36,5 @@ public class TextAreaStepLogger extends TextAreaLogger {
 
   public void reset(){
     stepper.set(0);
-
   }
 }

@@ -2,7 +2,9 @@ package com.eouna.configtool.configholder;
 
 import java.io.IOException;
 
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.core.logger.TextAreaLogger;
+import com.eouna.configtool.utils.ToolsLoggerUtils;
 import org.aspectj.lang.annotation.After;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
@@ -23,10 +25,15 @@ public class ConfigDataUpdateAspect {
 
   @After(value = "configSetProxy()")
   public void setAfter() {
+    TextAreaLogger textAreaLogger = ToolsLoggerUtils.getMainTextAreaLog();
     try {
       SystemConfigHolder.getInstance().saveSystemConfigToFile();
     } catch (IOException | IllegalAccessException e) {
-      LoggerUtils.getTextareaLogger().error("更新配置失败", e);
+      if (textAreaLogger != null) {
+        textAreaLogger.error("更新配置失败", e);
+      } else {
+        LoggerUtils.getLogger().error("更新配置失败", e);
+      }
     }
   }
 }
