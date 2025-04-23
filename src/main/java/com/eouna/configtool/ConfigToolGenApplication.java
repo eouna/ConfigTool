@@ -7,7 +7,7 @@ import com.eouna.configtool.core.event.FxApplicationStartedEvent;
 import com.eouna.configtool.core.window.WindowManager;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
 import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.utils.NodeUtils;
 import javafx.application.Application;
 import javafx.stage.Stage;

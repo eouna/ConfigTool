@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
 
 import com.eouna.configtool.configholder.ConfigDataBean.ExcelGenPathConf;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelEnumFieldInfo;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.generator.exceptions.ExcelParseException;
@@ -32,7 +33,7 @@ import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo;
 import com.eouna.configtool.generator.bean.ExcelSheetBean;
 import com.eouna.configtool.generator.template.AbstractTemplateGenerator;
 import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.utils.StrUtils;
 import freemarker.template.TemplateException;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -526,7 +527,8 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
   }
 
   @Override
-  public void generatorAfter(Map<File, ExcelFileStructure> excelFileStructureMap) {
+  public void generatorAfter(
+      TextAreaLogger textAreaLogger, Map<File, ExcelFileStructure> excelFileStructureMap) {
     try {
       ExcelGenPathConf pathConf = SystemConfigHolder.getInstance().getExcelConf().getPath();
       // 生成GameDataManager
@@ -558,7 +560,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
       generateTemplate(
           dataMap, javaTemplateConf.getDataManagerClassName() + ".ftl", outputFilePath);
 
-      LoggerUtils.getTextareaLogger().info("生成JAVA模板文件结束");
+      textAreaLogger.info("生成JAVA模板文件结束");
     } catch (TemplateException | IOException e) {
       LoggerUtils.getLogger().error("生成GameDataManager时发生异常", e);
     } finally {

@@ -2,7 +2,7 @@ package com.eouna.configtool.utils.caller;
 
 import com.eouna.configtool.core.watcher.TimeConsumeWatcher;
 import com.eouna.configtool.core.utils.ClassOfPackageUtils;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.utils.StrUtils;
 import java.lang.reflect.Modifier;
 import java.util.*;

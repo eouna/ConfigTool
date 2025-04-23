@@ -7,7 +7,7 @@ import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
 import com.eouna.configtool.core.window.BaseWindowController;
 import com.eouna.configtool.core.window.WindowManager;
 import com.eouna.configtool.ui.component.ConfigBindTextField;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.utils.ToolsLoggerUtils;
 import com.google.common.base.Objects;
 import javafx.application.Platform;
 import javafx.event.Event;
@@ -216,7 +216,7 @@ public class ConfigSettingController extends BaseWindowController {
         | IllegalAccessException
         | NoSuchMethodException
         | InvocationTargetException e) {
-      LoggerUtils.showErrorDialog("更新配置时出现异常", e);
+      ToolsLoggerUtils.showErrorDialog("更新配置时出现异常", e);
       throw new RuntimeException(e);
     }
   }

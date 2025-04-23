@@ -1,8 +1,7 @@
 package com.eouna.configtool.core.logger;
 
 import com.eouna.configtool.core.window.IWindowLogger;
-import com.eouna.configtool.utils.LoggerUtils;
-import com.eouna.configtool.utils.LoggerUtils.LogLevel;
+import com.eouna.configtool.core.logger.LoggerUtils.LogLevel;
 import javafx.scene.text.TextFlow;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
@@ -17,14 +16,16 @@ public class TextAreaLogger implements IWindowLogger {
   /** 日志显示区域 */
   protected TextFlow loggerShowAreaUndertaker;
 
-  public TextAreaLogger() {}
-
   public TextAreaLogger(TextFlow specifyLoggerArea) {
     this.loggerShowAreaUndertaker = specifyLoggerArea;
   }
 
   public TextFlow getLoggerShowAreaUndertaker() {
     return loggerShowAreaUndertaker;
+  }
+
+  public void setLoggerShowAreaUndertaker(TextFlow loggerShowAreaUndertaker) {
+    this.loggerShowAreaUndertaker = loggerShowAreaUndertaker;
   }
 
   @Override

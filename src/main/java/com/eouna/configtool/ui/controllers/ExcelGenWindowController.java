@@ -2,6 +2,7 @@ package com.eouna.configtool.ui.controllers;
 
 import com.eouna.configtool.configholder.ConfigDataBean;
 import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.core.window.MainWindowIdentifier;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.core.window.BaseWindowController;
@@ -11,11 +12,9 @@ import com.eouna.configtool.constant.EExcelUpdateState;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant.ColorDefine;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
-import com.eouna.configtool.utils.ResourceUploader;
-import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.utils.HotClassLoaderUtils;
+import com.eouna.configtool.utils.*;
 import com.eouna.configtool.utils.HotClassLoaderUtils.MethodArgDataTuple;
-import com.eouna.configtool.utils.LoggerUtils;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -155,8 +154,15 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** excel更新状态 */
   private EExcelUpdateState excelUpdateState = EExcelUpdateState.NONE;
 
+  /** 文字域日志 */
+  private TextAreaLogger textAreaLogger;
+
   public TextFlow getLogShowArea() {
     return logShowArea;
+  }
+
+  public TextAreaLogger getTextAreaLogger() {
+    return textAreaLogger;
   }
 
   public HBox getCurrentProgress() {
@@ -303,7 +309,7 @@ public class ExcelGenWindowController extends BaseWindowController {
   protected void syncExcelConfigToServer() {
     File excelPathDir = getExcelDirPath();
     if (excelPathDir == null) {
-      LoggerUtils.getTextareaLogger().error("同步失败未找到配置表文件路径");
+      textAreaLogger.error("同步失败未找到配置表文件路径");
       return;
     }
     if (selectedServerList.isEmpty()) {
@@ -327,13 +333,13 @@ public class ExcelGenWindowController extends BaseWindowController {
     // 异步线程同步 不然会阻塞UI界面
     DefaultFuture.runAsync(
             () -> {
-              ResourceUploader.syncExcelToServer(syncExcelList, selectedServerList);
+              ResourceUploader.syncExcelToServer(logShowArea, syncExcelList, selectedServerList);
               updateExcelProcessBtnUsage(EExcelUpdateState.SYNC_DATA);
             })
         .whenComplete(
             (res, throwable) -> {
               if (throwable != null) {
-                LoggerUtils.showErrorDialog("同步配置表异常", throwable);
+                ToolsLoggerUtils.showErrorDialog("同步配置表异常", throwable);
               }
             });
   }
@@ -350,7 +356,7 @@ public class ExcelGenWindowController extends BaseWindowController {
   protected void setExcelFieldData(TextField textField, Consumer<Integer> consumer, String desc) {
     String text = textField.getText();
     if (!StringUtils.isEmpty(text) && text.matches(DIGITAL_REG)) {
-      LoggerUtils.getTextareaLogger().info(desc + " 新值: " + text);
+      textAreaLogger.info(desc + " 新值: " + text);
       int changedVal = Integer.parseInt(text);
       consumer.accept(changedVal);
     }
@@ -375,14 +381,13 @@ public class ExcelGenWindowController extends BaseWindowController {
       showTextField.setText(file.getAbsolutePath());
       String logStr = "修改" + chooseWindowTitle + ": " + showTextField.getText();
       LoggerUtils.getLogger().info(logStr);
-      LoggerUtils.getTextareaLogger().info(logStr);
+      textAreaLogger.info(logStr);
     }
   }
 
   @Override
   public void onMounted(Object... args) {
-    // 初始化textarea区域
-    LoggerUtils.getInstance().initLogComponent(logShowArea);
+    this.textAreaLogger = new TextAreaLogger(logShowArea);
     // 初始化配置字段
     initConfigField();
     // 初始化添加默认的模板
@@ -488,6 +493,7 @@ public class ExcelGenWindowController extends BaseWindowController {
             String dependOnLib = rootDir + File.separator + javaLibDependOnPath + File.separator;
             // 预加载配置表
             HotClassLoaderUtils.loadClassAndRun(
+                logShowArea,
                 templateFileGenTargetDir,
                 templateFileGenTargetDir,
                 dependOnLib,
@@ -497,14 +503,14 @@ public class ExcelGenWindowController extends BaseWindowController {
                     .getJavaTemplateConf()
                     .getDataManagerLoadDataCaller(),
                 new MethodArgDataTuple<>(String.class, excelLoadPath));
-            LoggerUtils.getTextareaLogger().info("配置表加载成功!");
+            textAreaLogger.success("配置表加载成功!");
             // 切换状态
             updateExcelProcessBtnUsage(EExcelUpdateState.LOAD_DATA);
           } catch (Exception e) {
             if (e.getCause() instanceof InvocationTargetException) {
-              LoggerUtils.showErrorDialog("数据热加载失败", e.getCause());
+              ToolsLoggerUtils.showErrorDialog("数据热加载失败", e.getCause());
             } else {
-              LoggerUtils.showErrorDialog("数据热加载失败", e);
+              ToolsLoggerUtils.showErrorDialog("数据热加载失败", e);
             }
           } finally {
             if (!keepBindExcelRelativePath) {
@@ -512,7 +518,7 @@ public class ExcelGenWindowController extends BaseWindowController {
                 org.apache.commons.io.FileUtils.cleanDirectory(new File(excelLoadPath));
                 LoggerUtils.getLogger().info("清除临时excel文件夹路径: " + excelLoadPath);
               } catch (IOException e) {
-                LoggerUtils.getTextareaLogger().error("预加载结束刪除文件夹: " + excelLoadPath + "失败", e);
+                textAreaLogger.error("预加载结束刪除文件夹: " + excelLoadPath + "失败", e);
               }
             }
           }
@@ -525,7 +531,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (TEMPLATE_IN_PROGRESS.compareAndSet(true, false)) {
       File excelPathDir = getExcelDirPath();
       if (excelPathDir == null) {
-        LoggerUtils.showErrorDialog("生成时发生异常", "找不到目录：" + excelConfigPathField.getText());
+        ToolsLoggerUtils.showErrorDialog("生成时发生异常", "找不到目录：" + excelConfigPathField.getText());
         return;
       }
       // 设置为不可用
@@ -535,7 +541,8 @@ public class ExcelGenWindowController extends BaseWindowController {
       // 生成前先刷新一遍
       Map<String, File> afterReloadExcelNameMap = FileUtils.listExcelFile(excelPathDir);
       if (afterReloadExcelNameMap.isEmpty()) {
-        LoggerUtils.showErrorDialog("生成时发生异常", "目录下: " + excelPathDir.getPath() + " 未找到excel文件");
+        ToolsLoggerUtils.showErrorDialog(
+            "生成时发生异常", "目录下: " + excelPathDir.getPath() + " 未找到excel文件");
         return;
       }
       // 交由UI线程处理避免某些操作引起数组ObservableList越界
@@ -563,7 +570,7 @@ public class ExcelGenWindowController extends BaseWindowController {
       // 如果小于等待时间
       if (waitTime > System.currentTimeMillis()) {
         // 需要等待UI线程将虚拟节点渲染完成
-        LoggerUtils.getTextareaLogger().info("excel列表全部渲染完成, 开始准备生成模板文件");
+        textAreaLogger.info("excel列表全部渲染完成, 开始准备生成模板文件");
         // 看是否有单选文件
         Collection<File> reloadExcelFile;
         if (EXCEL_SELECTED_LIST.isEmpty()) {
@@ -580,6 +587,7 @@ public class ExcelGenWindowController extends BaseWindowController {
                 .collect(Collectors.toList());
         // excel文件生成java文件 并行处理
         ExcelTemplateGenUtils.generateByTemplateParallel(
+            textAreaLogger,
             reloadExcelFile,
             SELECTED_TEMPLATE_GENERATOR,
             (res) -> {
@@ -601,7 +609,7 @@ public class ExcelGenWindowController extends BaseWindowController {
             });
       }
     } catch (Exception e) {
-      LoggerUtils.showErrorDialog("生成配置表异常", ExceptionUtils.getStackTrace(e));
+      ToolsLoggerUtils.showErrorDialog("生成配置表异常", ExceptionUtils.getStackTrace(e));
     } finally {
       toggleTemplateGenBtn(false);
       TEMPLATE_IN_PROGRESS.compareAndSet(false, true);
@@ -638,7 +646,7 @@ public class ExcelGenWindowController extends BaseWindowController {
   private Map<String, File> reloadExcelList() {
     AnchorPane anchorPane = getExcelShowPanel();
     excelShowListContainer.setContent(anchorPane);
-    LoggerUtils.getTextareaLogger().info("开始查找配置表......");
+    textAreaLogger.info("开始查找配置表......");
     // 获取excel文件路径
     File excelPathDir = getExcelDirPath();
     if (excelPathDir == null) {
@@ -646,7 +654,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     }
     Map<String, File> excelNameFileMap = FileUtils.listExcelFile(excelPathDir);
     if (excelNameFileMap.isEmpty()) {
-      LoggerUtils.getTextareaLogger().error("目录: " + excelPathDir + " 下的excel为空");
+      textAreaLogger.error("目录: " + excelPathDir + " 下的excel为空");
       return Collections.emptyMap();
     }
     boolean isFullDivision =
@@ -658,7 +666,9 @@ public class ExcelGenWindowController extends BaseWindowController {
     listViews.setPrefHeight(excelShowListContainer.getPrefHeight() - 20);
     // 对文件名进行排序
     List<String> excelNameList =
-        excelNameFileMap.keySet().stream().sorted(Comparator.comparing(String::toLowerCase)).collect(Collectors.toList());
+        excelNameFileMap.keySet().stream()
+            .sorted(Comparator.comparing(String::toLowerCase))
+            .collect(Collectors.toList());
     for (int col = 0; col < colNum; col++) {
       VBox listView = getExcelVerticalShowView();
       for (int row = 0; row < DefaultEnvConfigConstant.EXCEL_NAME_VERTICAL_SHOW_SIZE; row++) {
@@ -674,7 +684,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     anchorPane.getChildren().addAll(listViews);
     // 重置excel选择的数据
     cleanExcelSelectedData();
-    LoggerUtils.getTextareaLogger().info("查找配置表结束,文件数量总计: " + excelNameFileMap.size());
+    textAreaLogger.info("查找配置表结束,文件数量总计: " + excelNameFileMap.size());
     return excelNameFileMap;
   }
 
@@ -731,7 +741,7 @@ public class ExcelGenWindowController extends BaseWindowController {
         currentProgressTips.setText(Math.min(100, percentage) + "%");
       }
     } else {
-      LoggerUtils.getTextareaLogger().warn("查找label失败, excelName: " + excelName);
+      textAreaLogger.warn("查找label失败, excelName: " + excelName);
     }
   }
 
@@ -838,7 +848,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (this.excelUpdateState.isCanGoNext(excelUpdateState)) {
       this.excelUpdateState = excelUpdateState;
     } else {
-      LoggerUtils.getTextareaLogger()
+      textAreaLogger
           .error(
               "状态切换失败, oldStatus: {}, newStatus: {}",
               this.excelUpdateState.name(),

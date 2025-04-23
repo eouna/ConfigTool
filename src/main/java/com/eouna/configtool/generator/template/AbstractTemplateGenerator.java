@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.base.ExcelFileStructure;
 import com.eouna.configtool.generator.bean.ExcelSheetBean;
 import freemarker.template.Configuration;
@@ -54,7 +55,8 @@ public abstract class AbstractTemplateGenerator {
       throws Exception;
 
   /** 生成之后 */
-  public void generatorAfter(Map<File, ExcelFileStructure> excelFileStructureMap) {}
+  public void generatorAfter(
+      TextAreaLogger textAreaLogger, Map<File, ExcelFileStructure> excelFileStructureMap) {}
 
   /**
    * 获取freeMaker的配置解析器

@@ -50,7 +50,7 @@ public class ZipUtils {
       zipOutputStream.close();
       return new File(outFilePathAndName);
     } catch (FileNotFoundException e) {
-      LoggerUtils.showErrorDialog("未找到压缩文件", e);
+      ToolsLoggerUtils.showErrorDialog("未找到压缩文件", e);
       throw new RuntimeException(e);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -59,7 +59,7 @@ public class ZipUtils {
         try {
           zipOutputStream.close();
         } catch (IOException e) {
-          LoggerUtils.showErrorDialog("压缩文件时关闭输出流失败", e);
+          ToolsLoggerUtils.showErrorDialog("压缩文件时关闭输出流失败", e);
         }
       }
     }
@@ -102,10 +102,10 @@ public class ZipUtils {
         return new File(filePath);
       }
     } catch (FileNotFoundException e) {
-      LoggerUtils.showErrorDialog("文件找不到: " + filePath, e);
+      ToolsLoggerUtils.showErrorDialog("文件找不到: " + filePath, e);
       throw new RuntimeException(e);
     } catch (IOException e) {
-      LoggerUtils.showErrorDialog("压缩异常: " + e.getMessage(), e);
+      ToolsLoggerUtils.showErrorDialog("压缩异常: " + e.getMessage(), e);
       throw new RuntimeException(e);
     }
   }
