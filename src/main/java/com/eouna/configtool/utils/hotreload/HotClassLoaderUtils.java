@@ -2,8 +2,8 @@ package com.eouna.configtool.utils.hotreload;
 
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.logger.TextAreaLogger;
-import com.eouna.configtool.core.logger.TextAreaStepLogger;
 import com.eouna.configtool.utils.FileUtils;
+import com.eouna.configtool.utils.logger.MainWindowStepLogger;
 import com.eouna.configtool.utils.ToolsLoggerUtils;
 import javafx.scene.text.TextFlow;
 import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
@@ -66,7 +66,7 @@ public class HotClassLoaderUtils {
       String runMethodName,
       MethodArgDataTuple<?>... args)
       throws Exception {
-    TextAreaStepLogger textAreaStepLogger = new TextAreaStepLogger(logShowArea);
+    MainWindowStepLogger textAreaStepLogger = new MainWindowStepLogger(logShowArea);
     textAreaStepLogger.info("开始热加载生成的配置表java文件");
     // java生成后的class路径
     File javaClassPathDir = checkDir(javaClassPath, false);
