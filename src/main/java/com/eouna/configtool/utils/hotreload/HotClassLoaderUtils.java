@@ -413,17 +413,17 @@ public class HotClassLoaderUtils {
     boolean isEclipseCompiler = javaCompiler instanceof EclipseCompiler;
     for (Entry<String, File> javaFile : javaFileMap.entrySet()) {
       String javaFileName = javaFile.getKey().replace(Kind.SOURCE.extension, "");
-      StringBuilder javaContent = new StringBuilder();
-      BufferedReader fileReader = new BufferedReader(new FileReader(javaFile.getValue()));
-      String line;
-      while ((line = fileReader.readLine()) != null) {
-        javaContent.append(line).append("\n");
-      }
       if (isEclipseCompiler) {
         javaFileObjectList.add(
             new EclipseFileObject(
                 javaFileName, javaFile.getValue().toURI(), Kind.SOURCE, StandardCharsets.UTF_8));
       } else {
+        StringBuilder javaContent = new StringBuilder();
+        BufferedReader fileReader = new BufferedReader(new FileReader(javaFile.getValue()));
+        String line;
+        while ((line = fileReader.readLine()) != null) {
+          javaContent.append(line).append("\n");
+        }
         javaFileObjectList.add(new JavaStringFileObject(javaFileName, javaContent.toString()));
       }
     }
