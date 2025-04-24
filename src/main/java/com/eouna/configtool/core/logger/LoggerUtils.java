@@ -118,7 +118,7 @@ public final class LoggerUtils {
           break;
         case WARN:
           LoggerUtils.getLogger().warn("msg: {}", logStr);
-          color = Color.YELLOW;
+          color = Color.TOMATO;
           break;
         case ERROR:
           LoggerUtils.getLogger().error("msg: {}", logStr);

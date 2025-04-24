@@ -1,4 +1,4 @@
-package com.eouna.configtool.utils;
+package com.eouna.configtool.utils.logger;
 
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.logger.TextAreaStepLogger;
@@ -24,7 +24,6 @@ public class MainWindowStepLogger extends TextAreaStepLogger {
           mainWindowController.getLogShowScrollPane().setVvalue(1D);
         }
       };
-  ;
 
   protected TextFlow loggerShowAreaUndertaker;
 

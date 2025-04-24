@@ -2,9 +2,8 @@ package com.eouna.configtool.utils;
 
 import com.eouna.configtool.configholder.ConfigDataBean;
 import com.eouna.configtool.configholder.SystemConfigHolder;
-import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.logger.TextAreaLogger;
-import com.eouna.configtool.core.logger.TextAreaStepLogger;
+import com.eouna.configtool.utils.logger.MainWindowStepLogger;
 import com.jcraft.jsch.Session;
 import java.io.File;
 import java.io.IOException;
@@ -44,7 +43,7 @@ public class ResourceUploader {
       return;
     }
     TextAreaLogger textAreaLogger = new TextAreaLogger(textArea);
-    TextAreaStepLogger textAreaStepLogger = new TextAreaStepLogger(textArea);
+    MainWindowStepLogger textAreaStepLogger = new MainWindowStepLogger(textArea);
     textAreaStepLogger.info("开始同步excel文件");
     // 构建带目录结构的excel文件夹
     String excelBasePath =
@@ -176,7 +175,7 @@ public class ResourceUploader {
       TextAreaLogger textAreaLogger,
       List<String> selectedServer,
       File zipFile,
-      TextAreaStepLogger textAreaStepLogger) {
+      MainWindowStepLogger textAreaStepLogger) {
     List<ConfigDataBean.ServerConnectInfo> serverConnectInfosAll =
         SystemConfigHolder.getInstance().getSyncConfig().getTargetServer();
     List<ConfigDataBean.ServerConnectInfo> serverConnectInfos =
