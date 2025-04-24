@@ -1210,7 +1210,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
    */
   public static List<Class<?>> getAllClassesList(Class<?> cls) {
     Validate.notNull(cls, "cls", new Object[0]);
-    List<Class<?>> allFields = new ArrayList();
+    List<Class<?>> allFields = new ArrayList<>();
     for (Class<?> currentClass = cls;
         currentClass != null;
         currentClass = currentClass.getSuperclass()) {
@@ -1319,12 +1319,20 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
   }
 
   public static class ExcelFormatException extends RuntimeException {
+
+    @java.io.Serial
+    static final long serialVersionUID = 475818434121545L;
+
     public ExcelFormatException(String message) {
       super(message);
     }
   }
 
   public static class ExcelDataParseException extends RuntimeException {
+
+    @java.io.Serial
+    static final long serialVersionUID = 1574124684235L;
+
     final String excelFileName;
     ExcelFieldInfo excelFieldInfo;
     Row row;
@@ -1383,6 +1391,10 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
 
   /** 容器异常传递 */
   public static class ContainerExceptionBlocker extends Exception {
+
+    @java.io.Serial
+    static final long serialVersionUID = 5785314693145L;
+
     private final List<Exception> exceptions;
 
     public ContainerExceptionBlocker(List<Exception> exceptions) {

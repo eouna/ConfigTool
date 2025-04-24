@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
@@ -65,7 +66,7 @@ public abstract class AbstractTemplateGenerator {
    * @throws IOException io
    */
   private Configuration getDefaultFreeMakerConfiguration() throws IOException {
-    Configuration configuration = new Configuration(Configuration.VERSION_2_3_31);
+    Configuration configuration = new Configuration(Configuration.VERSION_2_3_34);
     String templatePath =
         SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplatePath();
     String templateDir =
@@ -73,7 +74,7 @@ public abstract class AbstractTemplateGenerator {
             + File.separator
             + ETemplateGenerator.JAVA_GENERATOR.getTemplateHandler().getTemplateBindRelatedPath();
     configuration.setDirectoryForTemplateLoading(new File(templateDir));
-    configuration.setEncoding(Locale.SIMPLIFIED_CHINESE, "UTF-8");
+    configuration.setDefaultEncoding("UTF-8");
     return configuration;
   }
 
@@ -91,7 +92,7 @@ public abstract class AbstractTemplateGenerator {
       throws IOException, TemplateException {
     try (OutputStreamWriter fileWriter =
         new OutputStreamWriter(
-            Files.newOutputStream(Paths.get(outputFilePath)), Charset.defaultCharset())) {
+            Files.newOutputStream(Paths.get(outputFilePath)), StandardCharsets.UTF_8)) {
       // 获取模板文件
       Configuration configuration = getDefaultFreeMakerConfiguration();
       // 基本配置bean的模板文件

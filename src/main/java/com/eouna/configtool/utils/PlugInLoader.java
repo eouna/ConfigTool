@@ -36,7 +36,7 @@ public class PlugInLoader {
       return;
     }
     Map<String, File> jarFileMap =
-        FileUtils.listFiles(path, (jarPath) -> jarPath.getName().endsWith(".jar"));
+        FileUtils.mapFiles(path, (jarPath) -> jarPath.getName().endsWith(".jar"));
     Map<File, List<String>> jarClassesMap = new HashMap<>(8);
     for (File value : jarFileMap.values()) {
       try (JarFile jarFile = new JarFile(value)) {

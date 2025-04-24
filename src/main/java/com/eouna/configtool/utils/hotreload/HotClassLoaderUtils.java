@@ -1,9 +1,13 @@
-package com.eouna.configtool.utils;
+package com.eouna.configtool.utils.hotreload;
 
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.core.logger.TextAreaStepLogger;
+import com.eouna.configtool.utils.FileUtils;
+import com.eouna.configtool.utils.ToolsLoggerUtils;
 import javafx.scene.text.TextFlow;
+import org.eclipse.jdt.internal.compiler.tool.EclipseCompiler;
+import org.eclipse.jdt.internal.compiler.tool.EclipseFileObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -188,29 +192,37 @@ public class HotClassLoaderUtils {
     File javaFilePathDir = checkDir(javaFilePath, true);
     // 查找java文件
     Map<String, File> javaFileMap =
-        FileUtils.listFiles(
+        FileUtils.mapFiles(
             javaFilePathDir,
             pathname ->
                 pathname.isDirectory() || pathname.getName().endsWith(Kind.SOURCE.extension));
     // java依赖的jar或者java文件路径
     File javaDependencyLibPathDir = checkDir(javaDependencyLibPath, false);
     // 合并文件 class path
-    String fileClassPath = getJavaClassPath(javaFilePathDir, javaDependencyLibPathDir);
-    logger.info(fileClassPath);
-    // 查找java文件和获取java文件内容
-    List<JavaStringFileObject> javaStringFileObjects = getJavaStringFileObjectList(javaFileMap);
+    // @FIXED-202504241200 在javac环境下不会出现问题，挡在ecj环境下会出现 No provider for uri jar:file 异常
+    // 改用standardJavaFileManager.setLocation的方式显示调用api处理
+    // String fileClassPath = getJavaClassPath(javaFilePathDir, javaDependencyLibPathDir);
+    // logger.info(fileClassPath);
     // java编译器
-    JavaCompiler javaCompiler = ToolProvider.getSystemJavaCompiler();
+    JavaCompiler javaCompiler = getJavaCompiler();
+    // 查找java文件和获取java文件内容
+    List<JavaFileObject> javaStringFileObjects = getJavaFileObjectList(javaCompiler, javaFileMap);
     StandardJavaFileManager standardJavaFileManager =
         javaCompiler.getStandardFileManager(
             diagnosticCollector, Locale.getDefault(), StandardCharsets.UTF_8);
+    standardJavaFileManager.setLocation(
+        StandardLocation.CLASS_PATH,
+        getJavaClassCompileDep(javaFilePathDir, javaDependencyLibPathDir));
 
     List<String> options = new ArrayList<>();
     options.add("-encoding");
     options.add("UTF-8");
-    // -cp
-    options.add("-classpath");
-    options.add(fileClassPath);
+    // -cp @FIXED同202504241200一起修复
+    // options.add("-classpath");
+    // options.add(fileClassPath);
+    options.add("--release");
+    options.add("17");
+    options.add("-nowarn");
     options.add("-d");
     options.add(javaClassPath);
 
@@ -222,8 +234,33 @@ public class HotClassLoaderUtils {
             options,
             null,
             javaStringFileObjects);
+    StringBuilder classPath = new StringBuilder();
+    for (File file : standardJavaFileManager.getLocation(StandardLocation.CLASS_PATH)) {
+      classPath.append(file.getAbsolutePath()).append("\n");
+    }
+    LoggerUtils.getLogger().info("获取实际的ClassPath:\n" + classPath);
 
     return task;
+  }
+
+  /**
+   * 获取可用的java编译器
+   *
+   * @return java编译器
+   */
+  public static JavaCompiler getJavaCompiler() {
+    TextAreaLogger textAreaLogger = ToolsLoggerUtils.getMainTextAreaLog();
+    JavaCompiler javaCompiler = ToolProvider.getSystemJavaCompiler();
+    if (javaCompiler != null) {
+      if (textAreaLogger != null) {
+        textAreaLogger.info("使用系统java编译器");
+      }
+      return javaCompiler;
+    }
+    if (textAreaLogger != null) {
+      textAreaLogger.info("使用外部eclipse的java编译器");
+    }
+    return new EclipseCompiler();
   }
 
   /** 错误打印 */
@@ -300,6 +337,33 @@ public class HotClassLoaderUtils {
   }
 
   /**
+   * 扫描需要编译的java文件以及依赖的jar文件
+   *
+   * @param javaFilePathDir java文件map
+   * @return 合成的class路径
+   */
+  private static List<File> getJavaClassCompileDep(
+      File javaFilePathDir, File javaDependencyLibPathDir) {
+    // 查找外部依赖文件
+    Map<String, File> jarAndJavaDependencyFileMap =
+        FileUtils.mapFiles(
+            javaDependencyLibPathDir,
+            pathname ->
+                pathname.isDirectory()
+                    || pathname.getName().endsWith(Kind.SOURCE.extension)
+                    || pathname.getName().endsWith(".jar"));
+    List<File> depFileList = new ArrayList<>(jarAndJavaDependencyFileMap.values());
+    // 查找java文件
+    Map<String, File> javaFileMap =
+        FileUtils.mapFiles(
+            javaFilePathDir,
+            pathname ->
+                pathname.isDirectory() || pathname.getName().endsWith(Kind.SOURCE.extension));
+    depFileList.addAll(javaFileMap.values());
+    return depFileList;
+  }
+
+  /**
    * 扫描java路径
    *
    * @param javaFilePathDir java文件map
@@ -313,7 +377,7 @@ public class HotClassLoaderUtils {
             : Collectors.joining(":");
     // 查找外部依赖文件
     Map<String, File> jarAndJavaDependencyFileMap =
-        FileUtils.listFiles(
+        FileUtils.mapFiles(
             javaDependencyLibPathDir,
             pathname ->
                 pathname.isDirectory()
@@ -324,7 +388,7 @@ public class HotClassLoaderUtils {
     stringBuilder.append(jarAndJavaDependencyPathListStr);
     // 查找java文件
     Map<String, File> javaFileMap =
-        FileUtils.listFiles(
+        FileUtils.mapFiles(
             javaFilePathDir,
             pathname ->
                 pathname.isDirectory() || pathname.getName().endsWith(Kind.SOURCE.extension));
@@ -337,13 +401,16 @@ public class HotClassLoaderUtils {
   /**
    * 扫描java文件
    *
+   * @param javaCompiler
+   *     需要根据不同类型的javaCompiler生成不同的JavaFileObject，EclipseCompiler需要传入EclipseFileObject对象
    * @return java文件列表
    * @throws IOException e
    */
-  private static List<JavaStringFileObject> getJavaStringFileObjectList(
-      Map<String, File> javaFileMap) throws IOException {
+  private static List<JavaFileObject> getJavaFileObjectList(
+      JavaCompiler javaCompiler, Map<String, File> javaFileMap) throws IOException {
     // 需要编译文件列表
-    List<JavaStringFileObject> javaFileObjectList = new ArrayList<>();
+    List<JavaFileObject> javaFileObjectList = new ArrayList<>();
+    boolean isEclipseCompiler = javaCompiler instanceof EclipseCompiler;
     for (Entry<String, File> javaFile : javaFileMap.entrySet()) {
       String javaFileName = javaFile.getKey().replace(Kind.SOURCE.extension, "");
       StringBuilder javaContent = new StringBuilder();
@@ -352,7 +419,13 @@ public class HotClassLoaderUtils {
       while ((line = fileReader.readLine()) != null) {
         javaContent.append(line).append("\n");
       }
-      javaFileObjectList.add(new JavaStringFileObject(javaFileName, javaContent.toString()));
+      if (isEclipseCompiler) {
+        javaFileObjectList.add(
+            new EclipseFileObject(
+                javaFileName, javaFile.getValue().toURI(), Kind.SOURCE, StandardCharsets.UTF_8));
+      } else {
+        javaFileObjectList.add(new JavaStringFileObject(javaFileName, javaContent.toString()));
+      }
     }
     return javaFileObjectList;
   }

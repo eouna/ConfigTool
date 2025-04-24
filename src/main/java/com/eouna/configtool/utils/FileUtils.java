@@ -89,7 +89,19 @@ public class FileUtils {
    * @return 文件
    */
   public static Map<String, File> listExcelFile(File excelFile) {
-    return listFiles(excelFile, EXCEL_FILTER);
+    return mapFiles(excelFile, EXCEL_FILTER);
+  }
+
+
+  /**
+   * 以列表方式列出文件夹下所有的文件
+   *
+   * @param dirFile 文件夹
+   * @param fileFilter 文件过滤器
+   * @return 文件
+   */
+  public static Iterable<File> listFiles(File dirFile, FileFilter fileFilter){
+    return mapFiles(dirFile, fileFilter).values();
   }
 
   /**
@@ -99,7 +111,7 @@ public class FileUtils {
    * @param fileFilter 文件过滤器
    * @return 文件
    */
-  public static Map<String, File> listFiles(File dirFile, FileFilter fileFilter) {
+  public static Map<String, File> mapFiles(File dirFile, FileFilter fileFilter) {
     Map<String, File> allFileMap = new HashMap<>(8);
     if (!dirFile.isDirectory()) {
       return allFileMap;
@@ -108,7 +120,7 @@ public class FileUtils {
         new ArrayList<>(Arrays.asList(Objects.requireNonNull(dirFile.listFiles())));
     for (File file : fileList) {
       if (file.isDirectory()) {
-        allFileMap.putAll(listFiles(file, fileFilter));
+        allFileMap.putAll(mapFiles(file, fileFilter));
       } else if (fileFilter == null || fileFilter.accept(file)) {
         allFileMap.put(file.getName(), file);
       }
@@ -231,7 +243,7 @@ public class FileUtils {
    * @return 文件及文件的MD5码
    */
   public static Map<File, String> getDirMd5CodeList(File dir, FileFilter fileFilter) {
-    Map<String, File> files = listFiles(dir, fileFilter);
+    Map<String, File> files = mapFiles(dir, fileFilter);
     return files.entrySet().stream()
         .map(
             entry -> {

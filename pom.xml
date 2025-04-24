@@ -15,7 +15,7 @@
         <java.version>17</java.version>
         <openjfx.version>17.0.2</openjfx.version>
         <poi.version>5.4.0</poi.version>
-        <aspectj.version>1.9.19</aspectj.version>
+        <aspectj.version>1.9.24</aspectj.version>
     </properties>
 
     <dependencies>
@@ -121,16 +121,36 @@
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
             <version>${poi.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-io</groupId>
+                    <artifactId>commons-io</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>${poi.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-io</groupId>
+                    <artifactId>commons-io</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.freemarker</groupId>
             <artifactId>freemarker</artifactId>
-            <version>2.3.31</version>
+            <version>2.3.34</version>
         </dependency>
         <dependency>
             <groupId>com.jcraft</groupId>
@@ -151,6 +171,12 @@
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-model</artifactId>
             <version>3.9.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jdt</groupId>
+            <artifactId>ecj</artifactId>
+            <version>3.33.0</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
@@ -188,6 +214,17 @@
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
+                            <!--跳过已经签名的jar文件，避免重新打包引起签名校验失败-->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
@@ -340,6 +377,42 @@
                 </executions>
             </plugin>
             <!--AOP-->
+            <!--<plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>aspectj-maven-plugin</artifactId>
+                <version>1.15.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.aspectj</groupId>
+                        <artifactId>aspectjtools</artifactId>
+                        &lt;!&ndash; AspectJ compiler version, in sync with runtime &ndash;&gt;
+                        <version>${aspectj.version}</version >
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <complianceLevel>${java.version}</complianceLevel>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <aspectDirectory>src/main/java/com/eouna/configtool/configholder</aspectDirectory>
+                    <showWeaveInfo>true</showWeaveInfo>
+                    <forceAjcCompile>true</forceAjcCompile>
+                    <aspectLibraries>
+                        &lt;!&ndash; 配置要织入的AspectJ切面库 &ndash;&gt;
+                        <aspectLibrary>
+                            <groupId>org.aspectj</groupId>
+                            <artifactId>aspectjrt</artifactId>
+                        </aspectLibrary>
+                    </aspectLibraries>
+                    <Xlint>ignore</Xlint>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>-->
             <plugin>
                 <groupId>com.jcabi</groupId>
                 <artifactId>jcabi-maven-plugin</artifactId>
@@ -350,17 +423,26 @@
                             <goal>ajc</goal>
                         </goals>
                     </execution>
+                    <execution>
+                        <id>ajc-compile</id>
+                        <phase>process-classes</phase>
+                        <configuration>
+                            <aspectsDirectories>
+                                <directory>src/main/java/com/eouna/configtool/configholder</directory>
+                            </aspectsDirectories>
+                        </configuration>
+                    </execution>
                 </executions>
                 <dependencies>
                     <dependency>
                         <groupId>org.aspectj</groupId>
                         <artifactId>aspectjtools</artifactId>
-                        <version>1.9.7</version>
+                        <version>${aspectj.version}</version>
                     </dependency>
                     <dependency>
                         <groupId>org.aspectj</groupId>
                         <artifactId>aspectjweaver</artifactId>
-                        <version>1.9.7</version>
+                        <version>${aspectj.version}</version>
                     </dependency>
                 </dependencies>
             </plugin>
