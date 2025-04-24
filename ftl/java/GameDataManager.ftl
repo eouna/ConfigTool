@@ -500,6 +500,7 @@ public class ${dataManagerClassName} {
    * @param <T> 容器类型
    * @param <Bfg> 配置表类型
    */
+  @SuppressWarnings("unchecked")
   public <T extends BaseCfgContainer<Bfg>, Bfg extends BaseCfgBean> T getCfgContainer(
       Class<Bfg> baseCfgBeanClass) {
     if (cfgBeanContainerRelator.containsKey(baseCfgBeanClass)) {

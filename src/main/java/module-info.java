@@ -26,6 +26,7 @@ module com.eouna.configtool {
   requires maven.model;
   requires plexus.utils;
   requires java.desktop;
+  requires org.eclipse.jdt.core.compiler.batch;
 
   opens com.eouna.configtool.ui.controllers to
       javafx.fxml,

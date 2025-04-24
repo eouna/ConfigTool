@@ -43,7 +43,7 @@ public class ClassOfPackageUtils {
         File fileUrlPath = new File(fileUrlPathStr);
         if (fileUrlPath.exists() && fileUrlPath.isDirectory()) {
           // 扫描路径下的所有文件
-          Map<String, File> fileNameOfFile = FileUtils.listFiles(fileUrlPath, null);
+          Map<String, File> fileNameOfFile = FileUtils.mapFiles(fileUrlPath, null);
           for (Entry<String, File> fileEntry : fileNameOfFile.entrySet()) {
             // 获取带包名的类名
             String fileAbsoluteDotPath =
