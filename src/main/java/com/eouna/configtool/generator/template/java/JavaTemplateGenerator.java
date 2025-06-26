@@ -1,5 +1,23 @@
 package com.eouna.configtool.generator.template.java;
 
+import com.eouna.configtool.configholder.ConfigDataBean.ExcelGenPathConf;
+import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
+import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.eouna.configtool.constant.DefaultEnvConfigConstant;
+import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.core.logger.TextAreaLogger;
+import com.eouna.configtool.generator.ExcelTemplateGenUtils;
+import com.eouna.configtool.generator.base.ExcelFileStructure;
+import com.eouna.configtool.generator.bean.ExcelDataStruct;
+import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelEnumFieldInfo;
+import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo;
+import com.eouna.configtool.generator.bean.ExcelSheetBean;
+import com.eouna.configtool.generator.exceptions.ExcelParseException;
+import com.eouna.configtool.generator.template.AbstractTemplateGenerator;
+import com.eouna.configtool.generator.template.ETemplateGenerator;
+import com.eouna.configtool.utils.FileUtils;
+import com.eouna.configtool.utils.StrUtils;
+import freemarker.template.TemplateException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystemException;
@@ -17,25 +35,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
-
-import com.eouna.configtool.configholder.ConfigDataBean.ExcelGenPathConf;
-import com.eouna.configtool.core.logger.TextAreaLogger;
-import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelEnumFieldInfo;
-import com.eouna.configtool.generator.template.ETemplateGenerator;
-import com.eouna.configtool.generator.exceptions.ExcelParseException;
-import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
-import com.eouna.configtool.constant.DefaultEnvConfigConstant;
-import com.eouna.configtool.configholder.SystemConfigHolder;
-import com.eouna.configtool.generator.ExcelTemplateGenUtils;
-import com.eouna.configtool.generator.base.ExcelFileStructure;
-import com.eouna.configtool.generator.bean.ExcelDataStruct;
-import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo;
-import com.eouna.configtool.generator.bean.ExcelSheetBean;
-import com.eouna.configtool.generator.template.AbstractTemplateGenerator;
-import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.core.logger.LoggerUtils;
-import com.eouna.configtool.utils.StrUtils;
-import freemarker.template.TemplateException;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
@@ -136,7 +135,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     dataMap.put("beanPackageName", cfgBeanPackageName);
     dataMap.put("baseCfgBean", DefaultEnvConfigConstant.BASE_BEAN_TEMPLATE_CLASS_NAME);
     dataMap.put(
-        "idName", SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
+        "idName",
+        StrUtils.upperFirst(
+            SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName()));
     dataMap.put(
         "skipStr",
         SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr());
