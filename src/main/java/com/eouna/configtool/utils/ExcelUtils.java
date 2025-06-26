@@ -2,11 +2,7 @@ package com.eouna.configtool.utils;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.*;
 
 /**
  * excel工具集
@@ -33,13 +29,42 @@ public class ExcelUtils {
       case BOOLEAN:
         value = cell.getBooleanCellValue() + "";
         break;
-        // 公式
+        // 数字
       case NUMERIC:
         if (String.valueOf(cell.getNumericCellValue()).contains("E")) {
           DataFormatter dataFormatter = new DataFormatter();
           return dataFormatter.formatCellValue(cell);
         }
         value = cell.getNumericCellValue() + "";
+        break;
+        // 公式
+      case FORMULA:
+        FormulaEvaluator formulaEvaluator =
+            cell.getSheet().getWorkbook().getCreationHelper().createFormulaEvaluator();
+        CellValue cellValue = formulaEvaluator.evaluate(cell);
+        switch (cellValue.getCellType()) {
+            // 字符串
+          case STRING:
+            value = cellValue.getStringValue();
+            break;
+            // Boolean
+          case BOOLEAN:
+            value = cellValue.getBooleanValue() + "";
+            break;
+            // 公式
+          case NUMERIC:
+            if (String.valueOf(cell.getNumericCellValue()).contains("E")) {
+              DataFormatter dataFormatter = new DataFormatter();
+              return dataFormatter.formatCellValue(cell);
+            }
+            value = cell.getNumericCellValue() + "";
+            break;
+          // 空值
+          case BLANK:
+          default:
+            value = "";
+            break;
+        }
         break;
         // 空值
       case BLANK:

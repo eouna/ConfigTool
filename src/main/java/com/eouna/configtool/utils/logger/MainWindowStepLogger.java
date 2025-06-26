@@ -29,6 +29,7 @@ public class MainWindowStepLogger extends TextAreaStepLogger {
 
   public MainWindowStepLogger(TextFlow specifyLoggerArea) {
     super(specifyLoggerArea);
+    this.loggerShowAreaUndertaker = specifyLoggerArea;
   }
 
   @Override

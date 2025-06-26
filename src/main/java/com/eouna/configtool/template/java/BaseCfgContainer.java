@@ -22,13 +22,7 @@ import javax.annotation.processing.Generated;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.Validate;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1140,15 +1134,15 @@ public abstract class BaseCfgContainer<T extends BaseCfgBean> {
   public static String getCellValue(Cell cell) {
     String value;
     switch (cell.getCellType()) {
-        // 字符串
+      // 字符串
       case STRING:
         value = cell.getStringCellValue();
         break;
-        // Boolean
+      // Boolean
       case BOOLEAN:
         value = cell.getBooleanCellValue() + "";
         break;
-        // 公式
+      // 数字
       case NUMERIC:
         if (String.valueOf(cell.getNumericCellValue()).contains("E")) {
           DataFormatter dataFormatter = new DataFormatter();
@@ -1156,7 +1150,36 @@ public abstract class BaseCfgContainer<T extends BaseCfgBean> {
         }
         value = cell.getNumericCellValue() + "";
         break;
-        // 空值
+      // 公式
+      case FORMULA:
+        FormulaEvaluator formulaEvaluator =
+            cell.getSheet().getWorkbook().getCreationHelper().createFormulaEvaluator();
+        CellValue cellValue = formulaEvaluator.evaluate(cell);
+        switch (cellValue.getCellType()) {
+          // 字符串
+          case STRING:
+            value = cellValue.getStringValue();
+            break;
+          // Boolean
+          case BOOLEAN:
+            value = cellValue.getBooleanValue() + "";
+            break;
+          // 公式
+          case NUMERIC:
+            if (String.valueOf(cell.getNumericCellValue()).contains("E")) {
+              DataFormatter dataFormatter = new DataFormatter();
+              return dataFormatter.formatCellValue(cell);
+            }
+            value = cell.getNumericCellValue() + "";
+            break;
+          // 空值
+          case BLANK:
+          default:
+            value = "";
+            break;
+        }
+        break;
+      // 空值
       case BLANK:
       default:
         value = "";

@@ -27,13 +27,7 @@ import javax.annotation.processing.Generated;
 import ${beanPackageName}.${baseCfgBean};
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.Validate;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,11 +152,11 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
           // 处理单行数据
           handleRowData(row, cfgBean, cfgBeanFieldMap, excelFieldInfoMap, skipCellList);
           // 不能有重复的ID
-          if (!tempCfgMap.containsKey(cfgBean.getId())) {
+          if (!tempCfgMap.containsKey(cfgBean.get${idName}())) {
             // 添加bean
-            tempCfgMap.put(cfgBean.getId(), cfgBean);
+            tempCfgMap.put(cfgBean.get${idName}(), cfgBean);
           } else {
-            throw new ExcelDataParseException(file.getName(), "出现重复的ID: " + cfgBean.getId());
+            throw new ExcelDataParseException(file.getName(), "出现重复的ID: " + cfgBean.get${idName}());
           }
         } catch (Exception e) {
           // 收集其他的异常
@@ -1265,13 +1259,42 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
       case BOOLEAN:
         value = cell.getBooleanCellValue() + "";
         break;
-        // 公式
+        // 数字
       case NUMERIC:
         if (String.valueOf(cell.getNumericCellValue()).contains("E")) {
           DataFormatter dataFormatter = new DataFormatter();
           return dataFormatter.formatCellValue(cell);
         }
         value = cell.getNumericCellValue() + "";
+        break;
+        // 公式
+      case FORMULA:
+        FormulaEvaluator formulaEvaluator =
+            cell.getSheet().getWorkbook().getCreationHelper().createFormulaEvaluator();
+        CellValue cellValue = formulaEvaluator.evaluate(cell);
+        switch (cellValue.getCellType()) {
+            // 字符串
+          case STRING:
+            value = cellValue.getStringValue();
+            break;
+            // Boolean
+          case BOOLEAN:
+            value = cellValue.getBooleanValue() + "";
+            break;
+            // 公式
+          case NUMERIC:
+            if (String.valueOf(cell.getNumericCellValue()).contains("E")) {
+              DataFormatter dataFormatter = new DataFormatter();
+              return dataFormatter.formatCellValue(cell);
+            }
+            value = cell.getNumericCellValue() + "";
+            break;
+          // 空值
+          case BLANK:
+          default:
+            value = "";
+            break;
+        }
         break;
         // 空值
       case BLANK:
