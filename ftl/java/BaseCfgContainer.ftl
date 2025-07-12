@@ -771,7 +771,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
           String replaceSplitDanglingMetaChar =
               replaceSplitDanglingMetaChar(delimiter.delimiterChar);
           String[] listValSplit = fieldStr.split(replaceSplitDanglingMetaChar);
-          if (delimiter.sizeLimit > 0 && listValSplit.length > delimiter.sizeLimit) {
+          if (delimiter.sizeLimit > 0 && listValSplit.length != delimiter.sizeLimit) {
             throw new ExcelDataParseException(
                 "", "字段对应的数据数量: " + listValSplit.length + " 超过限制值: " + delimiter.sizeLimit);
           }
@@ -844,7 +844,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
           String replaceSplitDanglingMetaChar =
               replaceSplitDanglingMetaChar(bracketMetadata.delimiterChar);
           String[] setValSplit = fieldStr.split(replaceSplitDanglingMetaChar);
-          if (bracketMetadata.sizeLimit > 0 && setValSplit.length > bracketMetadata.sizeLimit) {
+          if (bracketMetadata.sizeLimit > 0 && setValSplit.length != bracketMetadata.sizeLimit) {
             throw new ExcelDataParseException(
                 "", "字段对应的数据数量: " + setValSplit.length + " 超过限制值: " + bracketMetadata.sizeLimit);
           }
@@ -944,7 +944,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
           String replaceSplitDanglingMetaChar =
               replaceSplitDanglingMetaChar(mapDelimiter.delimiterChar);
           String[] mapArr = fieldStr.split(replaceSplitDanglingMetaChar);
-          if (mapDelimiter.sizeLimit > 0 && mapArr.length > mapDelimiter.sizeLimit) {
+          if (mapDelimiter.sizeLimit > 0 && mapArr.length != mapDelimiter.sizeLimit) {
             throw new ExcelDataParseException(
                 "", "字段对应的数据数量: " + mapArr.length + " 超过限制值: " + mapDelimiter.sizeLimit);
           }
@@ -1267,27 +1267,27 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
         }
         value = cell.getNumericCellValue() + "";
         break;
-        // 公式
+      // 公式
       case FORMULA:
         FormulaEvaluator formulaEvaluator =
             cell.getSheet().getWorkbook().getCreationHelper().createFormulaEvaluator();
         CellValue cellValue = formulaEvaluator.evaluate(cell);
         switch (cellValue.getCellType()) {
-            // 字符串
+          // 字符串
           case STRING:
             value = cellValue.getStringValue();
             break;
-            // Boolean
+          // Boolean
           case BOOLEAN:
             value = cellValue.getBooleanValue() + "";
             break;
-            // 公式
+          // 公式
           case NUMERIC:
-            if (String.valueOf(cell.getNumericCellValue()).contains("E")) {
+            if (String.valueOf(cellValue.getNumberValue()).contains("E")) {
               DataFormatter dataFormatter = new DataFormatter();
-              return dataFormatter.formatCellValue(cell);
+              return dataFormatter.formatCellValue(cell, formulaEvaluator);
             }
-            value = cell.getNumericCellValue() + "";
+            value = cellValue.getNumberValue() + "";
             break;
           // 空值
           case BLANK:
