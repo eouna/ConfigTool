@@ -733,7 +733,7 @@ public abstract class BaseCfgContainer<T extends BaseCfgBean> {
           String replaceSplitDanglingMetaChar =
               replaceSplitDanglingMetaChar(delimiter.delimiterChar);
           String[] listValSplit = fieldStr.split(replaceSplitDanglingMetaChar);
-          if (delimiter.sizeLimit > 0 && listValSplit.length > delimiter.sizeLimit) {
+          if (delimiter.sizeLimit > 0 && listValSplit.length != delimiter.sizeLimit) {
             throw new ExcelDataParseException(
                 "", "字段对应的数据数量: " + listValSplit.length + " 超过限制值: " + delimiter.sizeLimit);
           }
@@ -775,6 +775,85 @@ public abstract class BaseCfgContainer<T extends BaseCfgBean> {
           listTypeStr = listTypeStr.replace(subTypeWithBracket, subType);
         }
         return listTypeStr;
+      }
+
+      @Override
+      public boolean isBaseType() {
+        return false;
+      }
+    }
+
+    public static class SetFieldAdapter implements FieldAdapter<Set<?>> {
+      /** set匹配 */
+      private static final Pattern SET_PATTERN = Pattern.compile("^[Ss]et<(.*)>(\\{.\\d*\\})");
+
+      @Override
+      public Set<?> parseFieldStrToClassType(
+          String fieldStr, String fieldType, BaseCfgBean cfgBean) {
+        // 需要检查分隔符是否有重复的情况
+        checkListMapFieldTypeDelimiter(fieldType);
+        if (isEmptyString(fieldStr)) {
+          return getDefaultVal();
+        }
+        Set<Object> set = new HashSet<>();
+        Matcher matcher = SET_PATTERN.matcher(fieldType);
+        if (matcher.find()) {
+          String subType = matcher.group(1);
+          String delimiterWithBracket = matcher.group(2);
+          BracketMetadata bracketMetadata = getBracketInnerChar(delimiterWithBracket);
+          FieldDataAdapter fieldDataAdapter = getFieldAdapterByTypeStr(subType);
+          // 替换可能有正则的表达式字符串
+          String replaceSplitDanglingMetaChar =
+              replaceSplitDanglingMetaChar(bracketMetadata.delimiterChar);
+          String[] setValSplit = fieldStr.split(replaceSplitDanglingMetaChar);
+          if (bracketMetadata.sizeLimit > 0 && setValSplit.length != bracketMetadata.sizeLimit) {
+            throw new ExcelDataParseException(
+                "", "字段对应的数据数量: " + setValSplit.length + " 超过限制值: " + bracketMetadata.sizeLimit);
+          }
+          for (String setVal : setValSplit) {
+            if (isEmptyString(setVal)) {
+              continue;
+            }
+            Object data =
+                fieldDataAdapter
+                    .getFieldAdapter()
+                    .parseFieldStrToClassType(setVal, subType, cfgBean);
+            if (!set.add(data)) {
+              throw new ExcelDataParseException("", "Set列数据出现重复数据: " + data);
+            }
+          }
+        }
+        return Collections.unmodifiableSet(set);
+      }
+
+      @Override
+      public Set<?> getDefaultVal() {
+        return Collections.emptySet();
+      }
+
+      @Override
+      public Set<String> getAcceptTypeStr() {
+        return new HashSet<>(Arrays.asList(SET_PATTERN.pattern(), "java.util.Set"));
+      }
+
+      @Override
+      public String getTargetFieldTypeStr(String fieldType) {
+        Matcher matcher = SET_PATTERN.matcher(fieldType);
+        String setTypeStr = null;
+        if (matcher.find()) {
+          // 需要检查分隔符是否有重复的情况
+          checkListMapFieldTypeDelimiter(fieldType);
+          String subTypeWithBracket = matcher.group(1);
+          String delimiterWithBracket = matcher.group(2);
+          // 去除set分隔符的类型
+          setTypeStr = fieldType.replace(delimiterWithBracket, "");
+          FieldDataAdapter fieldDataAdapter = getFieldAdapterByTypeStr(subTypeWithBracket);
+          String subType =
+              fieldDataAdapter.getFieldAdapter().getTargetFieldTypeStr(subTypeWithBracket);
+          setTypeStr = setTypeStr.replace(subTypeWithBracket, subType);
+          setTypeStr = upperFirst(setTypeStr);
+        }
+        return setTypeStr;
       }
 
       @Override
@@ -827,7 +906,7 @@ public abstract class BaseCfgContainer<T extends BaseCfgBean> {
           String replaceSplitDanglingMetaChar =
               replaceSplitDanglingMetaChar(mapDelimiter.delimiterChar);
           String[] mapArr = fieldStr.split(replaceSplitDanglingMetaChar);
-          if (mapDelimiter.sizeLimit > 0 && mapArr.length > mapDelimiter.sizeLimit) {
+          if (mapDelimiter.sizeLimit > 0 && mapArr.length != mapDelimiter.sizeLimit) {
             throw new ExcelDataParseException(
                 "", "字段对应的数据数量: " + mapArr.length + " 超过限制值: " + mapDelimiter.sizeLimit);
           }
@@ -1166,11 +1245,11 @@ public abstract class BaseCfgContainer<T extends BaseCfgBean> {
             break;
           // 公式
           case NUMERIC:
-            if (String.valueOf(cell.getNumericCellValue()).contains("E")) {
+            if (String.valueOf(cellValue.getNumberValue()).contains("E")) {
               DataFormatter dataFormatter = new DataFormatter();
-              return dataFormatter.formatCellValue(cell);
+              return dataFormatter.formatCellValue(cell, formulaEvaluator);
             }
-            value = cell.getNumericCellValue() + "";
+            value = cellValue.getNumberValue() + "";
             break;
           // 空值
           case BLANK:
