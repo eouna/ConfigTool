@@ -135,9 +135,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     dataMap.put("beanPackageName", cfgBeanPackageName);
     dataMap.put("baseCfgBean", DefaultEnvConfigConstant.BASE_BEAN_TEMPLATE_CLASS_NAME);
     dataMap.put(
-        "idName",
-        StrUtils.upperFirst(
-            SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName()));
+        "idName", SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
     dataMap.put(
         "skipStr",
         SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr());

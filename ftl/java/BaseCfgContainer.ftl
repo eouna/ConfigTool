@@ -152,11 +152,11 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
           // 处理单行数据
           handleRowData(row, cfgBean, cfgBeanFieldMap, excelFieldInfoMap, skipCellList);
           // 不能有重复的ID
-          if (!tempCfgMap.containsKey(cfgBean.get${idName}())) {
+          if (!tempCfgMap.containsKey(cfgBean.get${idName?cap_first}())) {
             // 添加bean
-            tempCfgMap.put(cfgBean.get${idName}(), cfgBean);
+            tempCfgMap.put(cfgBean.get${idName?cap_first}(), cfgBean);
           } else {
-            throw new ExcelDataParseException(file.getName(), "出现重复的ID: " + cfgBean.get${idName}());
+            throw new ExcelDataParseException(file.getName(), "出现重复的ID: " + cfgBean.get${idName?cap_first}());
           }
         } catch (Exception e) {
           // 收集其他的异常
