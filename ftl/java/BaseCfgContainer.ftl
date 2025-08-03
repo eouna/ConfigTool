@@ -1233,9 +1233,12 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
         String cellValue = getCellValue(cell);
         cellVal = cellValue.trim();
       }
-      if (colNum == 0 && isEmptyString(cellVal)) {
+      if (colNum == 0 && isEmptyString(cellVal) && rowNum == fieldTypeRow) {
         // 兼容第一行不填的情况默认为int
         cellVal = "int";
+      } else if (colNum == 0 && rowNum == fieldNameRow) {
+        // ID列直接使用配置的ID名字
+        cellVal = "${idName}";
       }
       return cellVal;
     }
