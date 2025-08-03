@@ -3,7 +3,7 @@ package com.eouna.configtool.generator.template.json;
 import com.eouna.configtool.generator.template.AbstractTemplateHandler;
 
 /**
- * lua模板文件处理器
+ * json模板文件处理器
  *
  * @author CCL
  * @date 2023/3/3

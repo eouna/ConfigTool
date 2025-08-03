@@ -14,7 +14,7 @@ import com.eouna.configtool.generator.template.json.JsonTemplateHandler;
 public enum ETemplateGenerator {
   /** java生成器 */
   JAVA_GENERATOR(JavaTemplateHandler.getInstance(), JavaTemplateGenerator.getInstance()),
-  /** lua生成器 */
+  /** json生成器 */
   JSON_GENERATOR(JsonTemplateHandler.getInstance(), JsonTemplateGenerator.getInstance()),
   ;
   /** 模板处理handler */

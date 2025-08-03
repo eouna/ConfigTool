@@ -398,8 +398,6 @@ public class WindowManager {
       oldWindowNode.next = newNode;
       newNode.pre = oldWindowNode;
       currentOpenedNode = newNode;
-      LoggerUtils.getLogger()
-          .info("更新当前窗口节点: {}", currentOpenedNode.getWindowController().getTitle());
     } else {
       // 将当前节点的下一个设置为空,将找到的节点设置为最新的打开的节点
       WindowNode next;
@@ -416,13 +414,15 @@ public class WindowManager {
       }
       currentOpenedNode.next = null;
     }
+    LoggerUtils.getLogger()
+        .info("更新当前窗口节点: {}", currentOpenedNode.getWindowController().getTitle());
     StringBuilder nodeLinkStr = new StringBuilder();
     WindowNode node = startWindowNode;
     nodeLinkStr.append(node.getWindowController().getTitle());
     while ((node = node.next) != null) {
       nodeLinkStr.append("->").append(node.getWindowController().getTitle());
     }
-    LoggerUtils.getLogger().info("当前窗口节点路径: " + nodeLinkStr);
+    LoggerUtils.getLogger().info("当前窗口节点路径: {}", nodeLinkStr);
   }
 
   /**

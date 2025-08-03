@@ -59,9 +59,9 @@ public class SystemConfigHolder {
   @ConfigSettingControl(desc = "java模板配置")
   private JavaTemplateConf javaTemplateConf;
 
-  /** lua模板配置 */
+  /** json模板配置 */
   @ConfigAutowired
-  @ConfigSettingControl(desc = "lua模板配置")
+  @ConfigSettingControl(desc = "json模板配置")
   private JsonTemplateConf jsonTemplateConf;
 
   /** 服务器同步相关配置 */
