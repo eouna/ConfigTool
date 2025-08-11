@@ -265,9 +265,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     // excel字段数据结构
     ExcelDataStruct dataStruct = new ExcelDataStruct(file.getName(), sheetBean.getSheetName());
     Set<String> sameFieldNameFilter = new HashSet<>();
+    String idNameStr = SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName();
     // 移除子类id字段
-    sameFieldNameFilter.add(
-        SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
+    sameFieldNameFilter.add(idNameStr);
     String skipStr =
         SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr();
     Set<Integer> skipColList = ExcelTemplateGenUtils.getSkipCellList(sheet, skipStr);
@@ -283,7 +283,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
               ExcelTemplateGenUtils.getExcelFields(file, childSheet, skipColList);
           // 移除同名字段
           excelFieldInfo.removeIf(
-              fieldInfo -> sameFieldNameFilter.contains(fieldInfo.getFieldName().getFieldData()));
+              fieldInfo ->
+                  sameFieldNameFilter.contains(fieldInfo.getFieldName().getFieldData())
+                      || idNameStr.equalsIgnoreCase(fieldInfo.getFieldName().getFieldData()));
           // 填充excel字段信息
           fillDataStructByExcelFieldInfo(hasParentSheet, dataStruct, excelFieldInfo);
           // 处理同名字段
@@ -319,7 +321,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
             ExcelTemplateGenUtils.getExcelFields(file, sheet, skipColList);
         // 移除同名字段
         excelFieldInfo.removeIf(
-            fieldInfo -> sameFieldNameFilter.contains(fieldInfo.getFieldName().getFieldData()));
+            fieldInfo ->
+                sameFieldNameFilter.contains(fieldInfo.getFieldName().getFieldData())
+                    || idNameStr.equalsIgnoreCase(fieldInfo.getFieldName().getFieldData()));
         // 填充excel字段信息
         fillDataStructByExcelFieldInfo(hasParentSheet, dataStruct, excelFieldInfo);
       }
