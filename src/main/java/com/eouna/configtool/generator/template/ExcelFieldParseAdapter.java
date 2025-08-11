@@ -4,7 +4,6 @@ import com.eouna.configtool.constant.StrConstant;
 import com.eouna.configtool.exceptions.ExcelDataParseException;
 import com.eouna.configtool.generator.exceptions.ExcelFormatCheckException;
 import com.eouna.configtool.utils.StrUtils;
-
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -695,9 +694,11 @@ public enum ExcelFieldParseAdapter {
 
         String keySubType = matcher.group(1);
         String keyValDelimiterWithBracket = matcher.group(3);
+        int originKeySubTypeLength = keySubType.length();
 
         String valTypeStr = matcher.group(5);
         String mapDelimiterWithBracket = matcher.group(6);
+        int valTypeIdx = fieldType.lastIndexOf(valTypeStr);
 
         // 转换key类型
         ExcelFieldParseAdapter keyFieldDataAdapter = getFieldAdapterByTypeStr(keySubType);
@@ -710,7 +711,12 @@ public enum ExcelFieldParseAdapter {
         ExcelFieldParseAdapter valTypeFieldDataAdapter = getFieldAdapterByTypeStr(valTypeStr);
         String valType =
             valTypeFieldDataAdapter.getFieldAdapter().getTargetFieldObjTypeStr(valTypeStr);
-        mapTypeStr = mapTypeStr.replace(valTypeStr, valType);
+        // 找到Val的位置，然后替换原始Val值，使用新的Val替换上去
+        int newValTypeIdx = valTypeIdx - (originKeySubTypeLength - keyType.length());
+        mapTypeStr =
+            mapTypeStr.substring(0, newValTypeIdx + 1)
+                + valType
+                + mapTypeStr.substring(newValTypeIdx + valTypeStr.length() + 1);
 
         // 消除key-val之间以及map之间的分隔符
         mapTypeStr =
