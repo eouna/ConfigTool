@@ -298,7 +298,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
             try {
               workbook.close();
             } catch (IOException e) {
-              LoggerUtils.getLogger().error("关闭excel:" + file.getName() + "工作薄失败", e);
+              LoggerUtils.getLogger().error("关闭excel: {} 工作薄失败", file.getName(), e);
             }
           }
         }

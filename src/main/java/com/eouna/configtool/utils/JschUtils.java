@@ -162,7 +162,7 @@ public class JschUtils {
         String res = JschUtils.getStringFromPipedInputStream(channelExec.getInputStream());
         if (channelExec.isClosed()) {
           String error = outputStream.toString();
-          LoggerUtils.getLogger().info("执行结果: " + res + " error: " + error);
+          LoggerUtils.getLogger().info("执行结果: {} error: {}", res, error);
           if (callBack != null) {
             callBack.callBack(command, res, error);
           }

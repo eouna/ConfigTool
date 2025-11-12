@@ -199,7 +199,7 @@ public class HotClassLoaderUtils {
     // java依赖的jar或者java文件路径
     File javaDependencyLibPathDir = checkDir(javaDependencyLibPath, false);
     // 合并文件 class path
-    // @FIXED-202504241200 在javac环境下不会出现问题，挡在ecj环境下会出现 No provider for uri jar:file 异常
+    // @FIXED-202504241200 在javac环境下不会出现问题，当在ecj环境下会出现 No provider for uri jar:file 异常
     // 改用standardJavaFileManager.setLocation的方式显示调用api处理
     // String fileClassPath = getJavaClassPath(javaFilePathDir, javaDependencyLibPathDir);
     // logger.info(fileClassPath);
@@ -238,7 +238,7 @@ public class HotClassLoaderUtils {
     for (File file : standardJavaFileManager.getLocation(StandardLocation.CLASS_PATH)) {
       classPath.append(file.getAbsolutePath()).append("\n");
     }
-    LoggerUtils.getLogger().info("获取实际的ClassPath:\n" + classPath);
+    LoggerUtils.getLogger().info("获取实际的ClassPath:\n{}", classPath);
 
     return task;
   }

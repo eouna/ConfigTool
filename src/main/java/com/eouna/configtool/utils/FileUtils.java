@@ -227,7 +227,6 @@ public class FileUtils {
       Model mavenModel = reader.read(new FileReader(file));
       return "v" + mavenModel.getVersion().split("-")[0];
     } catch (XmlPullParserException e) {
-      e.printStackTrace();
       LoggerUtils.getLogger().error("读取maven文件失败", e);
     } catch (Exception e) {
       LoggerUtils.getLogger().error("读取POM文件异常", e);
@@ -253,7 +252,7 @@ public class FileUtils {
                     entry.getValue(),
                     DigestUtils.md5Hex(Files.newInputStream(entry.getValue().toPath())));
               } catch (IOException e) {
-                LoggerUtils.getLogger().error("获取文件: " + entry.getKey() + " MD5码失败");
+                LoggerUtils.getLogger().error("获取文件: {} MD5码失败", entry.getKey());
               }
               return dataMap;
             })

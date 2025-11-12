@@ -240,7 +240,7 @@ public class ExcelTemplateGenUtils {
                   EXCEPTION_COLLECTOR);
             } catch (Exception e) {
               LoggerUtils.getLogger()
-                  .error(e.getMessage() + " trace: \n{}", ExceptionUtils.getStackTrace(e));
+                  .error("{} trace: \n{}", e.getMessage(), ExceptionUtils.getStackTrace(e));
               textAreaLogger.info(
                   "生成配置表: {}, 异常: {}", currentDealFile.getName(), ExceptionUtils.getStackTrace(e));
               // 发生异常时是否立即退出
