@@ -42,7 +42,7 @@ excelConf:
     excelConfigLoadPath: example
     templateFileGenTargetDir: gentemppath/genpackage
     templatePath: ftl
-  dataConstantSheetName: const
+  dataConstantSheetName: constant
 cache:
   sqliteConfig:
     enable: false

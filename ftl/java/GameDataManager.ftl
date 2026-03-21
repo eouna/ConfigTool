@@ -156,8 +156,6 @@ public class ${dataManagerClassName} {
    */
   protected ThreadPoolExecutor getExcelLoadPoolExecutor(int taskSize){
     int availableProcessors = Runtime.getRuntime().availableProcessors();
-    // 最大容量
-    int maxCapacity = taskSize - MAX_CORE_THREAD_NUM;
     AtomicInteger theadNumber = new AtomicInteger(0);
     ThreadGroup threadGroup = Thread.currentThread().getThreadGroup();
     ThreadFactory threadFactory =
@@ -167,7 +165,7 @@ public class ${dataManagerClassName} {
         availableProcessors,
         10,
         TimeUnit.SECONDS,
-        new LinkedBlockingDeque<>(maxCapacity),
+        new LinkedBlockingDeque<>(taskSize),
         threadFactory);
   }
 
