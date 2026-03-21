@@ -16,6 +16,18 @@ import ${beanPackageName}.${beanClassName};
  */
 @Generated("com.eouna.configtool.generator.template.java.JavaTemplateGenerator")
 public class ${containerClassName} extends ${parentClassName}<${beanClassName}> {
+  <#list constantFields as constField>
+
+  /** ${constField.fieldDesc.fieldData} */
+  private ${constField.fieldType.fieldData} ${constField.fieldName.fieldData};
+  </#list>
+  <#list constantFields as constField>
+
+  /** ${constField.fieldDesc.fieldData} */
+  public ${constField.fieldType.fieldData} get${constField.fieldName.fieldData?cap_first}() {
+    return ${constField.fieldName.fieldData};
+  }
+  </#list>
 
   @Override
   public boolean hasRelatedTable() {
@@ -28,7 +40,7 @@ public class ${containerClassName} extends ${parentClassName}<${beanClassName}> 
   }
 
   @Override
-  public ${containerClassName} getNewContainer(){
+  public ${containerClassName} getNewContainer() {
     return new ${containerClassName}();
   }
 

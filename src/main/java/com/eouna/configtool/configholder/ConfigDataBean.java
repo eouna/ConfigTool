@@ -20,9 +20,16 @@ public class ConfigDataBean {
     @ConfigAutowired(aliasName = "fieldRow")
     private ExcelFieldConf fieldRows;
 
+    /** excel常量相关行 */
+    @ConfigAutowired(aliasName = "constantFieldRow")
+    private ExcelConstantFieldConf constantFieldRow;
+
     /** excel生成路径配置 */
     @ConfigSettingControl(desc = "excel生成路径")
     private ExcelGenPathConf path;
+
+    @ConfigSettingControl(desc = "常量配置工作薄名", bindComponent = TextField.class)
+    private String dataConstantSheetName;
 
     public ExcelFieldConf getFieldRows() {
       return fieldRows;
@@ -39,16 +46,35 @@ public class ConfigDataBean {
     public void setPath(ExcelGenPathConf path) {
       this.path = path;
     }
+
+    public ExcelConstantFieldConf getConstantFieldRow() {
+      return constantFieldRow;
+    }
+
+    public void setConstantFieldRow(ExcelConstantFieldConf constantFieldRow) {
+      this.constantFieldRow = constantFieldRow;
+    }
+
+    public String getDataConstantSheetName() {
+      return dataConstantSheetName;
+    }
+
+    public void setDataConstantSheetName(String dataConstantSheetName) {
+      this.dataConstantSheetName = dataConstantSheetName;
+    }
   }
 
   @CfgDataBean
   public static class ExcelFieldConf {
     /** 字段描述列 */
     private int fieldDescRow;
+
     /** 字段类型列 */
     private int fieldTypeRow;
+
     /** 字段名列 */
     private int fieldNameRow;
+
     /** 字段数值范围列 */
     private int fieldDataRangeRow;
 
@@ -97,12 +123,61 @@ public class ConfigDataBean {
   }
 
   @CfgDataBean
+  public static class ExcelConstantFieldConf {
+    /** 字段描述列 */
+    private int fieldDescCol;
+
+    /** 字段类型列 */
+    private int fieldTypeCol;
+
+    /** 字段名列 */
+    private int fieldNameCol;
+
+    /** 字段数值范围列 */
+    private int fieldValCol;
+
+    public int getFieldTypeCol() {
+      return fieldTypeCol;
+    }
+
+    public void setFieldTypeCol(int fieldTypeCol) {
+      this.fieldTypeCol = fieldTypeCol;
+    }
+
+    public int getFieldDescCol() {
+      return fieldDescCol;
+    }
+
+    public void setFieldDescCol(int fieldDescCol) {
+      this.fieldDescCol = fieldDescCol;
+    }
+
+    public int getFieldNameCol() {
+      return fieldNameCol;
+    }
+
+    public void setFieldNameCol(int fieldNameCol) {
+      this.fieldNameCol = fieldNameCol;
+    }
+
+    public Integer getFieldValRowRow() {
+      return fieldValCol;
+    }
+
+    public void setFieldValRowRow(Integer fieldValRow) {
+      this.fieldValCol = fieldValRow;
+    }
+  }
+
+  @CfgDataBean
   public static class ExcelGenPathConf {
 
     /** excel 配置加载路径 */
     private String excelConfigLoadPath;
+
     /** 模板文件生成后的文件保存路径 */
     private String templateFileGenTargetDir;
+
     /** 模板文件路径 */
     @ConfigSettingControl(desc = "模板文件路径", bindComponent = TextField.class)
     private String templatePath;
@@ -138,21 +213,27 @@ public class ConfigDataBean {
     /** java程序中生成后的基础包名 */
     @ConfigSettingControl(desc = "包名", bindComponent = TextField.class)
     private String packageName;
+
     /** excel中用于标识服务端数据范围跳过字段 可用于跳过列,忽略数据列 */
     @ConfigSettingControl(desc = "数据范围跳过字段", bindComponent = TextField.class)
     private String dataRangeServerSkipStr;
+
     /** excel中用于标识客户端数据范围跳过字段 可用于跳过列,忽略数据列 */
     @ConfigSettingControl(desc = "数据范围跳过字段", bindComponent = TextField.class)
     private String dataRangeClientSkipStr;
+
     /** 生成模板的数据管理类名 */
     @ConfigSettingControl(desc = "数据管理类名", bindComponent = TextField.class)
     private String dataManagerClassName;
+
     /** 生成模板的数据管理运行方法名 */
     @ConfigSettingControl(desc = "数据管理运行方法名", bindComponent = TextField.class)
     private String dataManagerLoadDataCaller;
+
     /** 基础配置bean的ID名 */
     @ConfigSettingControl(desc = "基础配置bean的ID名", bindComponent = TextField.class)
     private String baseBeanIdName;
+
     /** 是否保持配置表加载器的相对路径,保存到配置文件时,是否是全路径保存,如果否则保存以程序运行为根路径的的相对路径 */
     @ConfigSettingControl(desc = "是否保持配置表加载器的相对路径", bindComponent = TextField.class)
     private boolean keepBindExcelRelativePath;
@@ -234,11 +315,13 @@ public class ConfigDataBean {
   public static class SyncConfig {
     /** 服务器列表 */
     private String serverList;
+
     /** excel资源放置路径 */
     @ConfigSettingControl(desc = "本地同步是excel资源放置的路径，注意：如果填相对路径则是相对目标工程的相对目录")
     private String localResourcePlacePath;
+
     /** 服务器连接信息 */
-    //@ConfigSettingControl(desc = "服务器连接信息")
+    // @ConfigSettingControl(desc = "服务器连接信息")
     private List<ServerConnectInfo> targetServer;
 
     public String getServerList() {
@@ -271,25 +354,32 @@ public class ConfigDataBean {
     /** 需要同步的服务器IP */
     @ConfigSettingControl(desc = "服务器名字", bindComponent = TextField.class)
     private String serverName;
+
     /** 需要同步的服务器IP */
     @ConfigSettingControl(desc = "ip", bindComponent = TextField.class)
     private String serverIp;
+
     /** 服务器用户名 */
     @ConfigSettingControl(desc = "用户名", bindComponent = TextField.class)
     private String username;
+
     /** 服务器用户密码 */
     @ConfigSettingControl(desc = "密码", bindComponent = PasswordField.class)
     private String userPass;
+
     /** 连接端口 */
     @ConfigSettingControl(desc = "端口", bindComponent = TextField.class)
     private int port;
+
     /** 脚本执行命令行 */
     @ConfigSettingControl(desc = "远程命令行", bindComponent = TextArea.class)
     private String executeCommand;
+
     /** 脚本执行命令行 */
     @ConfigSettingControl(desc = "服务器路径", bindComponent = TextField.class)
     /** 服务器路径 */
     private String serverPath;
+
     /** 脚本执行命令行 */
     @ConfigSettingControl(desc = "服务器路径", bindComponent = TextField.class)
     private String uploadTempFilePath;
@@ -363,6 +453,7 @@ public class ConfigDataBean {
   public static class ServerLoadExcelDirConfBean {
     /** 绑定的App模块路径 */
     private String bindAppModuleDir;
+
     /** 监听的excel文件列表 */
     private List<String> bindExcelFileList = new ArrayList<>();
 
@@ -393,8 +484,10 @@ public class ConfigDataBean {
   public static class SqliteConfig {
     /** 是否启用 sqlite 作为缓存 */
     private boolean enable;
+
     /** 用户名 */
     private String user;
+
     /** 密码 */
     private String pass;
 

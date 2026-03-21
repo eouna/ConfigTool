@@ -4,7 +4,7 @@ package com.eouna.configtool.utils.caller;
 import com.eouna.configtool.core.watcher.TimeConsumeWatcher;
 
 /**
- * @author KOUJIANG
+ * @author CCL
  * @date Created in 2023/3/14
  */
 public abstract class AbsTimeInferFaceCallImpl<T> implements IInterfaceCallEachAction<T> {

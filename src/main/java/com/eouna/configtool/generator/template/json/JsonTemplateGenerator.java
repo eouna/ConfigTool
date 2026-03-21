@@ -61,7 +61,9 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
 
   @Override
   public void generatorBefore(
-      List<File> successGenList, Map<File, ExcelFileStructure> excelFileStructureMap) {
+      List<File> successGenList,
+      Map<File, ExcelFileStructure> excelFileStructureMap,
+      List<Exception> exceptions) {
     jsonDataKeeper.clear();
     Set<String> generatedParentList = new HashSet<>();
     try {
@@ -85,6 +87,7 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
       }
     } catch (Exception e) {
       LoggerUtils.getLogger().error("生成父Json模板时发生异常", e);
+      exceptions.add(e);
     }
   }
 

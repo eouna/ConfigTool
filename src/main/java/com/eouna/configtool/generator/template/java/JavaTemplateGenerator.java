@@ -15,6 +15,9 @@ import com.eouna.configtool.generator.bean.ExcelSheetBean;
 import com.eouna.configtool.generator.exceptions.ExcelParseException;
 import com.eouna.configtool.generator.template.AbstractTemplateGenerator;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
+import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
+import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelConstantFieldInfo;
+import com.eouna.configtool.utils.ExcelUtils;
 import com.eouna.configtool.utils.FileUtils;
 import com.eouna.configtool.utils.StrUtils;
 import freemarker.template.TemplateException;
@@ -22,22 +25,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
+
+import org.apache.poi.ss.usermodel.*;
 
 /**
  * java模板生成器
@@ -56,7 +49,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
 
   @Override
   public void generatorBefore(
-      List<File> successGenList, Map<File, ExcelFileStructure> excelFileStructureMap) {
+      List<File> successGenList,
+      Map<File, ExcelFileStructure> excelFileStructureMap,
+      List<Exception> exceptionCollector) {
     try {
       // 生成前清理一次 确保数据准确
       cfgBeanOfContainerNameMap.clear();
@@ -81,6 +76,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
       }
     } catch (Exception e) {
       LoggerUtils.getLogger().error("生成父Java模板时发生异常", e);
+      exceptionCollector.add(e);
     }
   }
 
@@ -131,6 +127,10 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     dataMap = new HashMap<>(8);
     dataMap.put("packageName", cfgBeanContainerPackageName);
     dataMap.put("fieldInfo", fieldInfo);
+    dataMap.put("constFieldInfo", new ExcelConstantFieldInfo());
+    dataMap.put(
+        "constantSheetName",
+        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
     dataMap.put("dataStartRow", ExcelTemplateGenUtils.getConfigFieldMaxRow() + 1);
     dataMap.put("beanPackageName", cfgBeanPackageName);
     dataMap.put("baseCfgBean", DefaultEnvConfigConstant.BASE_BEAN_TEMPLATE_CLASS_NAME);
@@ -173,7 +173,81 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     // 生成配置表bean模板
     generateOneCfgBean(file, sheet, sheetBean, excelFileStructure);
     // 生成配置表bean容器模板
-    generateOneCfgContainerBean(sheetBean, excelFileStructure);
+    generateOneCfgContainerBean(workbook, sheetBean, excelFileStructure);
+  }
+
+  /**
+   * 生成配置表常量bean
+   *
+   * @param workbook 工作薄
+   */
+  private List<ExcelConstantFieldInfo> generateConstantBean(Workbook workbook) {
+    if (workbook == null) {
+      return new ArrayList<>();
+    }
+    String dataConstantSheetName =
+        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
+    int sheetIndex = workbook.getSheetIndex(dataConstantSheetName);
+    // 没有配置常量
+    if (sheetIndex < 0) {
+      return new ArrayList<>();
+    }
+    Sheet sheet = workbook.getSheetAt(sheetIndex);
+    // 字段名对应的类型
+    return getConstantFieldMap(sheet);
+  }
+
+  /**
+   * 获取常量工作簿中的字段名和对应的类型
+   *
+   * @param sheet 常量配置工作薄
+   * @return 字段名对应的类型
+   */
+  private List<ExcelConstantFieldInfo> getConstantFieldMap(Sheet sheet) {
+    List<ExcelConstantFieldInfo> constantFieldInfos = new ArrayList<>();
+    // 常量类型列
+    int typeCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
+    // 名字列
+    int nameCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
+    // 描述列
+    int descCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldDescCol();
+    int lastRowNum = sheet.getLastRowNum();
+    if (lastRowNum < 1) {
+      return constantFieldInfos;
+    }
+    int startRow = 1;
+    for (int rowIdx = startRow; rowIdx <= lastRowNum; rowIdx++) {
+      Row row = sheet.getRow(rowIdx);
+      Cell nameCell = row.getCell(nameCol);
+      Cell typeCell = row.getCell(typeCol);
+      Cell descCell = row.getCell(descCol);
+      if (nameCell == null || typeCell == null) {
+        continue;
+      }
+      String typeCellValue = ExcelUtils.getCellValue(typeCell).trim();
+      // 不支持枚举
+      ExcelFieldParseAdapter parseAdapter =
+          ExcelFieldParseAdapter.getFieldAdapterByTypeStr(typeCellValue);
+      if (parseAdapter.getFieldAdapter() instanceof ExcelFieldParseAdapter.EnumFieldAdapter) {
+        throw new ExcelParseException("常量配置不支持枚举配置");
+      }
+      String nameCellValue = ExcelUtils.getCellValue(nameCell).trim();
+      String descCellValue = ExcelUtils.getCellValue(descCell).trim();
+      if (StrUtils.isEmpty(nameCellValue) || StrUtils.isEmpty(typeCellValue)) {
+        continue;
+      }
+      String targetFieldTypeStr =
+          parseAdapter.getFieldAdapter().getTargetFieldTypeStr(typeCellValue);
+      ExcelConstantFieldInfo constantFieldInfo = new ExcelConstantFieldInfo();
+      constantFieldInfo.getFieldName().setFieldData(nameCellValue);
+      constantFieldInfo.getFieldDesc().setFieldData(descCellValue);
+      constantFieldInfo.getFieldType().setFieldData(targetFieldTypeStr);
+      constantFieldInfos.add(constantFieldInfo);
+    }
+    return constantFieldInfos;
   }
 
   /**
@@ -264,43 +338,55 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
       throws Exception {
     // excel字段数据结构
     ExcelDataStruct dataStruct = new ExcelDataStruct(file.getName(), sheetBean.getSheetName());
-    Set<String> sameFieldNameFilter = new HashSet<>();
+    Map<String, String> sameFieldNameFilter = new HashMap<>();
     String idNameStr = SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName();
     // 移除子类id字段
-    sameFieldNameFilter.add(idNameStr);
+    sameFieldNameFilter.put(idNameStr, Integer.class.getName());
     String skipStr =
         SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr();
     Set<Integer> skipColList = ExcelTemplateGenUtils.getSkipCellList(sheet, skipStr);
     if (childExcelFileList.size() > 1) {
       // 加载子excel信息
       for (File childExcelFile : childExcelFileList) {
-        Workbook workbook = null;
-        try {
-          workbook = WorkbookFactory.create(childExcelFile, null, true);
+        try (Workbook workbook = WorkbookFactory.create(childExcelFile, null, true)) {
           Sheet childSheet = workbook.getSheetAt(0);
           // 获取excel字段信息
-          Set<ExcelFieldInfo> excelFieldInfo =
+          Set<ExcelFieldInfo> excelFieldInfos =
               ExcelTemplateGenUtils.getExcelFields(file, childSheet, skipColList);
-          // 移除同名字段
-          excelFieldInfo.removeIf(
-              fieldInfo ->
-                  sameFieldNameFilter.contains(fieldInfo.getFieldName().getFieldData())
-                      || idNameStr.equalsIgnoreCase(fieldInfo.getFieldName().getFieldData()));
-          // 填充excel字段信息
-          fillDataStructByExcelFieldInfo(hasParentSheet, dataStruct, excelFieldInfo);
-          // 处理同名字段
-          sameFieldNameFilter.addAll(
-              excelFieldInfo.stream()
-                  .map(fieldInfo -> fieldInfo.getFieldName().getFieldData())
-                  .collect(Collectors.toList()));
-        } finally {
-          if (workbook != null) {
-            try {
-              workbook.close();
-            } catch (IOException e) {
-              LoggerUtils.getLogger().error("关闭excel: {} 工作薄失败", file.getName(), e);
+          Iterator<ExcelFieldInfo> iterator = excelFieldInfos.iterator();
+          while (iterator.hasNext()) {
+            ExcelFieldInfo excelFieldInfo = iterator.next();
+            String fieldName = excelFieldInfo.getFieldName().getFieldData();
+            String fieldType = excelFieldInfo.getFieldType().getFieldData();
+            if (sameFieldNameFilter.containsKey(fieldName)
+                || idNameStr.equalsIgnoreCase(fieldName)) {
+              iterator.remove();
+            }
+            // 如果字段名重复，却类型不一致，抛出异常
+            if (!idNameStr.equalsIgnoreCase(fieldName)
+                && sameFieldNameFilter.containsKey(fieldName)
+                && !sameFieldNameFilter.get(fieldName).equalsIgnoreCase(fieldType)) {
+              throw new ExcelParseException(
+                  childExcelFile.getName(),
+                  "子表同一个字段名："
+                      + fieldName
+                      + " 但是类型不一致！当前类型："
+                      + fieldType
+                      + "冲突类型："
+                      + sameFieldNameFilter.get(fieldName));
             }
           }
+          // 填充excel字段信息
+          fillDataStructByExcelFieldInfo(hasParentSheet, dataStruct, excelFieldInfos);
+          // 处理同名字段
+          sameFieldNameFilter.putAll(
+              excelFieldInfos.stream()
+                  .collect(
+                      HashMap::new,
+                      (map, ef) ->
+                          map.put(
+                              ef.getFieldName().getFieldData(), ef.getFieldType().getFieldData()),
+                      HashMap::putAll));
         }
       }
       // 由于父节点的字段由多个文件组成所以需在外层进行单独排序 对枚举字段进行排序
@@ -322,7 +408,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
         // 移除同名字段
         excelFieldInfo.removeIf(
             fieldInfo ->
-                sameFieldNameFilter.contains(fieldInfo.getFieldName().getFieldData())
+                sameFieldNameFilter.containsKey(fieldInfo.getFieldName().getFieldData())
                     || idNameStr.equalsIgnoreCase(fieldInfo.getFieldName().getFieldData()));
         // 填充excel字段信息
         fillDataStructByExcelFieldInfo(hasParentSheet, dataStruct, excelFieldInfo);
@@ -359,7 +445,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
 
   /** 生成配置表容器bean */
   private void generateOneCfgContainerBean(
-      ExcelSheetBean sheetBean, ExcelFileStructure excelFileStructure)
+      Workbook workbook, ExcelSheetBean sheetBean, ExcelFileStructure excelFileStructure)
       throws IOException, TemplateException {
     // 当前文件
     File curGenFile = excelFileStructure.getCurrent();
@@ -425,6 +511,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     dataMap.put("sheetBean", sheetBean);
     dataMap.put("excelName", curGenFile.getName());
     dataMap.put("date", getGenerateDate());
+    // 生成配置表常量模板
+    List<ExcelConstantFieldInfo> constantFieldInfos = generateConstantBean(workbook);
+    dataMap.put("constantFields", constantFieldInfos);
     // 生成模板文件
     generateTemplate(dataMap, DefaultEnvConfigConstant.CFG_CONTAINER_TEMPLATE_NAME, outputFilePath);
     // 保存生成成功之后的路径和工作薄数据

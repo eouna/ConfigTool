@@ -41,7 +41,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
 
   protected Logger logger = LoggerFactory.getLogger(this.getClass());
 
-  // region============================== 模板 =============================
+  // region============================== 配置Bean字段模板 =============================
   /** 字段描述列 */
   protected int fieldDescRow = ${fieldInfo.fieldDesc.configBindRow};
   /** 字段类型列 */
@@ -52,7 +52,18 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
   protected int fieldDataRangeRow = ${fieldInfo.fieldDataRange.configBindRow};
   /** 数据读取开始行数 */
   protected int dataStartRow = ${dataStartRow};
-  // endregion============================== 模板 ==============================
+  // endregion============================== 配置Bean字段模板 ==============================
+
+  // region============================== 常量字段模板 =============================
+  /** 字段名列 */
+  protected int constFieldNameRow = ${constFieldInfo.fieldName.configBindRow};
+  /** 字段类型列 */
+  protected int constFieldTypeRow = ${constFieldInfo.fieldType.configBindRow};
+  /** 字段值列 */
+  protected int constFieldDataVal = ${constFieldInfo.fieldVal.configBindRow};
+  /** 字段描述列 */
+  protected int constFieldDescRow = ${constFieldInfo.fieldDesc.configBindRow};
+  // endregion============================== 常量字段模板 ==============================
 
   /** cfgBeanMap key: 配置的ID, 配置的数据 */
   protected Map<Integer, T> cfgBeanMap = Collections.emptyMap();
@@ -123,8 +134,8 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
     }
     // 检查和获取绑定的excel文件
     List<File> excelFileList = checkAndGetExcelFile(resourceRootPath);
-    Map<Integer, T> tempCfgMap = new ConcurrentHashMap<>(8);
-    Map<String, String> md5HexMap = new ConcurrentHashMap<>(excelFileList.size());
+    Map<Integer, T> tempCfgMap = new HashMap<>(8);
+    Map<String, String> md5HexMap = new HashMap<>(excelFileList.size());
     for (File file : excelFileList) {
       // 给文件的md5赋值
       String md5Hex = DigestUtils.md5Hex(Files.newInputStream(file.toPath()));
@@ -172,6 +183,8 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
         // 设置为不可变map
         cfgBeanMap = Collections.unmodifiableMap(tempCfgMap);
       }
+      // 初始化常量字段
+      invokeConstantField(file, wb);
       // 关闭工作薄
       wb.close();
     }
@@ -181,6 +194,95 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
     }
     // 保存md5值
     md5CacheMap = Collections.unmodifiableMap(md5HexMap);
+  }
+
+  /**
+   * 初始化常量字段
+   *
+   * @param workbook 工作簿
+   */
+  private void invokeConstantField(File excelFile, Workbook workbook) {
+    Sheet sheet = workbook.getSheet("${constantSheetName}");
+    // 没有常量
+    if (sheet == null) {
+      return;
+    }
+    // 开始行数和结束行数
+    int startRow = 1, lastRowNum = sheet.getLastRowNum();
+    // 未配置
+    if (startRow == lastRowNum) {
+      return;
+    }
+    Map<String, Field> constFieldInfo = loadConstFieldInfo();
+    List<String> constFieldNameList = new ArrayList<>(constFieldInfo.keySet());
+    for (int i = startRow; i <= lastRowNum; i++) {
+      Row row = sheet.getRow(i);
+      // 名字列
+      Cell constFieldNameCell = row.getCell(constFieldNameRow);
+      String constFieldName = getCellValue(constFieldNameCell);
+      // 如果配置中有，但是代码中没有，跳过
+      if (!constFieldInfo.containsKey(constFieldName)) {
+        continue;
+      }
+      // 类型列
+      Cell constFieldTypeCell = row.getCell(constFieldTypeRow);
+      String constFieldType = getCellValue(constFieldTypeCell);
+      // 具体值
+      Cell constFieldValCell = row.getCell(constFieldDataVal);
+      ExcelFieldInfo excelFieldInfo = new ExcelFieldInfo();
+      excelFieldInfo.setFieldName(constFieldName);
+      excelFieldInfo.setOriginFieldType(constFieldType);
+      Object cellData = null;
+      if (constFieldTypeCell == null) {
+        FieldDataAdapter fieldDataAdapter =
+            FieldDataAdapter.getFieldAdapterByTypeStr(constFieldType);
+        // 为空时需要赋予默认值
+        cellData = fieldDataAdapter.getFieldAdapter().getDefaultVal();
+      } else {
+        try {
+          // 解析excel中的数据
+          cellData = parseCellData(constFieldType, constFieldValCell, null);
+        } catch (Exception e) {
+          // 如果此处发生异常说明是配置表格式发生了错误
+          this.exceptionCollectors.add(
+              new ExcelDataParseException(
+                  excelFieldInfo,
+                  row,
+                  constFieldValCell,
+                  "配置表常量数据解析异常,请检查单元格数据格式, 异常信息: " + e.getMessage()));
+          continue;
+        }
+      }
+      try {
+        Field field = constFieldInfo.get(constFieldName);
+        field.setAccessible(true);
+        field.set(this, cellData);
+      } catch (Exception e) {
+        // 此处发生异常说明字段不匹配
+        this.exceptionCollectors.add(
+            new ExcelDataParseException(
+                excelFieldInfo, row, constFieldValCell, "常量数据解析时，excel字段和程序字段不匹配,请重新生成java文件"));
+      }
+    }
+  }
+
+  /**
+   * 加载字段信息
+   *
+   * @param sheet 表信息
+   * @return 字段信息
+   */
+  protected Map<String, Field> loadConstFieldInfo() {
+    Map<String, Field> fieldMap = new HashMap<>(8);
+    for (Field declaredField : this.getClass().getDeclaredFields()) {
+        int fieldModifier = declaredField.getModifiers();
+        boolean isStaticFinalField =
+            Modifier.isStatic(fieldModifier) && Modifier.isFinal(fieldModifier);
+        if (!isStaticFinalField) {
+            fieldMap.put(declaredField.getName(), declaredField);
+        }
+    }
+    return fieldMap;
   }
 
   /**

@@ -127,21 +127,23 @@ public class ExcelTemplateGenUtils {
         templateGenerator ->
             templateGenerator
                 .getTemplateGenerator()
-                .generatorBefore(successGenList, excelFileStructure));
-    for (Map.Entry<File, ExcelFileStructure> fileSture : excelFileStructure.entrySet()) {
-      File currentDealFile = fileSture.getKey();
-      if (!currentDealFile.exists()) {
-        LoggerUtils.getLogger().info("跳过父节点: " + currentDealFile.getName());
-        continue;
+                .generatorBefore(successGenList, excelFileStructure, NORMAL_EXCEPTION_COLLECTOR));
+    if (!NORMAL_EXCEPTION_COLLECTOR.isEmpty()) {
+      for (Map.Entry<File, ExcelFileStructure> fileSture : excelFileStructure.entrySet()) {
+        File currentDealFile = fileSture.getKey();
+        if (!currentDealFile.exists()) {
+          LoggerUtils.getLogger().info("生成跳过父节点: {}", currentDealFile.getName());
+          continue;
+        }
+        // 生成一个模板
+        generateOneExcelByTemplate(
+            textAreaLogger,
+            fileSture.getKey(),
+            templateGenerators,
+            successGenList,
+            fileSture.getValue(),
+            NORMAL_EXCEPTION_COLLECTOR);
       }
-      // 生成一个模板
-      generateOneExcelByTemplate(
-          textAreaLogger,
-          fileSture.getKey(),
-          templateGenerators,
-          successGenList,
-          fileSture.getValue(),
-          NORMAL_EXCEPTION_COLLECTOR);
     }
     // 完成后调用
     whenGenTemplateFinished(
@@ -219,38 +221,45 @@ public class ExcelTemplateGenUtils {
         templateGenerator ->
             templateGenerator
                 .getTemplateGenerator()
-                .generatorBefore(successGenList, excelFileStructureMap));
-    for (Map.Entry<File, ExcelFileStructure> fileSture : excelFileStructureMap.entrySet()) {
-      File currentDealFile = fileSture.getKey();
-      ExcelFileStructure fileStureValue = fileSture.getValue();
-      if (!currentDealFile.exists()) {
-        LoggerUtils.getLogger().info("跳过父节点: " + currentDealFile.getName());
-        continue;
-      }
-      // 将excel抛入excel生成专用线程处理
-      excelGenExecutorPool.execute(
-          () -> {
-            try {
-              generateOneExcelByTemplate(
-                  textAreaLogger,
-                  currentDealFile,
-                  templateGenerators,
-                  successGenList,
-                  fileStureValue,
-                  EXCEPTION_COLLECTOR);
-            } catch (Exception e) {
-              LoggerUtils.getLogger()
-                  .error("{} trace: \n{}", e.getMessage(), ExceptionUtils.getStackTrace(e));
-              textAreaLogger.info(
-                  "生成配置表: {}, 异常: {}", currentDealFile.getName(), ExceptionUtils.getStackTrace(e));
-              // 发生异常时是否立即退出
-              if (DefaultEnvConfigConstant.IS_GEN_EXCEL_ERROR_EXIT_NOW) {
-                generatorCounter.set(0);
+                .generatorBefore(
+                    successGenList, excelFileStructureMap, EXCEPTION_COLLECTOR));
+    if (EXCEPTION_COLLECTOR.isEmpty()) {
+      for (Map.Entry<File, ExcelFileStructure> fileSture : excelFileStructureMap.entrySet()) {
+        File currentDealFile = fileSture.getKey();
+        ExcelFileStructure fileStureValue = fileSture.getValue();
+        if (!currentDealFile.exists()) {
+          LoggerUtils.getLogger().info("跳过父节点: " + currentDealFile.getName());
+          continue;
+        }
+        // 将excel抛入excel生成专用线程处理
+        excelGenExecutorPool.execute(
+            () -> {
+              try {
+                generateOneExcelByTemplate(
+                    textAreaLogger,
+                    currentDealFile,
+                    templateGenerators,
+                    successGenList,
+                    fileStureValue,
+                    EXCEPTION_COLLECTOR);
+              } catch (Exception e) {
+                LoggerUtils.getLogger()
+                    .error("{} trace: \n{}", e.getMessage(), ExceptionUtils.getStackTrace(e));
+                textAreaLogger.info(
+                    "生成配置表: {}, 异常: {}",
+                    currentDealFile.getName(),
+                    ExceptionUtils.getStackTrace(e));
+                // 发生异常时是否立即退出
+                if (DefaultEnvConfigConstant.IS_GEN_EXCEL_ERROR_EXIT_NOW) {
+                  generatorCounter.set(0);
+                }
+              } finally {
+                generatorCounter.decrementAndGet();
               }
-            } finally {
-              generatorCounter.decrementAndGet();
-            }
-          });
+            });
+      }
+    } else {
+      generatorCounter.set(0);
     }
     DefaultFuture.runAsync(
             () -> {
@@ -442,7 +451,7 @@ public class ExcelTemplateGenUtils {
         try {
           workbook.close();
         } catch (IOException e) {
-          LoggerUtils.getLogger().error("关闭excel:" + file.getName() + "工作薄失败", e);
+          LoggerUtils.getLogger().error("关闭excel:{}工作薄失败", file.getName(), e);
         }
       }
     }

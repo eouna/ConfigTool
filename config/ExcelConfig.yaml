@@ -33,14 +33,20 @@ excelConf:
     fieldNameRow: 2
     fieldDataRangeRow: 3
     isUnderLineTransUpper: false
+  constantFieldRow:
+    fieldDescCol: 3
+    fieldTypeCol: 1
+    fieldNameCol: 0
+    fieldValCol: 2
   path:
     excelConfigLoadPath: example
     templateFileGenTargetDir: gentemppath/genpackage
     templatePath: ftl
-jsonTemplateConf:
-  isSplitMultiJson: true
+  dataConstantSheetName: const
 cache:
   sqliteConfig:
     enable: false
     user: admin
     pass: pass
+jsonTemplateConf:
+  isSplitMultiJson: true

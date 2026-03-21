@@ -35,7 +35,7 @@ public abstract class AbstractTemplateGenerator {
    * @param excelFileStructureMap excel文件结构
    */
   public void generatorBefore(
-      List<File> successGenList, Map<File, ExcelFileStructure> excelFileStructureMap) {}
+      List<File> successGenList, Map<File, ExcelFileStructure> excelFileStructureMap, List<Exception> exceptions) {}
 
   /**
    * 生成一个excel文件

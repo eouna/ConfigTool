@@ -196,4 +196,45 @@ public class ExcelDataStruct {
       return Objects.hashCode(super.hashCode(), getEnumFieldData());
     }
   }
+
+  /** excel常量字段配置信息 */
+  public static class ExcelConstantFieldInfo extends ExcelFieldInfo {
+    /** 常量配置值 */
+    protected FieldMetadata<String> fieldVal;
+
+    public ExcelConstantFieldInfo() {
+      this.fieldDesc =
+          new FieldMetadata<>(
+              SystemConfigHolder.getInstance()
+                  .getExcelConf()
+                  .getConstantFieldRow()
+                  .getFieldDescCol());
+      this.fieldType =
+          new FieldMetadata<>(
+              SystemConfigHolder.getInstance()
+                  .getExcelConf()
+                  .getConstantFieldRow()
+                  .getFieldTypeCol());
+      this.fieldName =
+          new FieldMetadata<>(
+              SystemConfigHolder.getInstance()
+                  .getExcelConf()
+                  .getConstantFieldRow()
+                  .getFieldNameCol());
+      this.fieldVal =
+          new FieldMetadata<>(
+              SystemConfigHolder.getInstance()
+                  .getExcelConf()
+                  .getConstantFieldRow()
+                  .getFieldValRowRow());
+    }
+
+    public FieldMetadata<String> getFieldVal() {
+      return fieldVal;
+    }
+
+    public void setFieldVal(FieldMetadata<String> fieldVal) {
+      this.fieldVal = fieldVal;
+    }
+  }
 }
