@@ -68,6 +68,9 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
   /** cfgBeanMap key: 配置的ID, 配置的数据 */
   protected Map<Integer, T> cfgBeanMap = Collections.emptyMap();
 
+  /** 数据Bean列表 */
+  protected List<T> cfgBeans;
+
   /** excel解析异常收集器 */
   protected List<Exception> exceptionCollectors = new CopyOnWriteArrayList<>();
 
@@ -1559,7 +1562,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
   }
 
   public Map<Integer, T> getCfgBeanMap() {
-    return Collections.unmodifiableMap(cfgBeanMap);
+    return cfgBeanMap;
   }
 
   public List<Exception> getExceptionCollectors() {
@@ -1567,11 +1570,13 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
   }
 
   public List<T> getCfgBeanList() {
-    return Collections.unmodifiableList(new ArrayList<>(cfgBeanMap.values()));
+    return cfgBeans == null
+        ? cfgBeans = Collections.unmodifiableList(new ArrayList<>(cfgBeanMap.values()))
+        : cfgBeans;
   }
 
   public Map<String, String> getMd5CacheMap() {
-    return Collections.unmodifiableMap(md5CacheMap);
+    return md5CacheMap;
   }
 
   public int getFieldTypeRow() {
