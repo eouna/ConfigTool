@@ -342,15 +342,7 @@ public class ExcelTemplateGenUtils {
       FileUtils.getOrCreateDir(genTargetDir);
       // 先删除模板文件夹中的文件
       org.apache.commons.io.FileUtils.cleanDirectory(new File(genTargetDir));
-      // 创建bean目录
-      String basePath = genTargetDir + File.separator + DefaultEnvConfigConstant.CFG_BEAN_PATH;
-      // 获取或者创建文件路径
-      FileUtils.getOrCreateDir(basePath);
-      // 创建container目录
-      String containerBasePath =
-          genTargetDir + File.separator + DefaultEnvConfigConstant.CONTAINER_PATH;
-      // 获取或者创建文件路径
-      FileUtils.getOrCreateDir(containerBasePath);
+      // 各语言模板在自己的语言目录下创建子目录(bean/container/src等)
     } catch (Exception e) {
       LoggerUtils.getLogger().error("清除文件错误", e);
     }

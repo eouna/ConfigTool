@@ -59,6 +59,9 @@ public abstract class AbstractTemplateGenerator {
   public void generatorAfter(
       TextAreaLogger textAreaLogger, Map<File, ExcelFileStructure> excelFileStructureMap) {}
 
+  /** 获取模板所在子目录(默认java, 其他语言生成器可覆写) */
+  protected abstract String getTemplateBindRelatedPath();
+
   /**
    * 获取freeMaker的配置解析器
    *
@@ -69,10 +72,7 @@ public abstract class AbstractTemplateGenerator {
     Configuration configuration = new Configuration(Configuration.VERSION_2_3_34);
     String templatePath =
         SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplatePath();
-    String templateDir =
-        templatePath
-            + File.separator
-            + ETemplateGenerator.JAVA_GENERATOR.getTemplateHandler().getTemplateBindRelatedPath();
+    String templateDir = templatePath + File.separator + getTemplateBindRelatedPath();
     configuration.setDirectoryForTemplateLoading(new File(templateDir));
     configuration.setDefaultEncoding("UTF-8");
     return configuration;

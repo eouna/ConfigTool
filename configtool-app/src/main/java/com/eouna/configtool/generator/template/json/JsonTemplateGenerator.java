@@ -297,6 +297,11 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
     }
   }
 
+  @Override
+  protected String getTemplateBindRelatedPath() {
+    return ETemplateGenerator.JSON_GENERATOR.getTemplateHandler().getTemplateBindRelatedPath();
+  }
+
   /** 将excel数据合并为一个大的json文件 */
   private void mergeSingleJsonFile(TextAreaLogger textAreaLogger) {
     File outJsonFile =

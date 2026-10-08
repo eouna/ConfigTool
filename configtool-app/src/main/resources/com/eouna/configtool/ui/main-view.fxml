@@ -340,6 +340,16 @@
                           selected="true"/>
                 <CheckBox mnemonicParsing="false" prefHeight="30.0" prefWidth="50.0"
                           text="json" onAction="#onTemplateCheckBoxClicked"/>
+                <CheckBox mnemonicParsing="false" prefHeight="30.0" prefWidth="50.0"
+                          text="go" onAction="#onTemplateCheckBoxClicked"/>
+                <CheckBox mnemonicParsing="false" prefHeight="30.0" prefWidth="50.0"
+                          text="rust" onAction="#onTemplateCheckBoxClicked"/>
+                <CheckBox mnemonicParsing="false" prefHeight="30.0" prefWidth="50.0"
+                          text="csharp" onAction="#onTemplateCheckBoxClicked"/>
+                <CheckBox mnemonicParsing="false" prefHeight="30.0" prefWidth="50.0"
+                          text="lua" onAction="#onTemplateCheckBoxClicked"/>
+                <CheckBox mnemonicParsing="false" prefHeight="30.0" prefWidth="50.0"
+                          text="cpp" onAction="#onTemplateCheckBoxClicked"/>
             </HBox>
             <ToolBar nodeOrientation="RIGHT_TO_LEFT" prefHeight="50.0">
                 <VBox.margin>

@@ -387,6 +387,10 @@
                                     <includes>
                                         <include>*.xlsx</include>
                                     </includes>
+                                    <excludes>
+                                        <!--排除Excel打开时产生的临时锁文件-->
+                                        <exclude>~$*</exclude>
+                                    </excludes>
                                 </resource>
                             </resources>
                         </configuration>
