@@ -7,6 +7,11 @@
 
 Exports Excel game configuration tables into **data-reading code** and **data files** for several languages. Built on JavaFX with a visual interface, it supports exporting a single table or many tables in batch, and validates the table format and data while generating.
 
+# Documentation
+
+- [Configuration Guide](doc/configuration_EN.md) - table layout rules, field types, validation rules, split tables, how to use the generated output in your project
+- [Command Line Usage](doc/usage.md) - parameters, examples and exit codes for non-GUI mode (Chinese)
+
 # Supported Languages
 
 | Language | `--lang` value | Notes |
@@ -35,11 +40,6 @@ Multiple languages can be selected at once, and the output is written into per-l
    ![Settings](doc/img/Setting.png)
 3. Configuration guide
    ![Configuration guide](doc/img/Help.png)
-
-# Documentation
-
-- [Configuration Guide](doc/configuration_EN.md) - table layout rules, field types, validation rules, split tables, how to use the generated output in your project
-- [Command Line Usage](doc/usage.md) - parameters, examples and exit codes for non-GUI mode (Chinese)
 
 # TODO
 
