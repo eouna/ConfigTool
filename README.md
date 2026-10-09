@@ -1,5 +1,5 @@
 <h1 align="center">配置表工具</h1> 
-<img alt="logo" src="src/main/resources/com/eouna/configtool/icon/main.png">
+<img alt="logo" src="configtool-app/src/main/resources/com/eouna/configtool/icon/main.png">
 
 # GameConfigTool
 
