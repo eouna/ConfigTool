@@ -205,8 +205,11 @@ public class FxApplicationLoader extends Application {
     List<String> arg =
         commandLineAndArgs.getOptionArgs(EnvironmentConstant.COMMEND_LINE_ARG_START_MODE);
     if (arg.isEmpty()) {
-      // 默认以带界面的方式进行启动
-      applicationEnvironment = new FxApplicationEnvironment();
+      // 默认以带界面的方式进行启动; 若请求了帮助/用法说明, 则以命令行方式打印后退出
+      applicationEnvironment =
+          isHelpRequested(commandLineAndArgs)
+              ? new NoneGuiApplicationEnvironment()
+              : new FxApplicationEnvironment();
     } else {
       StartMode mode = StartMode.getModeByStr(arg.get(0));
       if (mode == null) {
@@ -223,6 +226,16 @@ public class FxApplicationLoader extends Application {
     }
     applicationEnvironment.setCommandLineAndArgs(commandLineAndArgs);
     return applicationEnvironment;
+  }
+
+  /** 是否请求了帮助/用法说明(--help / --usage / -h) */
+  private boolean isHelpRequested(CommandLineAndArgs commandLineAndArgs) {
+    for (String helpName : new String[] {EnvironmentConstant.COMMAND_LINE_ARG_HELP, "usage", "h"}) {
+      if (commandLineAndArgs.containOptionName(helpName)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public List<ApplicationListener<?>> getListeners() {

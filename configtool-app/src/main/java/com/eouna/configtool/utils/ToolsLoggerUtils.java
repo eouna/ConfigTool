@@ -6,7 +6,7 @@ import com.eouna.configtool.core.window.WindowManager;
 import com.eouna.configtool.ui.controllers.ExcelGenWindowController;
 import com.eouna.configtool.ui.controllers.ShowModalController;
 import javafx.application.Platform;
-import javafx.scene.text.TextFlow;
+import lombok.Setter;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.controlsfx.dialog.ExceptionDialog;
 
@@ -17,6 +17,14 @@ public class ToolsLoggerUtils {
 
   private static final int MAX_EXCEPTION_DIALOG_SHOW_LEN = 1000;
 
+  /** 是否为非GUI(命令行)模式; 非GUI模式下错误信息只记录日志, 不弹出窗口 -- SETTER -- 设置是否非GUI模式 */
+  @Setter private static volatile boolean headlessMode;
+
+  /** 是否为非GUI模式 */
+  public static boolean isHeadlessMode() {
+    return headlessMode;
+  }
+
   /**
    * 展示错误弹窗
    *
@@ -26,6 +34,11 @@ public class ToolsLoggerUtils {
   public static void showErrorDialog(String title, Throwable e) {
     String content =
         "[   msg   ]: " + e.getMessage() + "\n[   trace  ]: " + ExceptionUtils.getStackTrace(e);
+    // 非GUI模式不弹窗, 只记录日志
+    if (headlessMode) {
+      LoggerUtils.getLogger().error(title + ": " + content, e);
+      return;
+    }
     TextAreaLogger textAreaLogger = getMainTextAreaLog();
     if (textAreaLogger != null) {
       textAreaLogger.error(title + ": " + content);
@@ -52,6 +65,11 @@ public class ToolsLoggerUtils {
    * @param content 错误信息
    */
   public static void showErrorDialog(String title, String content) {
+    // 非GUI模式不弹窗, 只记录日志
+    if (headlessMode) {
+      LoggerUtils.getLogger().error(title + ": " + content);
+      return;
+    }
     TextAreaLogger textAreaLogger = getMainTextAreaLog();
     if (textAreaLogger != null) {
       textAreaLogger.error(title + ": " + content);

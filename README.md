@@ -117,6 +117,37 @@ java.base/java.io=ALL-UNNAMED
 java.rmi/sun.rmi.transport=ALL-UNNAMED
 ```
 
+
+# 命令行(非GUI)模式
+
+完整用法见 [用法说明](doc/usage.md)。命令行参数速查如下：
+
+除了图形界面, 工具还支持以命令行方式运行, 适合集成到打包/CI流程中. 通过`--mode`参数切换启动模式, 不设置时默认为GUI.
+
+| 参数                       | 说明                                                                   | 默认值             |
+|--------------------------|----------------------------------------------------------------------|-----------------|
+| `--mode=gui\|none_gui`   | 启动模式, `gui`为图形界面, `none_gui`为命令行模式(兼容`nogui`/`commandline`/`cli`等写法) | `gui`           |
+| `--excel_path=./example` | excel目录或单个excel文件, 支持相对路径(基于工作目录)                                    | 读取系统配置中的excel路径 |
+| `--dest_path=./out`      | 导出目录, 支持相对路径(基于工作目录)                                                 | 读取系统配置中的导出路径    |
+| `--lang=java`            | 导出语言, 多个语言用逗号分隔, 可选`java`/`json`/`go`/`rust`/`csharp`/`lua`/`cpp`    | `java`          |
+| `--help` / `-h`          | 打印用法说明并退出                                                            | -               |
+
+示例:
+
+```shell
+# 默认导出java, 非GUI模式会自动追加json以保证完整走一次配置检查逻辑
+ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out
+
+# 同时导出go和rust
+ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=go,rust
+```
+
+说明:
+
+1. 非GUI模式会固定追加json生成器, 保证至少完整走一次配置检查逻辑(字段类型/枚举/重复工作薄名等校验).
+2. 非GUI模式下命令行传入的`excel_path`/`dest_path`不会写回系统配置文件, 不会覆盖界面配置.
+3. 生成结果通过控制台输出和`log/ConfigTool.log`查看, 进程退出码: 0成功, 1生成失败, 2未找到excel文件.
+
 # 生成模板文件后引入工程相关说明
 
 ## java
@@ -150,5 +181,5 @@ java.rmi/sun.rmi.transport=ALL-UNNAMED
 # TODO
 
 ~~1. [多语言支持](#multiLan)后续支持多语言扩展和选择.~~
-2. 程序命令行支持
+~~2. 程序命令行支持~~
 3. 配置界面数组配置的展示组件

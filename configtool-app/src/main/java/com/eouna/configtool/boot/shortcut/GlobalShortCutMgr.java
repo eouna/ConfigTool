@@ -1,17 +1,17 @@
 package com.eouna.configtool.boot.shortcut;
 
+import com.eouna.configtool.core.annotaion.ApplicationInitialized;
+import com.eouna.configtool.core.annotaion.AutoInject;
+import com.eouna.configtool.core.boot.context.ApplicationContext;
+import com.eouna.configtool.core.factory.anno.Component;
+import com.eouna.configtool.core.window.WindowManager;
+import com.eouna.configtool.ui.controllers.ExcelSearchController;
+import com.eouna.configtool.utils.FxApplicationContextHolder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-
-import com.eouna.configtool.common.FxApplicationContextHolder;
-import com.eouna.configtool.core.annotaion.ApplicationInitialized;
-import com.eouna.configtool.core.boot.context.ApplicationContext;
-import com.eouna.configtool.core.factory.anno.Component;
-import com.eouna.configtool.core.window.WindowManager;
-import com.eouna.configtool.ui.controllers.ExcelSearchController;
 import javafx.scene.Scene;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
@@ -33,6 +33,8 @@ public class GlobalShortCutMgr {
   /** 场景 */
   private Scene mainScene;
 
+  @AutoInject private FxApplicationContextHolder fxApplicationContextHolder;
+
   /** 搜索快捷键 */
   private static final KeyCodeCombination SEARCH_SHORTCUT =
       new KeyCodeCombination(KeyCode.F, KeyCombination.CONTROL_DOWN);
@@ -40,7 +42,7 @@ public class GlobalShortCutMgr {
   /** 初始化默认的快捷键 */
   @ApplicationInitialized
   public void initDefaultCombinationKeys() {
-    ApplicationContext applicationContext = FxApplicationContextHolder.getInstance().getContext();
+    ApplicationContext applicationContext = fxApplicationContextHolder.getApplicationContext();
     // 主舞台
     Stage mainStage = applicationContext.getMainStage();
     // 注册搜索键
@@ -64,7 +66,7 @@ public class GlobalShortCutMgr {
     if (containShortCut(scene, keyCodeCombine)) {
       return;
     }
-    synchronized (SHORT_CUT_CACHE){
+    synchronized (SHORT_CUT_CACHE) {
       // 注册组合键及其对应的回调
       scene.getAccelerators().put(keyCodeCombine.getKeyCodeCombine(), keyCodeCombine.callBack);
       SHORT_CUT_CACHE.computeIfAbsent(scene, k -> new ArrayList<>()).add(keyCodeCombine);
@@ -96,6 +98,7 @@ public class GlobalShortCutMgr {
   public static class KeyCodeCombine {
     /** 组合键的描述 */
     private String combineCodeDesc;
+
     /** 键的组合 */
     private KeyCodeCombination keyCodeCombine;
 

@@ -1,16 +1,22 @@
 package com.eouna.configtool.configholder;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import com.eouna.configtool.configholder.ConfigDataBean.CacheConfig;
+import com.eouna.configtool.configholder.ConfigDataBean.ExcelConf;
+import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
+import com.eouna.configtool.configholder.ConfigDataBean.JsonTemplateConf;
+import com.eouna.configtool.configholder.ConfigDataBean.ServerLoadExcelDirConfBean;
+import com.eouna.configtool.configholder.ConfigDataBean.SyncConfig;
+import com.eouna.configtool.constant.DefaultEnvConfigConstant;
+import com.eouna.configtool.core.factory.anno.Component;
+import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.utils.FileUtils;
+import com.eouna.configtool.utils.FxApplicationContextHolder;
+import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.ParameterizedType;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -21,16 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import com.eouna.configtool.configholder.ConfigDataBean.CacheConfig;
-import com.eouna.configtool.configholder.ConfigDataBean.JsonTemplateConf;
-import com.eouna.configtool.configholder.ConfigDataBean.ServerLoadExcelDirConfBean;
-import com.eouna.configtool.configholder.ConfigDataBean.SyncConfig;
-import com.eouna.configtool.constant.DefaultEnvConfigConstant;
-import com.eouna.configtool.configholder.ConfigDataBean.ExcelConf;
-import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
-import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.core.logger.LoggerUtils;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.yaml.snakeyaml.DumperOptions;
@@ -45,6 +43,7 @@ import org.yaml.snakeyaml.representer.Representer;
  * @author CCL
  * @date 2023/3/1
  */
+@Component
 public class SystemConfigHolder {
 
   // region============================== 配置信息(自动加载) ==============================
@@ -74,6 +73,11 @@ public class SystemConfigHolder {
 
   // endregion============================== 配置信息 ==============================
 
+  /**
+   * 是否将配置持久化到文件; 非GUI(命令行)模式下关闭, 避免命令行参数覆盖用户配置 -- SETTER -- 设置是否允许持久化系统配置 -- GETTER -- 是否允许持久化系统配置
+   */
+  @Getter @Setter private static volatile boolean configPersistEnabled = true;
+
   /** 服务器模块绑定配置正则 */
   private static final Pattern SERVER_MODULE_BIND_CONF_PATTERN =
       Pattern.compile("^(\\w+)\\((.*)\\)");
@@ -102,6 +106,10 @@ public class SystemConfigHolder {
 
   /** 存储系统配置文件信息 */
   public void saveSystemConfigToFile() throws IOException, IllegalAccessException {
+    // 非GUI(命令行)模式不落盘, 避免命令行传入的路径覆盖用户配置
+    if (!configPersistEnabled) {
+      return;
+    }
     DumperOptions dumperOptions = new DumperOptions();
     dumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
     dumperOptions.setProcessComments(true);
@@ -115,7 +123,9 @@ public class SystemConfigHolder {
             new Representer(dumperOptions),
             dumperOptions,
             loaderOptions);
-    FileWriter writer = new FileWriter(getSystemConfigPath());
+    // 固定使用UTF-8写入, 否则在中文Windows(GBK)下写出后下次启动会因编码不一致解析失败
+    Writer writer =
+        new OutputStreamWriter(new FileOutputStream(getSystemConfigPath()), StandardCharsets.UTF_8);
     SystemConfigHolder systemConfigHolder = getInstance();
     Map<String, Object> objectMap = new HashMap<>(8);
     List<Field> fields =
@@ -424,21 +434,6 @@ public class SystemConfigHolder {
    * @return SystemConfigHolder
    */
   public static SystemConfigHolder getInstance() {
-    return Singleton.INSTANCE.getInstance();
-  }
-
-  enum Singleton {
-    // 单例
-    INSTANCE;
-
-    private final SystemConfigHolder instance;
-
-    Singleton() {
-      this.instance = new SystemConfigHolder();
-    }
-
-    public SystemConfigHolder getInstance() {
-      return instance;
-    }
+    return FxApplicationContextHolder.getContext().getBean(SystemConfigHolder.class);
   }
 }

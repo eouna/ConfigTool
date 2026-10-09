@@ -130,6 +130,9 @@
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
             <version>${poi.version}</version>
+            <!--JPMS 约束: poi 的 module-info 声明 requires commons-math3 / com.zaxxer.sparsebitset,
+                在模块路径下不能剔除这些传递依赖, 否则启动时报 "module ... not found"。
+                commons-io 由本模块的直接依赖提供, 这里仅屏蔽传递引入的旧版本。-->
             <exclusions>
                 <exclusion>
                     <groupId>commons-io</groupId>
@@ -143,10 +146,6 @@
             <version>${poi.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-api</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>org.apache.commons</groupId>
                     <artifactId>commons-lang3</artifactId>
                 </exclusion>
@@ -154,6 +153,12 @@
                     <groupId>commons-io</groupId>
                     <artifactId>commons-io</artifactId>
                 </exclusion>
+                <!--曲线绘制与额外压缩格式未使用(只读xlsx)-->
+                <exclusion>
+                    <groupId>com.github.virtuald</groupId>
+                    <artifactId>curvesapi</artifactId>
+                </exclusion>
+
             </exclusions>
         </dependency>
         <dependency>
@@ -171,13 +176,9 @@
             <artifactId>aspectjrt</artifactId>
             <version>${aspectj.version}</version>
         </dependency>
-        <!--aspectjweaver 仅构建期(AspectJ 织入)需要, 运行期不需要, 避免放入模块路径导致与 aspectjrt 包冲突-->
-        <dependency>
-            <groupId>org.aspectj</groupId>
-            <artifactId>aspectjweaver</artifactId>
-            <version>${aspectj.version}</version>
-            <scope>provided</scope>
-        </dependency>
+        <!--注意: 不声明 aspectjweaver 依赖。aspectjrt(org.aspectj.runtime) 与 aspectjweaver(org.aspectj.weaver)
+            都包含 org.aspectj.lang 包, 同时在模块路径上会触发 split package 编译错误
+            "module ... reads package org.aspectj.lang from both ..."; 织入所需的 weaver 由 jcabi-maven-plugin 自带。-->
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-model</artifactId>
@@ -242,7 +243,7 @@
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>
-                                        com.eouna.configtool.ConfigToolGenApplication
+                                        com.eouna.configtool.Launcher
                                     </mainClass>
                                 </transformer>
                                 <transformer
@@ -256,6 +257,13 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                                <!--JavaFX 由 jlink 运行时镜像(jmods)提供, 不打进 fat jar, 显著瘦身-->
+                                <filter>
+                                    <artifact>org.openjfx:*</artifact>
+                                    <excludes>
+                                        <exclude>**/*</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

@@ -1,5 +1,29 @@
 package com.eouna.configtool.generator;
 
+import com.eouna.configtool.configholder.ConfigDataBean;
+import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.eouna.configtool.constant.DefaultEnvConfigConstant;
+import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.core.logger.TextAreaLogger;
+import com.eouna.configtool.core.window.WindowManager;
+import com.eouna.configtool.generator.base.ExcelFileStructure;
+import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelEnumFieldInfo;
+import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo;
+import com.eouna.configtool.generator.bean.ExcelDataStruct.FieldMetadata;
+import com.eouna.configtool.generator.bean.ExcelSheetBean;
+import com.eouna.configtool.generator.exceptions.BaseExcelException;
+import com.eouna.configtool.generator.exceptions.ExcelFormatCheckException;
+import com.eouna.configtool.generator.exceptions.ExcelParseException;
+import com.eouna.configtool.generator.template.ETemplateGenerator;
+import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
+import com.eouna.configtool.generator.template.ExcelFieldParseAdapter.EnumFieldAdapter;
+import com.eouna.configtool.generator.template.IFieldAdapter;
+import com.eouna.configtool.ui.controllers.ExcelGenWindowController;
+import com.eouna.configtool.utils.ExcelUtils;
+import com.eouna.configtool.utils.FileUtils;
+import com.eouna.configtool.utils.StrUtils;
+import com.eouna.configtool.utils.ToolsLoggerUtils;
+import freemarker.template.TemplateException;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -24,31 +48,6 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import com.eouna.configtool.configholder.ConfigDataBean;
-import com.eouna.configtool.configholder.SystemConfigHolder;
-import com.eouna.configtool.constant.DefaultEnvConfigConstant;
-import com.eouna.configtool.core.logger.TextAreaLogger;
-import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelEnumFieldInfo;
-import com.eouna.configtool.generator.exceptions.BaseExcelException;
-import com.eouna.configtool.generator.exceptions.ExcelFormatCheckException;
-import com.eouna.configtool.generator.exceptions.ExcelParseException;
-import com.eouna.configtool.generator.template.ETemplateGenerator;
-import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
-import com.eouna.configtool.generator.template.ExcelFieldParseAdapter.EnumFieldAdapter;
-import com.eouna.configtool.generator.template.IFieldAdapter;
-import com.eouna.configtool.core.window.WindowManager;
-import com.eouna.configtool.ui.controllers.ExcelGenWindowController;
-import com.eouna.configtool.utils.ToolsLoggerUtils;
-import com.eouna.configtool.utils.ExcelUtils;
-import com.eouna.configtool.utils.FileUtils;
-import com.eouna.configtool.core.logger.LoggerUtils;
-import com.eouna.configtool.generator.base.ExcelFileStructure;
-import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo;
-import com.eouna.configtool.generator.bean.ExcelDataStruct.FieldMetadata;
-import com.eouna.configtool.generator.bean.ExcelSheetBean;
-import com.eouna.configtool.utils.StrUtils;
-import freemarker.template.TemplateException;
 import javafx.application.Platform;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -221,8 +220,7 @@ public class ExcelTemplateGenUtils {
         templateGenerator ->
             templateGenerator
                 .getTemplateGenerator()
-                .generatorBefore(
-                    successGenList, excelFileStructureMap, EXCEPTION_COLLECTOR));
+                .generatorBefore(successGenList, excelFileStructureMap, EXCEPTION_COLLECTOR));
     if (EXCEPTION_COLLECTOR.isEmpty()) {
       for (Map.Entry<File, ExcelFileStructure> fileSture : excelFileStructureMap.entrySet()) {
         File currentDealFile = fileSture.getKey();
@@ -405,8 +403,11 @@ public class ExcelTemplateGenUtils {
       List<File> successGenList,
       ExcelFileStructure excelFileStructure,
       List<Exception> exceptionCollector) {
+    // 非GUI模式下主窗口未初始化, 此处不能强取控制器
     ExcelGenWindowController controller =
-        WindowManager.getInstance().getController(ExcelGenWindowController.class);
+        WindowManager.getInstance().isWindowInitialized(ExcelGenWindowController.class)
+            ? WindowManager.getInstance().getController(ExcelGenWindowController.class)
+            : null;
     Workbook workbook = null;
     try {
       // 获取excel工作簿
@@ -426,7 +427,9 @@ public class ExcelTemplateGenUtils {
       }
       // 添加生成成功文件
       successGenList.add(file);
-      Platform.runLater(() -> controller.updateExcelProgress(file.getName(), true));
+      if (controller != null) {
+        Platform.runLater(() -> controller.updateExcelProgress(file.getName(), true));
+      }
     } catch (Exception e) {
       if (e instanceof TemplateException) {
         LoggerUtils.getLogger().error("模板解析错误: " + file.getName(), e);
@@ -435,7 +438,9 @@ public class ExcelTemplateGenUtils {
       } else {
         textAreaLogger.error("解析文件 {} 时发生异常", e, file.getName());
       }
-      Platform.runLater(() -> controller.updateExcelProgress(file.getName(), false));
+      if (controller != null) {
+        Platform.runLater(() -> controller.updateExcelProgress(file.getName(), false));
+      }
       // 收集异常
       exceptionCollector.add(e);
     } finally {

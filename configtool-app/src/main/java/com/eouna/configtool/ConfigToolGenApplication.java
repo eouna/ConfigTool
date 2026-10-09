@@ -1,5 +1,6 @@
 package com.eouna.configtool;
 
+import com.eouna.configtool.boot.ConfigToolAppEntrance;
 import com.eouna.configtool.core.FxApplicationLoader;
 import com.eouna.configtool.core.annotaion.FxApplication;
 import com.eouna.configtool.core.boot.context.ApplicationContext;
@@ -12,7 +13,7 @@ import javafx.application.Application;
 import javafx.stage.Stage;
 
 /**
- * 配置表生成工具,具体初始化逻辑{@link ToolLogicEntrance#onEventHappen(FxApplicationStartedEvent)}
+ * 配置表生成工具,具体初始化逻辑{@link ConfigToolAppEntrance#onEventHappen(FxApplicationStartedEvent)}
  *
  * @author CCL
  */
@@ -29,7 +30,7 @@ public class ConfigToolGenApplication extends Application {
     registerSysServices();
   }
 
-  private void registerSysServices(){
+  private void registerSysServices() {
     // 设置主机服务
     NodeUtils.hostServices = ConfigToolGenApplication.this.getHostServices();
     // 添加关闭监听事件

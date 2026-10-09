@@ -2,8 +2,8 @@ package com.eouna.configtool.utils;
 
 import com.eouna.configtool.core.Ordered;
 import com.eouna.configtool.core.boot.context.ApplicationContext;
-import com.eouna.configtool.core.event.FxApplicationStartedEvent;
-import com.eouna.configtool.core.context.ApplicationListener;
+import com.eouna.configtool.core.context.ApplicationContextAware;
+import com.eouna.configtool.core.factory.anno.Component;
 
 /**
  * 上下文持有者
@@ -11,14 +11,10 @@ import com.eouna.configtool.core.context.ApplicationListener;
  * @author CCL
  * @date 2023/9/21
  */
-public class FxApplicationContextHolder implements ApplicationListener<FxApplicationStartedEvent>, Ordered {
+@Component
+public class FxApplicationContextHolder implements ApplicationContextAware, Ordered {
 
-  private ApplicationContext applicationContext;
-
-  @Override
-  public void onEventHappen(FxApplicationStartedEvent event) {
-    applicationContext = event.getApplicationContext();
-  }
+  private static ApplicationContext applicationContext;
 
   public ApplicationContext getApplicationContext() {
     return applicationContext;
@@ -29,8 +25,8 @@ public class FxApplicationContextHolder implements ApplicationListener<FxApplica
    *
    * @return FxApplicationContextHolder
    */
-  public static FxApplicationContextHolder getInstance() {
-    return Singleton.INSTANCE.getInstance();
+  public static ApplicationContext getContext() {
+    return applicationContext.getBean(FxApplicationContextHolder.class).getApplicationContext();
   }
 
   @Override
@@ -38,18 +34,8 @@ public class FxApplicationContextHolder implements ApplicationListener<FxApplica
     return HIGHEST_ORDER;
   }
 
-  enum Singleton {
-    // 单例
-    INSTANCE;
-
-    private final FxApplicationContextHolder instance;
-
-    Singleton() {
-      this.instance = new FxApplicationContextHolder();
-    }
-
-    public FxApplicationContextHolder getInstance() {
-      return instance;
-    }
+  @Override
+  public void setApplicationContext(ApplicationContext applicationContext) {
+    FxApplicationContextHolder.applicationContext = applicationContext;
   }
 }

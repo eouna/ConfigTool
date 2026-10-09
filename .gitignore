@@ -50,3 +50,6 @@ server.pid
 
 #### config ####
 config/icon
+
+### jlink runtime (packaging artifact)
+jre-slim/
