@@ -1,6 +1,8 @@
 <h1 align="center">配置表工具</h1> 
 <img alt="logo" src="configtool-app/src/main/resources/com/eouna/configtool/icon/main.png">
 
+[简体中文](README.md) | [English](README_EN.md)
+
 # GameConfigTool
 
 本工具用于excel游戏配置表的导出和相关语言的读写代码的导出.且基于javafx实现,可视化界面对策划和程序会更加友好,支持单表多表批量导出.
