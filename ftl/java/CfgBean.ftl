@@ -8,7 +8,7 @@ import javax.annotation.processing.Generated;
  *
  * @excelName ${dataStruct.fileName}
  * @sheetName ${dataStruct.sheetName}
- * @author Auto.Generator
+ * @author CCL
  * @date ${date}
  */
 @Generated("com.eouna.configtool.generator.template.java.JavaTemplateGenerator")

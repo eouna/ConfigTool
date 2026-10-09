@@ -4,7 +4,7 @@ package ${packageName}
 //
 // Go 的枚举是包级类型, 而分表时子表与父表处于同一个包, 因此统一在此声明, 避免重复声明或找不到类型
 //
-// @author Auto.Generator
+// @author CCL
 // @date ${date}
 <#list enumMap as enumClassName, enumValues>
 

@@ -11,7 +11,7 @@ import ${beanPackageName}.${beanClassName};
  *
  * @excelName ${excelName}
  * @sheetName ${sheetBean.sheetName}
- * @author auto_generator
+ * @author CCL
  * @date ${date}
  */
 @Generated("com.eouna.configtool.generator.template.java.JavaTemplateGenerator")

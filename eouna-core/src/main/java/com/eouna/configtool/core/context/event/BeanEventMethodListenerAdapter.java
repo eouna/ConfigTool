@@ -11,7 +11,7 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.UndeclaredThrowableException;
 
 /**
- * @author : [程春林(chengchunlin)]
+ * @author CCL
  * @version : [v1.0]
  * @className : [EventMethodListenerAdapter]
  * @description :  方法事件监听适配器

@@ -6,7 +6,7 @@ import "${beanImportPath}"
 //
 // @excelName ${excelName}
 // @sheetName ${sheetBean.sheetName}
-// @author auto_generator
+// @author CCL
 // @date ${date}
 type ${containerClassName} struct {
 	BaseCfgContainer[*${beanPackageName}.${beanClassName}]

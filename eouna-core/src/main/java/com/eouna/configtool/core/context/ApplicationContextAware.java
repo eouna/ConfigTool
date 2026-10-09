@@ -4,7 +4,7 @@ import com.eouna.configtool.core.boot.context.ApplicationContext;
 import com.eouna.configtool.core.factory.Aware;
 
 /**
- * @author : [程春林(Administrator)]
+ * @author CCL
  * @version : [v1.0]
  * @className : [ApplicationContextAware]
  * @description : 应用上下文持有者

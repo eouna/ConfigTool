@@ -4,7 +4,7 @@ import java.lang.reflect.Type;
 import java.util.Objects;
 
 /**
- * @author : [程春林(chengchunlin)]
+ * @author CCL
  * @version : [v1.0]
  * @className : [Resource]
  * @description :  bean资源

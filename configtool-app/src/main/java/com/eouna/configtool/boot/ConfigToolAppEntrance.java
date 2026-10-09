@@ -22,7 +22,7 @@ import javafx.application.Platform;
 import javafx.stage.Stage;
 
 /**
- * @author : [程春林(chengchunlin)]
+ * @author CCL
  * @version : [v1.0]
  * @className : [ConfigToolAppEntrance]
  * @description : 描述

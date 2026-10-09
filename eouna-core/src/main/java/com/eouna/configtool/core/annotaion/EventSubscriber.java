@@ -3,7 +3,7 @@ package com.eouna.configtool.core.annotaion;
 import java.lang.annotation.*;
 
 /**
- * @author : [程春林(Administrator)]
+ * @author CCL
  * @version : [v1.0]
  * @className : [EventSubscriber]
  * @description :  事件订阅注解

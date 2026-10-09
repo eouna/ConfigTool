@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * @author : [程春林(chengchunlin)]
+ * @author CCL
  * @version : [v1.0]
  * @className : [TextAreaLogFactory]
  * @description :  带文本区域的日志工厂

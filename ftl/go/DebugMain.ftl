@@ -12,7 +12,7 @@ import (
 //
 // 运行示例(在生成目录下): go run ./debug ../../example
 //
-// @author Auto.Generator
+// @author CCL
 // @date ${date}
 func main() {
 	rootPath := "${excelLoadDir}"

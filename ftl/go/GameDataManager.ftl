@@ -6,7 +6,7 @@ import (
 
 // ${dataManagerClassName} 配置数据管理器
 //
-// @author auto_generator
+// @author CCL
 // @date ${date}
 type ${dataManagerClassName} struct {
 <#list beanAndContainerMap as beanName, containerName>

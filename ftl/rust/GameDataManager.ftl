@@ -5,7 +5,7 @@
 use crate::container::${def.moduleName}::${def.className};
 </#list>
 
-/// @author auto_generator
+/// @author CCL
 /// @date ${date}
 #[derive(Default)]
 pub struct ${dataManagerClassName} {

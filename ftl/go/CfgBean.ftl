@@ -12,7 +12,7 @@ import "time"
 //
 // @excelName ${dataStruct.fileName}
 // @sheetName ${dataStruct.sheetName}
-// @author Auto.Generator
+// @author CCL
 // @date ${date}
 // 枚举类型统一声明在 Enums.go 中
 type ${beanClassName} struct {

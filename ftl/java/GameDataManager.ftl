@@ -37,7 +37,7 @@ import javax.annotation.processing.Generated;
 /**
  * 游戏数据管理器
  *
- * @author auto_gen
+ * @author CCL
  * @date ${date}
  */
 @Generated("com.eouna.configtool.generator.template.java.JavaTemplateGenerator")
