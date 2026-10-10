@@ -2,20 +2,23 @@ package com.eouna.configtool.ui.controllers;
 
 import com.eouna.configtool.configholder.ConfigDataBean;
 import com.eouna.configtool.configholder.SystemConfigHolder;
-import com.eouna.configtool.core.logger.TextAreaLogger;
-import com.eouna.configtool.core.window.MainWindowIdentifier;
-import com.eouna.configtool.generator.template.ETemplateGenerator;
-import com.eouna.configtool.core.window.BaseWindowController;
-import com.eouna.configtool.core.window.WindowManager;
-import com.eouna.configtool.generator.DefaultFuture;
-import com.eouna.configtool.constant.EExcelUpdateState;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant;
-import com.eouna.configtool.constant.DefaultEnvConfigConstant.ColorDefine;
+import com.eouna.configtool.constant.EExcelUpdateState;
+import com.eouna.configtool.constant.ThemeConstant;
+import com.eouna.configtool.core.annotaion.AutoInject;
+import com.eouna.configtool.core.factory.anno.Component;
+import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.core.logger.TextAreaLogger;
+import com.eouna.configtool.core.window.BaseWindowController;
+import com.eouna.configtool.core.window.MainWindowIdentifier;
+import com.eouna.configtool.core.window.WindowManager;
+import com.eouna.configtool.core.window.WindowThemeManager;
+import com.eouna.configtool.generator.DefaultFuture;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
+import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.utils.*;
 import com.eouna.configtool.utils.hotreload.HotClassLoaderUtils;
 import com.eouna.configtool.utils.hotreload.HotClassLoaderUtils.MethodArgDataTuple;
-import com.eouna.configtool.core.logger.LoggerUtils;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -32,7 +35,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -49,6 +51,7 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -76,6 +79,7 @@ import org.apache.commons.lang3.time.DateUtils;
  * @author CCL
  */
 @MainWindowIdentifier
+@Component
 public class ExcelGenWindowController extends BaseWindowController {
 
   // region============================== textField =============================
@@ -102,6 +106,8 @@ public class ExcelGenWindowController extends BaseWindowController {
   @FXML private Button templatePathButton;
   @FXML private Button generateTemplateBtn;
   @FXML private Button preLoadBtn;
+  @FXML private RadioMenuItem neumorphismThemeMenuItem;
+  @FXML private RadioMenuItem lightThemeMenuItem;
   @FXML private Button syncConfBtn;
   // endregion============================== button ==============================
   // region============================== form =============================
@@ -158,6 +164,8 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 文字域日志 */
   private TextAreaLogger textAreaLogger;
 
+  @AutoInject private WindowThemeManager windowThemeManager;
+
   public TextFlow getLogShowArea() {
     return logShowArea;
   }
@@ -173,6 +181,27 @@ public class ExcelGenWindowController extends BaseWindowController {
   public ExcelGenWindowController() {}
 
   // region============================== 点击事件 =============================
+  @FXML
+  protected void onNeumorphismThemeSelected() {
+    windowThemeManager.setTheme(ThemeConstant.NEUMORPHISM);
+    syncThemeMenuSelection(ThemeConstant.NEUMORPHISM);
+  }
+
+  @FXML
+  protected void onLightThemeSelected() {
+    windowThemeManager.setTheme(ThemeConstant.LIGHT);
+    syncThemeMenuSelection(ThemeConstant.LIGHT);
+  }
+
+  private void syncThemeMenuSelection(String themeId) {
+    Platform.runLater(
+        () -> {
+          boolean neumorphism = ThemeConstant.NEUMORPHISM.equals(themeId);
+          neumorphismThemeMenuItem.setSelected(neumorphism);
+          lightThemeMenuItem.setSelected(!neumorphism);
+        });
+  }
+
   /** onclick */
   @FXML
   protected void onExcelConfigPathSelectClick() {
@@ -286,7 +315,9 @@ public class ExcelGenWindowController extends BaseWindowController {
   protected void selectedAll() {
     Collection<Label> allLabels = getAllExcelLabel().values();
     for (Label label : allLabels) {
-      label.setStyle("-fx-border-width: 1;-fx-border-color: #F8AB3799;-fx-border-radius: 3;");
+      if (!label.getStyleClass().contains("excel-item-selected")) {
+        label.getStyleClass().add("excel-item-selected");
+      }
       EXCEL_SELECTED_LIST.add(label.getId());
     }
   }
@@ -296,10 +327,12 @@ public class ExcelGenWindowController extends BaseWindowController {
     Collection<Label> allLabels = getAllExcelLabel().values();
     for (Label label : allLabels) {
       if (EXCEL_SELECTED_LIST.contains(label.getId())) {
-        label.setStyle("-fx-border-width: 1;-fx-border-color: #EEE;-fx-border-radius: 3;");
+        label.getStyleClass().remove("excel-item-selected");
         EXCEL_SELECTED_LIST.remove(label.getId());
       } else {
-        label.setStyle("-fx-border-width: 1;-fx-border-color: #F8AB3799;-fx-border-radius: 3;");
+        if (!label.getStyleClass().contains("excel-item-selected")) {
+          label.getStyleClass().add("excel-item-selected");
+        }
         EXCEL_SELECTED_LIST.add(label.getId());
       }
     }
@@ -389,6 +422,8 @@ public class ExcelGenWindowController extends BaseWindowController {
   @Override
   public void onMounted(Object... args) {
     this.textAreaLogger = new TextAreaLogger(logShowArea);
+    windowThemeManager.addThemeChangeListener(this::syncThemeMenuSelection);
+    syncThemeMenuSelection(windowThemeManager.getCurrentThemeId());
     // 初始化配置字段
     initConfigField();
     // 初始化添加默认的模板
@@ -420,6 +455,20 @@ public class ExcelGenWindowController extends BaseWindowController {
         .getScene()
         .getAccelerators()
         .put(new KeyCodeCombination(KeyCode.A, KeyCodeCombination.CONTROL_DOWN), this::selectedAll);
+    stage
+        .getScene()
+        .getAccelerators()
+        .put(
+            new KeyCodeCombination(
+                KeyCode.DIGIT1, KeyCodeCombination.CONTROL_DOWN, KeyCodeCombination.SHIFT_DOWN),
+            this::onNeumorphismThemeSelected);
+    stage
+        .getScene()
+        .getAccelerators()
+        .put(
+            new KeyCodeCombination(
+                KeyCode.DIGIT2, KeyCodeCombination.CONTROL_DOWN, KeyCodeCombination.SHIFT_DOWN),
+            this::onLightThemeSelected);
   }
 
   /** 初始化配置字段 */
@@ -604,7 +653,8 @@ public class ExcelGenWindowController extends BaseWindowController {
                       currentProgress.setPrefWidth(percentageWidth);
                       currentProgressTips.setText("100%");
                     } else {
-                      currentProgress.setStyle("-fx-background-color: rgba(219,36,36,0.95)");
+                      currentProgress.getStyleClass().remove("progress-fill-danger");
+                      currentProgress.getStyleClass().add("progress-fill-danger");
                     }
                   });
             });
@@ -704,7 +754,7 @@ public class ExcelGenWindowController extends BaseWindowController {
           timeline.play();
         });
     anchorPane.setMinWidth(rootBox.getPrefWidth());
-    anchorPane.setStyle("-fx-background-color: #fff");
+    anchorPane.getStyleClass().add("excel-grid");
     return anchorPane;
   }
 
@@ -716,7 +766,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     currentProgress.setPrefWidth(0);
     currentProgressTips.setText("");
     // 重置进度条颜色
-    currentProgress.setStyle("-fx-background-color: #3CED0DFF");
+    currentProgress.getStyleClass().remove("progress-fill-danger");
   }
 
   /**
@@ -728,10 +778,9 @@ public class ExcelGenWindowController extends BaseWindowController {
   public void updateExcelProgress(String excelName, boolean isLoadSuccess) {
     Label label = getExcelLabelById(excelName);
     if (label != null) {
-      label.setStyle(
-          "-fx-border-width: 1;-fx-border-color: "
-              + (isLoadSuccess ? ColorDefine.SAFE : ColorDefine.DANGER)
-              + ";-fx-border-radius: 3");
+      label.getStyleClass().remove("excel-item-success");
+      label.getStyleClass().remove("excel-item-danger");
+      label.getStyleClass().add(isLoadSuccess ? "excel-item-success" : "excel-item-danger");
       if (isLoadSuccess) {
         int addUnit = (int) Math.floor(percentageWidth / EXCEL_SELECTED_LIST.size());
         int nextWidth =
@@ -776,9 +825,7 @@ public class ExcelGenWindowController extends BaseWindowController {
 
   private VBox getExcelVerticalShowView() {
     VBox vBox = new VBox();
-    vBox.setStyle(
-        "-fx-background-color: white;-fx-border-color: white;-fx-border-width: 0; -fx-padding: 3;"
-            + "-fx-selection-bar: white;-fx-selection-bar-non-focused: white;-fx-selection-bar-focused: white;");
+    vBox.getStyleClass().add("excel-column");
     vBox.setSpacing(3);
     return vBox;
   }
@@ -788,7 +835,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     label.setId(excelName);
     label.setText(excelName.split("\\.")[0]);
     label.setWrapText(true);
-    label.setStyle("-fx-border-width: 1;-fx-border-color: #EEE;-fx-border-radius: 3;");
+    label.getStyleClass().add("excel-item");
     label.setOnMouseClicked(
         event -> {
           if (EXCEL_SELECTED_LIST.contains(label.getId())) {
@@ -797,9 +844,11 @@ public class ExcelGenWindowController extends BaseWindowController {
             EXCEL_SELECTED_LIST.add(label.getId());
           }
           if (EXCEL_SELECTED_LIST.contains(label.getId())) {
-            label.setStyle("-fx-border-width: 1;-fx-border-color: #F8AB3799;-fx-border-radius: 3;");
+            if (!label.getStyleClass().contains("excel-item-selected")) {
+              label.getStyleClass().add("excel-item-selected");
+            }
           } else {
-            label.setStyle("-fx-border-width: 1;-fx-border-color: #EEE;-fx-border-radius: 3;");
+            label.getStyleClass().remove("excel-item-selected");
           }
         });
     label.setPrefHeight(20);
@@ -849,11 +898,10 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (this.excelUpdateState.isCanGoNext(excelUpdateState)) {
       this.excelUpdateState = excelUpdateState;
     } else {
-      textAreaLogger
-          .error(
-              "状态切换失败, oldStatus: {}, newStatus: {}",
-              this.excelUpdateState.name(),
-              excelUpdateState.name());
+      textAreaLogger.error(
+          "状态切换失败, oldStatus: {}, newStatus: {}",
+          this.excelUpdateState.name(),
+          excelUpdateState.name());
       throw new RuntimeException(
           "状态切换失败, oldStatus: "
               + this.excelUpdateState.name()

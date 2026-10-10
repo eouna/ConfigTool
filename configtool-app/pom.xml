@@ -465,6 +465,7 @@
                 <includes>
                     <include>**/*.xml</include>
                     <include>**/*.fxml</include>
+                    <include>**/*.css</include>
                     <include>**/*.png</include>
                     <include>**/*.factories</include>
                     <include>**/*.yaml</include>

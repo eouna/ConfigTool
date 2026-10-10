@@ -1,0 +1,406 @@
+/* =========================================================
+   Classic light theme
+   ========================================================= */
+.root {
+  -theme-bg: #f5f7fb;
+  -theme-bg-soft: #ffffff;
+  -theme-surface: #ffffff;
+  -theme-surface-alt: #f8fafc;
+  -theme-text: #243047;
+  -theme-text-muted: #667085;
+  -theme-accent: #4f7cff;
+  -theme-accent-soft: #e7edff;
+  -theme-success: #2e9d68;
+  -theme-danger: #c94c57;
+  -theme-shadow-dark: #d7deea;
+  -theme-shadow-light: #ffffff;
+  -fx-font-family: "Microsoft YaHei UI";
+  -fx-font-size: 13px;
+  -fx-background-color: -theme-bg;
+  -fx-text-fill: -theme-text;
+}
+
+.app-root,
+.theme-surface-root,
+.about-root,
+.setting-root,
+.explain-root,
+.search-root,
+.modal-root,
+.test-root {
+  -fx-background-color: -theme-bg;
+}
+
+.transparent-root,
+.horse-lamp-root {
+  -fx-background-color: transparent;
+}
+
+.label {
+  -fx-text-fill: -theme-text;
+}
+
+.label.secondary,
+.muted-label {
+  -fx-text-fill: -theme-text-muted;
+}
+
+.button,
+.toggle-button {
+  -fx-background-color: -theme-surface;
+  -fx-background-radius: 8;
+  -fx-border-color: -theme-shadow-dark;
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+  -fx-text-fill: -theme-text;
+  -fx-padding: 7 14;
+}
+
+.button:hover,
+.toggle-button:hover {
+  -fx-background-color: -theme-accent-soft;
+  -fx-border-color: -theme-accent;
+}
+
+.button:pressed,
+.toggle-button:selected {
+  -fx-background-color: derive(-theme-accent-soft, -5%);
+}
+
+.button:disabled,
+.toggle-button:disabled {
+  -fx-opacity: 0.55;
+}
+
+.button.primary,
+.button.accent-button {
+  -fx-background-color: -theme-accent;
+  -fx-border-color: -theme-accent;
+  -fx-text-fill: white;
+}
+
+.text-field,
+.text-area,
+.password-field,
+.combo-box,
+.choice-box,
+.spinner {
+  -fx-background-color: -theme-surface;
+  -fx-background-radius: 7;
+  -fx-border-color: -theme-shadow-dark;
+  -fx-border-radius: 7;
+  -fx-border-width: 1;
+  -fx-text-fill: -theme-text;
+  -fx-prompt-text-fill: derive(-theme-text-muted, 30%);
+  -fx-highlight-fill: -theme-accent-soft;
+}
+
+.text-area .content {
+  -fx-background-color: transparent;
+}
+
+.text-field:focused,
+.text-area:focused,
+.password-field:focused,
+.combo-box:focused,
+.choice-box:focused,
+.spinner:focused {
+  -fx-border-color: -theme-accent;
+  -fx-effect: dropshadow(gaussian, rgba(79, 124, 255, 0.25), 6, 0.15, 0, 0);
+}
+
+.check-box,
+.radio-button {
+  -fx-text-fill: -theme-text;
+}
+
+.check-box .box,
+.radio-button .radio {
+  -fx-background-color: -theme-surface;
+  -fx-background-radius: 5;
+  -fx-border-color: -theme-shadow-dark;
+  -fx-border-radius: 5;
+}
+
+.radio-button .radio {
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+}
+
+.check-box:selected .box,
+.radio-button:selected .radio {
+  -fx-background-color: -theme-accent;
+  -fx-border-color: -theme-accent;
+}
+
+.menu-bar {
+  -fx-background-color: -theme-bg;
+  -fx-border-color: transparent transparent -theme-shadow-dark transparent;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 4 8;
+}
+
+.menu-bar .label,
+.menu-item .label {
+  -fx-text-fill: -theme-text;
+}
+
+.menu:hover,
+.menu:showing {
+  -fx-background-color: -theme-accent-soft;
+  -fx-background-radius: 6;
+}
+
+.context-menu {
+  -fx-background-color: -theme-surface;
+  -fx-border-color: -theme-shadow-dark;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+  -fx-padding: 5;
+  -fx-effect: dropshadow(gaussian, rgba(52, 64, 84, 0.18), 10, 0.12, 2, 4);
+}
+
+.menu-item {
+  -fx-background-color: transparent;
+  -fx-background-radius: 5;
+  -fx-padding: 7 20 7 10;
+}
+
+.menu-item:focused {
+  -fx-background-color: -theme-accent-soft;
+}
+
+.tool-bar {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 7 8;
+}
+
+.scroll-pane {
+  -fx-background-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-color: transparent;
+  -fx-padding: 0;
+}
+
+.scroll-pane > .viewport {
+  -fx-background-color: transparent;
+}
+
+.surface-scroll,
+.excel-list,
+.log-panel {
+  -fx-background-color: -theme-bg-soft;
+  -fx-background-radius: 0;
+}
+
+.scroll-bar {
+  -fx-background-color: transparent;
+}
+
+.scroll-bar .track {
+  -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+  -fx-background-color: #c5cedb;
+  -fx-background-radius: 8;
+}
+
+.separator .line {
+  -fx-border-color: -theme-shadow-dark transparent transparent transparent;
+  -fx-border-width: 1 0 0 0;
+}
+
+.separator:vertical .line {
+  -fx-border-color: transparent transparent transparent -theme-shadow-dark;
+  -fx-border-width: 0 0 0 1;
+}
+
+.list-view,
+.table-view,
+.tree-view {
+  -fx-background-color: -theme-surface;
+  -fx-background-radius: 8;
+  -fx-border-color: -theme-shadow-dark;
+  -fx-border-radius: 8;
+}
+
+.list-cell,
+.table-row-cell,
+.tree-cell {
+  -fx-background-color: transparent;
+  -fx-text-fill: -theme-text;
+  -fx-border-color: transparent transparent #e4e9f1 transparent;
+}
+
+.list-cell:filled:hover,
+.table-row-cell:filled:hover,
+.tree-cell:filled:hover {
+  -fx-background-color: -theme-surface-alt;
+}
+
+.list-cell:filled:selected,
+.table-row-cell:filled:selected,
+.tree-cell:filled:selected {
+  -fx-background-color: -theme-accent-soft;
+}
+
+.table-view .column-header-background {
+  -fx-background-color: -theme-surface-alt;
+}
+
+.table-view .column-header {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent transparent -theme-shadow-dark transparent;
+}
+
+.table-cell {
+  -fx-text-fill: -theme-text;
+}
+
+.split-pane {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.split-pane > .split-pane-divider {
+  -fx-background-color: -theme-shadow-dark;
+  -fx-padding: 0 1;
+}
+
+.excel-list {
+  -fx-padding: 0 10;
+}
+
+.excel-grid {
+  -fx-background-color: transparent;
+  -fx-padding: 8;
+}
+
+.excel-column {
+  -fx-background-color: transparent;
+  -fx-padding: 0 5;
+}
+
+.excel-item {
+  -fx-background-color: -theme-surface;
+  -fx-background-radius: 6;
+  -fx-border-color: -theme-shadow-dark;
+  -fx-border-radius: 6;
+  -fx-border-width: 1;
+  -fx-padding: 4 10;
+  -fx-cursor: hand;
+}
+
+.excel-item:hover {
+  -fx-border-color: -theme-accent;
+}
+
+.excel-item-selected {
+  -fx-background-color: -theme-accent-soft;
+  -fx-border-color: -theme-accent;
+}
+
+.excel-item-success {
+  -fx-border-color: -theme-success;
+}
+
+.excel-item-danger {
+  -fx-border-color: -theme-danger;
+}
+
+.log-flow,
+.settings-panel,
+.config-section,
+.option-row,
+.action-toolbar,
+.server-panel {
+  -fx-background-color: transparent;
+}
+
+.form-row {
+  -fx-border-color: transparent transparent -theme-shadow-dark transparent;
+  -fx-border-width: 0 0 1 0;
+}
+
+.progress-track {
+  -fx-background-color: -theme-bg-soft;
+  -fx-border-color: -theme-shadow-dark transparent transparent transparent;
+  -fx-border-width: 1 0 0 0;
+}
+
+.progress-fill {
+  -fx-background-color: -theme-accent;
+}
+
+.progress-fill-danger {
+  -fx-background-color: -theme-danger;
+}
+
+.setting-root,
+.explain-root,
+.search-root,
+.modal-root,
+.about-root {
+  -fx-padding: 12;
+}
+
+.setting-main,
+.setting-tree,
+.setting-area,
+.setting-footer,
+.explain-table,
+.search-surface {
+  -fx-background-color: transparent;
+}
+
+.about-card {
+  -fx-background-color: -theme-surface;
+  -fx-background-radius: 12;
+  -fx-border-color: -theme-shadow-dark;
+  -fx-border-radius: 12;
+  -fx-padding: 16;
+  -fx-effect: dropshadow(gaussian, rgba(52, 64, 84, 0.14), 10, 0.12, 2, 4);
+}
+
+.author-link {
+  -fx-text-fill: -theme-accent;
+  -fx-cursor: hand;
+  -fx-underline: true;
+}
+
+.modal-scroll {
+  -fx-background-color: -theme-surface;
+  -fx-background-radius: 8;
+  -fx-border-color: -theme-shadow-dark;
+  -fx-border-radius: 8;
+}
+
+.error-flow {
+  -fx-background-color: transparent;
+  -fx-padding: 12;
+}
+
+.tooltip {
+  -fx-background-color: -theme-text;
+  -fx-background-radius: 6;
+  -fx-text-fill: white;
+}
+
+.error-text {
+  -fx-fill: -theme-danger;
+}
+
+
+.settings-panel .button,
+.action-toolbar .button {
+  -fx-padding: 4 8;
+  -fx-font-size: 11px;
+}
+
+.settings-panel .check-box {
+  -fx-padding: 0 1;
+  -fx-font-size: 12px;
+}
+

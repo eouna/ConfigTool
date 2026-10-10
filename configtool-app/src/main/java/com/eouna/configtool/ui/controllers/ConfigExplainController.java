@@ -18,7 +18,6 @@ import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.text.Text;
@@ -152,21 +151,6 @@ public class ConfigExplainController extends BaseWindowController {
     fieldDataRange.setCellValueFactory(new PropertyValueFactory<>("fieldDataRange"));
     fieldExplainCol.setCellValueFactory(new PropertyValueFactory<>("configExplain"));
     tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-    tableView.setRowFactory(
-        tv -> {
-          TableRow<ConfigExplain> tableRow = new TableRow<>();
-          tableRow
-              .selectedProperty()
-              .addListener(
-                  (observable, oldValue, newValue) -> {
-                    if (newValue) {
-                      tableRow.setStyle("-fx-background-color: #ccc; -fx-opacity: 0.6");
-                    } else {
-                      tableRow.setStyle("-fx-background-color: white");
-                    }
-                  });
-          return tableRow;
-        });
     tableView.setItems(CONFIG_EXPLAINS);
   }
 

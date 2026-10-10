@@ -1,0 +1,563 @@
+/* =========================================================
+   Neumorphism / Soft UI theme
+   ========================================================= */
+.root {
+  -theme-bg: #e6ebf2;
+  -theme-bg-soft: #edf1f7;
+  -theme-surface: #e8edf4;
+  -theme-surface-alt: #f1f4f9;
+  -theme-text: #344054;
+  -theme-text-muted: #667085;
+  -theme-accent: #7b6cf6;
+  -theme-accent-soft: #ddd9ff;
+  -theme-success: #55b98a;
+  -theme-danger: #df6b75;
+  -theme-shadow-dark: #b9c3d1;
+  -theme-shadow-light: #ffffff;
+  -fx-font-family: "Microsoft YaHei UI";
+  -fx-font-size: 13px;
+  -fx-background-color: -theme-bg;
+  -fx-text-fill: -theme-text;
+}
+
+.app-root,
+.theme-surface-root,
+.about-root,
+.setting-root,
+.explain-root,
+.search-root,
+.modal-root,
+.test-root {
+  -fx-background-color: -theme-bg;
+}
+
+.transparent-root {
+  -fx-background-color: transparent;
+}
+
+.label {
+  -fx-text-fill: -theme-text;
+}
+
+.label.secondary,
+.muted-label {
+  -fx-text-fill: -theme-text-muted;
+}
+
+/* Buttons */
+.button,
+.toggle-button {
+  -fx-background-color: -theme-bg;
+  -fx-background-insets: 0;
+  -fx-background-radius: 12;
+  -fx-border-color: rgba(255, 255, 255, 0.82);
+  -fx-border-radius: 12;
+  -fx-border-width: 1;
+  -fx-text-fill: -theme-text;
+  -fx-padding: 7 14;
+  -fx-effect: dropshadow(gaussian, -theme-shadow-dark, 7, 0.18, 3, 3),
+              dropshadow(gaussian, -theme-shadow-light, 7, 0.82, -3, -3);
+}
+
+.button:hover,
+.toggle-button:hover {
+  -fx-background-color: derive(-theme-bg, 1.5%);
+  -fx-translate-y: -1;
+}
+
+.button:pressed,
+.toggle-button:selected,
+.toggle-button:pressed {
+  -fx-effect: innershadow(gaussian, -theme-shadow-dark, 5, 0.16, 2, 2);
+  -fx-translate-y: 0;
+}
+
+.button:disabled,
+.toggle-button:disabled {
+  -fx-opacity: 0.55;
+}
+
+.button.primary,
+.button.accent-button {
+  -fx-background-color: -theme-accent;
+  -fx-text-fill: white;
+  -fx-border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Text input */
+.text-field,
+.text-area,
+.password-field,
+.combo-box,
+.choice-box,
+.spinner {
+  -fx-background-color: -theme-bg-soft;
+  -fx-background-insets: 0;
+  -fx-background-radius: 10;
+  -fx-border-color: rgba(255, 255, 255, 0.78);
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+  -fx-text-fill: -theme-text;
+  -fx-prompt-text-fill: derive(-theme-text-muted, 35%);
+  -fx-highlight-fill: -theme-accent-soft;
+  -fx-highlight-text-fill: -theme-text;
+  -fx-effect: innershadow(gaussian, -theme-shadow-dark, 4, 0.14, 1.5, 1.5);
+}
+
+.text-area .content {
+  -fx-background-color: transparent;
+  -fx-background-radius: 10;
+}
+
+.text-field:focused,
+.text-area:focused,
+.password-field:focused,
+.combo-box:focused,
+.choice-box:focused,
+.spinner:focused {
+  -fx-border-color: -theme-accent;
+  -fx-effect: dropshadow(gaussian, rgba(123, 108, 246, 0.32), 8, 0.18, 0, 0);
+}
+
+.text-field:disabled,
+.text-area:disabled,
+.password-field:disabled {
+  -fx-opacity: 0.78;
+  -fx-text-fill: -theme-text-muted;
+}
+
+/* CheckBox / RadioButton */
+.check-box,
+.radio-button {
+  -fx-text-fill: -theme-text;
+}
+
+.check-box .box,
+.radio-button .radio {
+  -fx-background-color: -theme-bg;
+  -fx-background-radius: 6;
+  -fx-border-color: rgba(255, 255, 255, 0.9);
+  -fx-border-radius: 6;
+  -fx-border-width: 1;
+  -fx-effect: dropshadow(gaussian, -theme-shadow-dark, 4, 0.15, 2, 2),
+              dropshadow(gaussian, -theme-shadow-light, 4, 0.75, -2, -2);
+}
+
+.radio-button .radio {
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+}
+
+.check-box:selected .box,
+.radio-button:selected .radio {
+  -fx-background-color: -theme-accent;
+  -fx-border-color: derive(-theme-accent, -8%);
+}
+
+.check-box:selected .mark {
+  -fx-background-color: white;
+}
+
+.radio-button:selected .dot {
+  -fx-background-color: white;
+}
+
+/* Menus */
+.menu-bar {
+  -fx-background-color: -theme-bg;
+  -fx-border-color: transparent transparent -theme-shadow-dark transparent;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 4 8;
+}
+
+.menu-bar .label {
+  -fx-text-fill: -theme-text;
+}
+
+.menu:hover,
+.menu:showing {
+  -fx-background-color: -theme-bg-soft;
+  -fx-background-radius: 8;
+  -fx-effect: dropshadow(gaussian, -theme-shadow-dark, 5, 0.14, 2, 2);
+}
+
+.context-menu {
+  -fx-background-color: -theme-bg;
+  -fx-background-radius: 12;
+  -fx-border-color: rgba(255, 255, 255, 0.75);
+  -fx-border-radius: 12;
+  -fx-border-width: 1;
+  -fx-padding: 6;
+  -fx-effect: dropshadow(gaussian, rgba(75, 85, 99, 0.35), 16, 0.22, 5, 6),
+              dropshadow(gaussian, -theme-shadow-light, 8, 0.65, -3, -3);
+}
+
+.menu-item {
+  -fx-background-color: transparent;
+  -fx-background-radius: 8;
+  -fx-padding: 7 22 7 12;
+}
+
+.menu-item:focused {
+  -fx-background-color: -theme-accent-soft;
+}
+
+.menu-item .label {
+  -fx-text-fill: -theme-text;
+}
+
+/* ToolBar */
+.tool-bar {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 7 8;
+}
+
+/* ScrollPane and ScrollBar */
+.scroll-pane {
+  -fx-background-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-color: transparent;
+  -fx-padding: 0;
+}
+
+.scroll-pane > .viewport {
+  -fx-background-color: transparent;
+}
+
+.surface-scroll,
+.excel-list,
+.log-panel {
+  -fx-background-color: -theme-bg-soft;
+  -fx-background-radius: 0;
+}
+
+.scroll-bar {
+  -fx-background-color: transparent;
+}
+
+.scroll-bar .track {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+}
+
+.scroll-bar .thumb {
+  -fx-background-color: derive(-theme-shadow-dark, 25%);
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(255, 255, 255, 0.55);
+  -fx-border-radius: 8;
+}
+
+.scroll-bar .thumb:hover {
+  -fx-background-color: derive(-theme-shadow-dark, 10%);
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+/* Separator */
+.separator .line {
+  -fx-border-color: -theme-shadow-dark transparent transparent transparent;
+  -fx-border-width: 1 0 0 0;
+}
+
+.separator:vertical .line {
+  -fx-border-color: transparent transparent transparent -theme-shadow-dark;
+  -fx-border-width: 0 0 0 1;
+}
+
+.theme-separator .line {
+  -fx-border-color: rgba(185, 195, 209, 0.9) transparent rgba(255, 255, 255, 0.8) transparent;
+  -fx-border-width: 1 0 1 0;
+}
+
+.theme-separator:vertical .line {
+  -fx-border-color: transparent rgba(255, 255, 255, 0.8) transparent rgba(185, 195, 209, 0.9);
+  -fx-border-width: 0 1 0 1;
+}
+
+/* Lists, tables and trees */
+.list-view,
+.table-view,
+.tree-view {
+  -fx-background-color: -theme-bg-soft;
+  -fx-background-radius: 12;
+  -fx-border-color: rgba(255, 255, 255, 0.72);
+  -fx-border-radius: 12;
+  -fx-border-width: 1;
+  -fx-effect: innershadow(gaussian, -theme-shadow-dark, 5, 0.12, 2, 2);
+}
+
+.list-cell,
+.table-row-cell,
+.tree-cell {
+  -fx-background-color: transparent;
+  -fx-text-fill: -theme-text;
+  -fx-border-color: transparent transparent rgba(185, 195, 209, 0.45) transparent;
+  -fx-border-width: 0 0 1 0;
+}
+
+.list-cell:filled:hover,
+.table-row-cell:filled:hover,
+.tree-cell:filled:hover {
+  -fx-background-color: rgba(255, 255, 255, 0.42);
+  -fx-background-radius: 8;
+}
+
+.list-cell:filled:selected,
+.table-row-cell:filled:selected,
+.tree-cell:filled:selected {
+  -fx-background-color: -theme-accent-soft;
+  -fx-background-radius: 8;
+  -fx-text-fill: -theme-text;
+}
+
+.table-view .column-header-background {
+  -fx-background-color: -theme-bg;
+  -fx-background-radius: 10 10 0 0;
+}
+
+.table-view .column-header,
+.table-view .filler {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent transparent -theme-shadow-dark transparent;
+}
+
+.table-view .column-header .label {
+  -fx-text-fill: -theme-text;
+  -fx-font-weight: bold;
+}
+
+.table-cell {
+  -fx-text-fill: -theme-text;
+  -fx-padding: 8 10;
+}
+
+.tree-cell > .tree-disclosure-node > .arrow {
+  -fx-background-color: -theme-text-muted;
+}
+
+/* SplitPane */
+.split-pane {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.split-pane > .split-pane-divider {
+  -fx-background-color: -theme-bg;
+  -fx-border-color: transparent -theme-shadow-dark transparent -theme-shadow-light;
+  -fx-border-width: 0 1 0 1;
+  -fx-padding: 0 3;
+}
+
+/* Main window */
+.excel-list {
+  -fx-padding: 0 10;
+}
+
+.excel-grid {
+  -fx-background-color: transparent;
+  -fx-padding: 8;
+}
+
+.excel-column {
+  -fx-background-color: transparent;
+  -fx-padding: 0 5;
+}
+
+.excel-item {
+  -fx-background-color: -theme-bg;
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(255, 255, 255, 0.78);
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+  -fx-padding: 4 10;
+  -fx-text-fill: -theme-text;
+  -fx-cursor: hand;
+  -fx-effect: dropshadow(gaussian, -theme-shadow-dark, 5, 0.16, 2, 2),
+              dropshadow(gaussian, -theme-shadow-light, 5, 0.78, -2, -2);
+}
+
+.excel-item:hover {
+  -fx-background-color: derive(-theme-bg, 2%);
+  -fx-translate-y: -1;
+}
+
+.excel-item-selected {
+  -fx-background-color: -theme-accent-soft;
+  -fx-border-color: -theme-accent;
+  -fx-border-width: 1.2;
+}
+
+.excel-item-success {
+  -fx-border-color: -theme-success;
+  -fx-border-width: 1.5;
+}
+
+.excel-item-danger {
+  -fx-border-color: -theme-danger;
+  -fx-border-width: 1.5;
+}
+
+.log-flow {
+  -fx-background-color: transparent;
+  -fx-padding: 8;
+}
+
+.settings-panel {
+  -fx-background-color: -theme-bg;
+}
+
+.form-row {
+  -fx-border-color: transparent transparent rgba(185, 195, 209, 0.65) transparent;
+  -fx-border-width: 0 0 1 0;
+}
+
+.config-section {
+  -fx-background-color: transparent;
+}
+
+.option-row {
+  -fx-background-color: transparent;
+}
+
+.action-toolbar {
+  -fx-background-color: transparent;
+}
+
+.server-panel {
+  -fx-background-color: transparent;
+  -fx-border-color: rgba(185, 195, 209, 0.65) transparent transparent transparent;
+  -fx-border-width: 1 0 0 0;
+}
+
+.progress-track {
+  -fx-background-color: -theme-bg;
+  -fx-border-color: transparent transparent -theme-shadow-dark transparent;
+  -fx-border-width: 0 0 1 0;
+}
+
+.progress-fill {
+  -fx-background-color: linear-gradient(to right, derive(-theme-accent, -8%), -theme-accent);
+  -fx-background-radius: 0 8 8 0;
+}
+
+.progress-fill-danger {
+  -fx-background-color: linear-gradient(to right, derive(-theme-danger, -8%), -theme-danger);
+}
+
+/* Config setting */
+.setting-root {
+  -fx-padding: 10;
+}
+
+.setting-main {
+  -fx-background-color: -theme-bg;
+}
+
+.setting-tree {
+  -fx-background-color: -theme-bg-soft;
+}
+
+.setting-area {
+  -fx-background-color: transparent;
+  -fx-padding: 14;
+}
+
+.setting-footer {
+  -fx-background-color: -theme-bg;
+}
+
+/* Config explain */
+.explain-root {
+  -fx-padding: 10;
+}
+
+.explain-table {
+  -fx-background-color: -theme-bg-soft;
+}
+
+/* Search window */
+.search-root {
+  -fx-padding: 12;
+}
+
+.search-surface {
+  -fx-background-color: transparent;
+}
+
+/* About */
+.about-root {
+  -fx-padding: 16;
+}
+
+.about-card {
+  -fx-background-color: -theme-bg;
+  -fx-background-radius: 18;
+  -fx-border-color: rgba(255, 255, 255, 0.78);
+  -fx-border-radius: 18;
+  -fx-border-width: 1;
+  -fx-padding: 16;
+  -fx-effect: dropshadow(gaussian, -theme-shadow-dark, 12, 0.2, 5, 5),
+              dropshadow(gaussian, -theme-shadow-light, 12, 0.85, -5, -5);
+}
+
+.author-link {
+  -fx-text-fill: -theme-accent;
+  -fx-cursor: hand;
+  -fx-underline: true;
+}
+
+/* Error modal */
+.modal-root {
+  -fx-background-color: -theme-bg;
+  -fx-padding: 14;
+}
+
+.modal-scroll {
+  -fx-background-color: -theme-bg-soft;
+  -fx-background-radius: 14;
+  -fx-border-color: rgba(255, 255, 255, 0.72);
+  -fx-border-radius: 14;
+  -fx-effect: innershadow(gaussian, -theme-shadow-dark, 6, 0.14, 2, 2);
+}
+
+.error-flow {
+  -fx-background-color: transparent;
+  -fx-padding: 12;
+}
+
+/* Tooltip */
+.tooltip {
+  -fx-background-color: -theme-bg;
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(255, 255, 255, 0.78);
+  -fx-border-radius: 8;
+  -fx-text-fill: -theme-text;
+  -fx-effect: dropshadow(gaussian, -theme-shadow-dark, 8, 0.2, 3, 3);
+}
+
+/* Special overlay */
+.horse-lamp-root {
+  -fx-background-color: transparent;
+}
+
+.error-text {
+  -fx-fill: -theme-danger;
+}
+
+
+.settings-panel .button,
+.action-toolbar .button {
+  -fx-padding: 4 8;
+  -fx-font-size: 11px;
+}
+
+.settings-panel .check-box {
+  -fx-padding: 0 1;
+  -fx-font-size: 12px;
+}
+

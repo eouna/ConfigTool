@@ -2,8 +2,10 @@ package com.eouna.configtool.core.window;
 
 import java.io.IOException;
 
-import com.eouna.configtool.core.utils.ResourceUtils;
+import com.eouna.configtool.core.boot.context.ApplicationContext;
+import com.eouna.configtool.core.context.ApplicationContextAware;
 import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.core.utils.ResourceUtils;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
@@ -16,9 +18,13 @@ import org.apache.commons.lang3.StringUtils;
  * @author CCL
  * @date 2023/3/1
  */
-public abstract class BaseWindowController implements IWindowController, IWindowViewRenderComplete {
+public abstract class BaseWindowController
+    implements IWindowController, IWindowViewRenderComplete, ApplicationContextAware {
 
   protected Stage stage;
+
+  /** 由容器注入的应用上下文。用于从容器获取单例 Bean。 */
+  private ApplicationContext applicationContext;
 
   /** 界面数据加载和节点挂载完成,展示之前完成标记 */
   protected boolean isMounted;
@@ -50,6 +56,9 @@ public abstract class BaseWindowController implements IWindowController, IWindow
 
   @Override
   public void open() {
+    if (getStage() != null && getStage().getScene() != null) {
+      getWindowThemeManager().applyTheme(getStage().getScene());
+    }
     getStage().show();
     onShow();
   }
@@ -88,8 +97,22 @@ public abstract class BaseWindowController implements IWindowController, IWindow
     newStage.setTitle(getTitle());
     newStage.setScene(scene);
     onCreate(newStage);
+    getWindowThemeManager().applyTheme(scene);
     setStage(newStage);
     return newStage;
+  }
+
+  @Override
+  public void setApplicationContext(ApplicationContext applicationContext) {
+    this.applicationContext = applicationContext;
+  }
+
+  /** 从容器获取主题管理器单例。 */
+  private WindowThemeManager getWindowThemeManager() {
+    if (applicationContext == null) {
+      throw new IllegalStateException("应用上下文尚未注入，无法获取 WindowThemeManager");
+    }
+    return applicationContext.getBean(WindowThemeManager.class);
   }
 
   public String getTitle() {

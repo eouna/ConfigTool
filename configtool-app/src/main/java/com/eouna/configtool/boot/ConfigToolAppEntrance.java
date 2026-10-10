@@ -1,6 +1,7 @@
 package com.eouna.configtool.boot;
 
 import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.eouna.configtool.constant.ThemeConstant;
 import com.eouna.configtool.core.annotaion.AutoInject;
 import com.eouna.configtool.core.boot.ICommandLineRunner;
 import com.eouna.configtool.core.boot.context.ApplicationContext;
@@ -13,6 +14,7 @@ import com.eouna.configtool.core.event.FxApplicationStartedEvent;
 import com.eouna.configtool.core.factory.anno.Component;
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.window.WindowManager;
+import com.eouna.configtool.core.window.WindowThemeManager;
 import com.eouna.configtool.ui.controllers.ExcelGenWindowController;
 import com.eouna.configtool.utils.FileUtils;
 import java.io.IOException;
@@ -36,6 +38,7 @@ public class ConfigToolAppEntrance
 
   private ApplicationContext applicationContext;
   @AutoInject private SystemConfigHolder systemConfigHolder;
+  @AutoInject private WindowThemeManager windowThemeManager;
 
   /** 非GUI(命令行)模式下的生成逻辑 */
   @AutoInject private NonGuiApplicationRunner nonGuiApplicationRunner;
@@ -47,6 +50,7 @@ public class ConfigToolAppEntrance
 
   @Override
   public void run(Application.Parameters parameters) {
+    registerThemes();
     Stage stage = applicationContext.getMainStage();
     // 初始化日志系统
     LoggerUtils.getInstance().init();
@@ -69,6 +73,12 @@ public class ConfigToolAppEntrance
     stage.setTitle("压测工具" + FileUtils.getAppVersion());
     // 初始化逻辑
     applicationContext.getBean(ConfigToolAppEntrance.class).init(applicationContext);
+  }
+
+  /** 注册界面主题。新增主题时在此处登记即可，所有窗口会自动应用当前主题。 */
+  private void registerThemes() {
+    windowThemeManager.registerTheme(ThemeConstant.NEUMORPHISM, "新拟态", "ui/theme/neumorphism.css");
+    windowThemeManager.registerTheme(ThemeConstant.LIGHT, "浅色", "ui/theme/light.css");
   }
 
   /** 逻辑处理的入口 */
