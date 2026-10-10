@@ -11,6 +11,7 @@
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleGroup?>
 <?import javafx.scene.control.ToolBar?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
@@ -21,6 +22,9 @@
       prefHeight="800.0" prefWidth="1280.0" spacing="0" styleClass="app-root"
       xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.eouna.configtool.ui.controllers.ExcelGenWindowController">
+    <fx:define>
+        <ToggleGroup fx:id="themeToggleGroup"/>
+    </fx:define>
     <MenuBar>
         <menus>
             <Menu mnemonicParsing="false" text="配置">
@@ -58,11 +62,14 @@
                     <FontIcon iconLiteral="fa-paint-brush" iconSize="14"/>
                 </graphic>
                 <items>
-                    <RadioMenuItem fx:id="neumorphismThemeMenuItem" mnemonicParsing="false"
+                    <RadioMenuItem fx:id="neumorphismThemeMenuItem" mnemonicParsing="false" toggleGroup="$themeToggleGroup"
                                    onAction="#onNeumorphismThemeSelected" selected="true"
                                    text="新拟态"/>
-                    <RadioMenuItem fx:id="lightThemeMenuItem" mnemonicParsing="false"
+                    <RadioMenuItem fx:id="lightThemeMenuItem" mnemonicParsing="false" toggleGroup="$themeToggleGroup"
                                    onAction="#onLightThemeSelected" text="浅色"/>
+                    <RadioMenuItem fx:id="grandBudapestThemeMenuItem" mnemonicParsing="false"
+                                   toggleGroup="$themeToggleGroup"
+                                   onAction="#onGrandBudapestThemeSelected" text="布达佩斯"/>
                 </items>
             </Menu>
             <Menu>

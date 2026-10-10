@@ -108,6 +108,7 @@ public class ExcelGenWindowController extends BaseWindowController {
   @FXML private Button preLoadBtn;
   @FXML private RadioMenuItem neumorphismThemeMenuItem;
   @FXML private RadioMenuItem lightThemeMenuItem;
+  @FXML private RadioMenuItem grandBudapestThemeMenuItem;
   @FXML private Button syncConfBtn;
   // endregion============================== button ==============================
   // region============================== form =============================
@@ -193,12 +194,21 @@ public class ExcelGenWindowController extends BaseWindowController {
     syncThemeMenuSelection(ThemeConstant.LIGHT);
   }
 
+  @FXML
+  protected void onGrandBudapestThemeSelected() {
+    windowThemeManager.setTheme(ThemeConstant.GRAND_BUDAPEST);
+    syncThemeMenuSelection(ThemeConstant.GRAND_BUDAPEST);
+  }
+
   private void syncThemeMenuSelection(String themeId) {
     Platform.runLater(
         () -> {
           boolean neumorphism = ThemeConstant.NEUMORPHISM.equals(themeId);
+          boolean light = ThemeConstant.LIGHT.equals(themeId);
+          boolean grandBudapest = ThemeConstant.GRAND_BUDAPEST.equals(themeId);
           neumorphismThemeMenuItem.setSelected(neumorphism);
-          lightThemeMenuItem.setSelected(!neumorphism);
+          lightThemeMenuItem.setSelected(light);
+          grandBudapestThemeMenuItem.setSelected(grandBudapest);
         });
   }
 
@@ -469,6 +479,14 @@ public class ExcelGenWindowController extends BaseWindowController {
             new KeyCodeCombination(
                 KeyCode.DIGIT2, KeyCodeCombination.CONTROL_DOWN, KeyCodeCombination.SHIFT_DOWN),
             this::onLightThemeSelected);
+
+    stage
+        .getScene()
+        .getAccelerators()
+        .put(
+            new KeyCodeCombination(
+                KeyCode.DIGIT3, KeyCodeCombination.CONTROL_DOWN, KeyCodeCombination.SHIFT_DOWN),
+            this::onGrandBudapestThemeSelected);
   }
 
   /** 初始化配置字段 */

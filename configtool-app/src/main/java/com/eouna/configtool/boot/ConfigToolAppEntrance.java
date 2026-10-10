@@ -79,6 +79,8 @@ public class ConfigToolAppEntrance
   private void registerThemes() {
     windowThemeManager.registerTheme(ThemeConstant.NEUMORPHISM, "新拟态", "ui/theme/neumorphism.css");
     windowThemeManager.registerTheme(ThemeConstant.LIGHT, "浅色", "ui/theme/light.css");
+    windowThemeManager.registerTheme(
+        ThemeConstant.GRAND_BUDAPEST, "布达佩斯", "ui/theme/grand-budapest.css");
   }
 
   /** 逻辑处理的入口 */

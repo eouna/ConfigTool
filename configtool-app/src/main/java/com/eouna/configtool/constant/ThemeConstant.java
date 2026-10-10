@@ -5,6 +5,7 @@ public final class ThemeConstant {
 
   public static final String NEUMORPHISM = "neumorphism";
   public static final String LIGHT = "light";
+  public static final String GRAND_BUDAPEST = "grand-budapest";
 
   private ThemeConstant() {}
 }
