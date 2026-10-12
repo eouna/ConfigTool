@@ -3,11 +3,11 @@ package com.eouna.configtool.env;
 import com.eouna.configtool.core.factory.anno.Component;
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
-import java.io.BufferedReader;
+import com.eouna.configtool.utils.ProcessOutputUtils;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -193,19 +193,13 @@ public class TemplateEnvChecker {
       ProcessBuilder processBuilder = new ProcessBuilder(command);
       processBuilder.redirectErrorStream(true);
       process = processBuilder.start();
-      StringBuilder output = new StringBuilder();
+      ByteArrayOutputStream output = new ByteArrayOutputStream();
       Process currentProcess = process;
       Thread reader =
           new Thread(
               () -> {
-                try (BufferedReader bufferedReader =
-                    new BufferedReader(
-                        new InputStreamReader(
-                            currentProcess.getInputStream(), StandardCharsets.UTF_8))) {
-                  String line;
-                  while ((line = bufferedReader.readLine()) != null) {
-                    output.append(line).append(System.lineSeparator());
-                  }
+                try (InputStream inputStream = currentProcess.getInputStream()) {
+                  inputStream.transferTo(output);
                 } catch (IOException ignored) {
                   // 进程被销毁时读取会中断, 忽略
                 }
@@ -218,7 +212,8 @@ public class TemplateEnvChecker {
         return null;
       }
       reader.join(1000);
-      return new ProbeOutput(output.toString());
+      // 各工具链输出编码不统一(如MSVC的cl输出GBK), 统一走解码工具, 避免预加载页与日志出现乱码
+      return new ProbeOutput(ProcessOutputUtils.decode(output.toByteArray()));
     } catch (IOException e) {
       // 命令不存在
       return null;

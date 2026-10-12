@@ -1,6 +1,9 @@
 package ${packageName};
 
 import java.util.Map;
+<#list beanAndContainerMap as beanName, containerName>
+import ${cfgBeanPackageName}.${beanName};
+</#list>
 
 import javax.annotation.processing.Generated;
 

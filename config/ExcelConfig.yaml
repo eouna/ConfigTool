@@ -12,7 +12,7 @@ syncConfig:
   serverList: 本地(Local),测试服1,测试服2
   localResourcePlacePath: resources/sample
   targetServer:
-  - servername: 测试服1
+  - serverName: 测试服1
     serverIp: 127.0.0.1
     username: name
     userPass: pass
@@ -20,7 +20,7 @@ syncConfig:
     serverPath: /
     uploadTempFilePath: /temp/
     executeCommand: cp -r /data/temp/ /destination/
-  - servername: 测试服2
+  - serverName: 测试服2
     serverIp: 127.0.0.2
     username: name
     userPass: pass

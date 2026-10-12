@@ -691,6 +691,8 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
       String mainClassName = javaTemplateConf.getDataManagerClassName() + "Main";
       Map<String, Object> mainDataMap = new HashMap<>(8);
       mainDataMap.put("packageName", javaTemplateConf.getPackageName());
+      // bean的包名: 主入口里会引用bean类型, 缺少这个包名会生成没有import的代码导致编译失败
+      mainDataMap.put("cfgBeanPackageName", cfgBeanPackageName);
       mainDataMap.put("dataManagerClassName", javaTemplateConf.getDataManagerClassName());
       mainDataMap.put("mainClassName", mainClassName);
       mainDataMap.put("excelLoadDir", excelLoadDir);

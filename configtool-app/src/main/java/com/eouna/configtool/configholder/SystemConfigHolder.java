@@ -17,6 +17,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -216,21 +217,21 @@ public class SystemConfigHolder {
   private void parseConfRecursion(
       Field field, Object fieldInstance, Map<String, ?> objectMap, String fieldPath)
       throws InstantiationException, IllegalAccessException, InvocationTargetException {
-    Class<?> fieldClass = field.getType();
+    Class<?> declaredClass = field.getType();
     // 尝试获取字段别名
     String fieldAliasName = getConfigFieldAliasName(field);
     String fieldName = StringUtils.isEmpty(fieldAliasName) ? field.getName() : fieldAliasName;
-    if (objectMap.containsKey(fieldName)) {
-      Object confData = objectMap.get(fieldName);
+    // 配置文件中字段名大小写可能不一致(如serverName写成servername), 这里做一次忽略大小写的兼容匹配
+    String matchedKey = findMatchedKey(objectMap, fieldName);
+    if (matchedKey != null) {
+      Object confData = objectMap.get(matchedKey);
+      // List字段的真实类型在泛型中, 需要先解析出元素类型, 否则配置里的Map无法转换成对应bean
+      boolean fieldIsList = declaredClass.isAssignableFrom(List.class);
+      Class<?> fieldClass = fieldIsList ? resolveElementClass(field) : declaredClass;
       Object newFiledObj = field.get(fieldInstance);
       if (newFiledObj == null) {
-        newFiledObj = getClasNewObject(fieldClass);
-      }
-      boolean fieldIsList = false;
-      if (fieldClass.isAssignableFrom(List.class)) {
-        ParameterizedType type = (ParameterizedType) field.getGenericType();
-        fieldClass = (Class<?>) type.getActualTypeArguments()[0];
-        fieldIsList = true;
+        // List的声明类型是接口无法直接实例化, 统一用ArrayList承载
+        newFiledObj = fieldIsList ? new ArrayList<>() : getClasNewObject(fieldClass);
       }
       // 所有配置字段需要注解@CfgDataBean
       if (fieldClass.getAnnotation(CfgDataBean.class) != null && newFiledObj != null) {
@@ -268,6 +269,45 @@ public class SystemConfigHolder {
       throw new RuntimeException(
           "配置表: " + DefaultEnvConfigConstant.SYSTEM_CONFIG_NAME + " 中缺少配置字段: " + fieldName);
     }
+  }
+
+  /**
+   * 查找配置数据中与字段名匹配的key
+   *
+   * <p>优先精确匹配, 找不到时退化为忽略大小写匹配(兼容历史配置中字段名大小写不一致的情况)
+   *
+   * @param objectMap 配置数据
+   * @param fieldName 字段名
+   * @return 匹配到的key, 未匹配到返回null
+   */
+  private static String findMatchedKey(Map<String, ?> objectMap, String fieldName) {
+    if (objectMap.containsKey(fieldName)) {
+      return fieldName;
+    }
+    for (String key : objectMap.keySet()) {
+      if (key != null && key.equalsIgnoreCase(fieldName)) {
+        LoggerUtils.getLogger().warn("配置字段 {} 在配置文件中写成了 {}, 请修正大小写", fieldName, key);
+        return key;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 解析List字段的泛型元素类型
+   *
+   * @param field 字段
+   * @return 元素类型, 无法解析时返回Object
+   */
+  private static Class<?> resolveElementClass(Field field) {
+    Type genericType = field.getGenericType();
+    if (genericType instanceof ParameterizedType) {
+      Type[] typeArguments = ((ParameterizedType) genericType).getActualTypeArguments();
+      if (typeArguments.length > 0 && typeArguments[0] instanceof Class) {
+        return (Class<?>) typeArguments[0];
+      }
+    }
+    return Object.class;
   }
 
   /**

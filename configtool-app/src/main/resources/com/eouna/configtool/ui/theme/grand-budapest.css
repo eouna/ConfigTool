@@ -577,6 +577,12 @@
     -fx-text-fill: #fff7f2;
 }
 
+/* 下拉菜单项虽然在弹出的上下文菜单里, 但它的CSS继承链依然包含.menu-bar,
+   会被上面的浅色规则命中, 而菜单面板底色是浅色(#fff7f2), 因此这里显式改回深色文字 */
+.menu-item .label {
+    -fx-text-fill: -theme-text;
+}
+
 .menu:hover,
 .menu:showing {
     -fx-background-color: #8b2c4c;

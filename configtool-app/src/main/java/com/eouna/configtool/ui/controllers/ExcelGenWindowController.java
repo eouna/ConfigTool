@@ -26,13 +26,6 @@ import com.eouna.configtool.utils.hotreload.HotClassLoaderUtils.MethodArgDataTup
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -809,8 +802,19 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 执行主入口完成预加载 */
   private void preloadByMainEntry(String langId, File outputDir) {
     String dataPath = getPreloadDataPath();
+    // 编译/运行前先确认工具链可用, 避免直接抛出CreateProcess存在的无法启动程序异常
+    TemplateEnvResult envResult =
+        templateEnvContext == null ? null : templateEnvContext.get(langId);
+    if (envResult == null || (envResult.isEnvRequired() && !envResult.isAvailable())) {
+      String requiredTool = envResult == null ? "未知" : envResult.getCommand();
+      if (preloadResultLabel != null) {
+        preloadResultLabel.setText("未检测到运行环境, 无法预加载");
+      }
+      textAreaLogger.error("未检测到 {} 的运行环境({}), 请安装对应工具链后再预加载", langId, requiredTool);
+      return;
+    }
     TemplateMainEntrySupport.PreloadPlan plan =
-        TemplateMainEntrySupport.createPlan(langId, outputDir, dataPath);
+        TemplateMainEntrySupport.createPlan(langId, outputDir, dataPath, envResult);
     if (plan == null) {
       if (preloadResultLabel != null) {
         preloadResultLabel.setText("无法构建预加载命令, 请检查生成结果");
@@ -882,10 +886,8 @@ public class ExcelGenWindowController extends BaseWindowController {
    * @param plan 计划
    * @param command 命令
    * @return processor
-   * @throws IOException IO
    */
-  private Process getProcess(TemplateMainEntrySupport.PreloadPlan plan, List<String> command)
-      throws IOException {
+  private Process getProcess(TemplateMainEntrySupport.PreloadPlan plan, List<String> command) {
     ProcessBuilder processBuilder = new ProcessBuilder(command);
     processBuilder.directory(plan.getWorkDir());
     processBuilder.redirectErrorStream(true);
@@ -897,56 +899,21 @@ public class ExcelGenWindowController extends BaseWindowController {
       environment.compute(
           pathKey, (k, oldPath) -> toolDir + File.pathSeparator + (oldPath == null ? "" : oldPath));
     }
-    return processBuilder.start();
-  }
-
-  /** 解码子进程输出: 优先UTF-8, 失败后回退系统原生编码(兼容Windows下javac的GBK诊断信息) */
-  private static String decodeProcessOutput(byte[] outputBytes) {
-    if (outputBytes.length == 0) {
-      return "";
-    }
     try {
-      return decodeStrict(outputBytes, StandardCharsets.UTF_8);
-    } catch (CharacterCodingException ignored) {
-      Charset nativeCharset = resolveNativeCharset();
-      if (!StandardCharsets.UTF_8.equals(nativeCharset)) {
-        try {
-          return decodeStrict(outputBytes, nativeCharset);
-        } catch (CharacterCodingException ignoredAgain) {
-          // 继续使用带替换字符的解码, 保证不会因为异常再次中断预加载流程。
-        }
-      }
-      return new String(outputBytes, StandardCharsets.UTF_8);
+      return processBuilder.start();
+    } catch (IOException e) {
+      // 可执行文件缺失等启动失败时转成可读提示, 避免直接抛出CreateProcess原始错误
+      throw new IllegalStateException(
+          "启动命令失败: "
+              + command.get(0)
+              + ", 请确认对应工具链已安装并加入PATH",
+          e);
     }
   }
 
-  /** 严格按指定编码解码, 编码不匹配时抛出异常以便回退 */
-  private static String decodeStrict(byte[] outputBytes, Charset charset)
-      throws CharacterCodingException {
-    CharsetDecoder decoder =
-        charset
-            .newDecoder()
-            .onMalformedInput(CodingErrorAction.REPORT)
-            .onUnmappableCharacter(CodingErrorAction.REPORT);
-    CharBuffer chars = decoder.decode(ByteBuffer.wrap(outputBytes));
-    return chars.toString();
-  }
-
-  /** 读取Java运行环境对应的原生编码, 例如中文Windows下的GBK */
-  private static Charset resolveNativeCharset() {
-    for (String propertyName :
-        new String[] {"native.encoding", "sun.jnu.encoding", "file.encoding"}) {
-      String charsetName = System.getProperty(propertyName);
-      if (charsetName == null || charsetName.isBlank()) {
-        continue;
-      }
-      try {
-        return Charset.forName(charsetName);
-      } catch (Exception ignored) {
-        // 尝试下一个编码来源
-      }
-    }
-    return Charset.defaultCharset();
+  /** 解码子进程输出: 优先UTF-8, 失败后回退系统原生编码(兼容Windows下工具链的GBK输出) */
+  private static String decodeProcessOutput(byte[] outputBytes) {
+    return ProcessOutputUtils.decode(outputBytes);
   }
 
   /** 当前语言工具链所在目录(用于修正运行时PATH) */

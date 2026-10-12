@@ -3,6 +3,7 @@ package com.eouna.configtool.generator;
 import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.core.logger.LoggerUtils;
+import com.eouna.configtool.env.TemplateEnvResult;
 import com.eouna.configtool.utils.FileUtils;
 import java.io.File;
 import java.util.ArrayList;
@@ -40,6 +41,10 @@ public final class TemplateMainEntrySupport {
 
   /** 不支持运行的语言(纯数据模板) */
   private static final List<String> NO_RUNTIME_LANGS = Collections.singletonList("json");
+
+  /** C++编译器候选(按优先级), 与环境检测的探测顺序保持一致 */
+  private static final List<String> CPP_COMPILER_NAMES =
+      Arrays.asList("g++", "gcc", "clang++", "cl");
 
   static {
     // java: 主入口由 Main.ftl 生成, 编译+运行
@@ -119,9 +124,11 @@ public final class TemplateMainEntrySupport {
    * @param langId 语言标识
    * @param outputDir 模板导出目录
    * @param dataPath 本次要读取的数据路径(由"语言加载选项"决定: excel目录 或 json目录)
-   * @return 执行计划, 不支持时返回null
+   * @param envResult 该语言的运行环境检测结果, 可为null
+   * @return 执行计划, 不支持或缺少工具链时返回null
    */
-  public static PreloadPlan createPlan(String langId, File outputDir, String dataPath) {
+  public static PreloadPlan createPlan(
+      String langId, File outputDir, String dataPath, TemplateEnvResult envResult) {
     if (!isPreloadSupported(langId)) {
       return null;
     }
@@ -183,30 +190,196 @@ public final class TemplateMainEntrySupport {
         break;
       case "cpp":
         {
-          List<String> sources = collectFiles(workDir, ".cpp");
-          List<String> cSources = collectFiles(new File(workDir, "third_party"), ".c");
-          List<String> compile = new ArrayList<>();
-          compile.add("g++");
-          compile.add("-std=c++17");
-          compile.add("-O0");
-          compile.add("-Iinclude");
-          compile.add("-I.");
-          compile.add("-Ithird_party");
-          compile.add("-o");
-          compile.add("config_tool_cpp");
-          compile.addAll(sources.stream().map(f -> new File(f).getName()).collect(Collectors.toList()));
-          compile.addAll(
-              cSources.stream()
-                  .map(f -> "third_party/" + new File(f).getName())
-                  .collect(Collectors.toList()));
-          commands.add(compile);
-          commands.add(Arrays.asList("./config_tool_cpp", dataPath));
+          List<List<String>> cppCommands = createCppCommands(workDir, dataPath, envResult);
+          if (cppCommands == null) {
+            return null;
+          }
+          commands.addAll(cppCommands);
           break;
         }
       default:
         return null;
     }
     return new PreloadPlan(workDir, commands);
+  }
+
+  /**
+   * 构建C++的编译与运行命令
+   *
+   * <p>不同工具链的参数风格不同: g++/clang++ 用 POSIX 风格, MSVC(cl) 用 / 开头的选项,
+   * 且 MSVC 必须先加载 vcvars 环境否则找不到标准库头文件。
+   *
+   * @param workDir cpp工程目录
+   * @param dataPath 预加载数据路径
+   * @param envResult 该语言的环境检测结果, 可为null
+   * @return 命令列表, 未找到可用编译器时返回null
+   */
+  private static List<List<String>> createCppCommands(
+      File workDir, String dataPath, TemplateEnvResult envResult) {
+    CppCompiler compiler = resolveCppCompiler(envResult);
+    if (compiler == null) {
+      LoggerUtils.getLogger().warn("未找到可用的C++编译器, 无法预加载");
+      return null;
+    }
+    List<String> sources = new ArrayList<>(collectFiles(workDir, ".cpp"));
+    if (sources.isEmpty()) {
+      return null;
+    }
+    sources.addAll(collectFiles(new File(workDir, "third_party"), ".c"));
+    String executableName = isWindows() ? "config_tool_cpp.exe" : "config_tool_cpp";
+    List<List<String>> commands = new ArrayList<>(2);
+    List<String> compile = new ArrayList<>();
+    compile.add(compiler.getExecutable());
+    if (compiler.isMsvc()) {
+      compile.add("/nologo");
+      compile.add("/std:c++17");
+      compile.add("/EHsc");
+      // 生成的源码包含中文, 强制按UTF-8编译, 避免C4819警告与中文乱码
+      compile.add("/utf-8");
+      compile.add("/Iinclude");
+      compile.add("/I.");
+      compile.add("/Ithird_party");
+      compile.add("/Fe:" + executableName);
+      compile.addAll(sources);
+      String vcvarsPrefix = buildVcvarsCommandPrefix(compiler.getExecutable());
+      if (vcvarsPrefix == null) {
+        // 找不到vcvars时直接调用, 依赖当前已处于VS开发环境
+        commands.add(compile);
+      } else {
+        commands.add(Arrays.asList("cmd", "/c", vcvarsPrefix + toCommandLine(compile)));
+      }
+    } else {
+      compile.add("-std=c++17");
+      compile.add("-O0");
+      compile.add("-Iinclude");
+      compile.add("-I.");
+      compile.add("-Ithird_party");
+      compile.add("-o");
+      compile.add(executableName);
+      compile.addAll(sources);
+      commands.add(compile);
+    }
+    // 直接按绝对路径启动编译产物, 避免依赖工作目录与不同平台的相对路径解析
+    commands.add(
+        Arrays.asList(new File(workDir, executableName).getAbsolutePath(), dataPath));
+    return commands;
+  }
+
+  /**
+   * 解析可用的C++编译器
+   *
+   * @param envResult 环境检测结果, 优先使用其中实际命中的可执行文件
+   * @return 编译器信息, 未找到返回null
+   */
+  private static CppCompiler resolveCppCompiler(TemplateEnvResult envResult) {
+    List<String> candidates = new ArrayList<>(4);
+    if (envResult != null && envResult.isAvailable()) {
+      String executablePath = envResult.getExecutablePath();
+      if (executablePath != null && !executablePath.isBlank() && !"-".equals(executablePath)) {
+        candidates.add(executablePath);
+      }
+    }
+    // 没有环境检测结果时(如命令行入口), 按优先级在PATH中查找
+    for (String name : CPP_COMPILER_NAMES) {
+      String found = findInPath(name);
+      if (found != null) {
+        candidates.add(found);
+      }
+    }
+    for (String candidate : candidates) {
+      File file = new File(candidate);
+      if (file.isFile()) {
+        String fileName = file.getName().toLowerCase(Locale.ROOT);
+        boolean msvc = fileName.equals("cl") || fileName.equals("cl.exe");
+        return new CppCompiler(file.getAbsolutePath(), msvc);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 构建加载MSVC开发环境(vcvars)的命令前缀
+   *
+   * @param compilerExecutable cl.exe路径
+   * @return 如 call "xxx\\vcvars64.bat" >nul && 的前缀, 未找到返回null
+   */
+  private static String buildVcvarsCommandPrefix(String compilerExecutable) {
+    File dir = new File(compilerExecutable).getParentFile();
+    // cl.exe位于 <VS>\\VC\\Tools\\MSVC\\<ver>\\bin\\Host*\\*, 向上逐层查找vcvars脚本
+    for (int i = 0; i < 8 && dir != null; i++) {
+      File buildDir = new File(dir, "VC" + File.separator + "Auxiliary" + File.separator + "Build");
+      File vcvars64 = new File(buildDir, "vcvars64.bat");
+      if (vcvars64.isFile()) {
+        return "call \"" + vcvars64.getAbsolutePath() + "\" >nul && ";
+      }
+      File vcvarsAll = new File(buildDir, "vcvarsall.bat");
+      if (vcvarsAll.isFile()) {
+        return "call \"" + vcvarsAll.getAbsolutePath() + "\" x64 >nul && ";
+      }
+      dir = dir.getParentFile();
+    }
+    return null;
+  }
+
+  /** 将命令列表拼接为命令行(含空格的参数加引号) */
+  private static String toCommandLine(List<String> command) {
+    StringBuilder commandLine = new StringBuilder();
+    for (String token : command) {
+      if (commandLine.length() > 0) {
+        commandLine.append(' ');
+      }
+      boolean needQuote = token.indexOf(' ') >= 0 || token.indexOf('\t') >= 0;
+      commandLine.append(needQuote ? "\"" + token + "\"" : token);
+    }
+    return commandLine.toString();
+  }
+
+  /** 在PATH中查找可执行文件(Win下兼容.exe后缀) */
+  private static String findInPath(String name) {
+    String pathEnv = System.getenv("PATH");
+    if (pathEnv == null || pathEnv.isEmpty()) {
+      return null;
+    }
+    for (String dir : pathEnv.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
+      if (dir.isBlank()) {
+        continue;
+      }
+      File candidate = new File(dir, name);
+      if (candidate.isFile()) {
+        return candidate.getAbsolutePath();
+      }
+      if (isWindows()) {
+        File exeCandidate = new File(dir, name + ".exe");
+        if (exeCandidate.isFile()) {
+          return exeCandidate.getAbsolutePath();
+        }
+      }
+    }
+    return null;
+  }
+
+  /** 是否为Windows平台 */
+  private static boolean isWindows() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("windows");
+  }
+
+  /** C++编译器信息 */
+  private static class CppCompiler {
+    private final String executable;
+    private final boolean msvc;
+
+    CppCompiler(String executable, boolean msvc) {
+      this.executable = executable;
+      this.msvc = msvc;
+    }
+
+    String getExecutable() {
+      return executable;
+    }
+
+    boolean isMsvc() {
+      return msvc;
+    }
   }
 
   /** 组装 Java 编译/运行所需类路径(运行期classpath + templatelib/*.jar) */
