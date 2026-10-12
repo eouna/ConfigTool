@@ -801,6 +801,8 @@ public class ExcelGenWindowController extends BaseWindowController {
       textAreaLogger.info("没有可用的服务器配置, 不进入上传步骤");
       return;
     }
+    // 预加载完成或用户显式跳过后, 进入上传步骤即视为数据加载阶段已完成, 解锁同步按钮。
+    updateExcelProcessBtnUsage(EExcelUpdateState.LOAD_DATA);
     switchStep(STEP_UPLOAD);
   }
 
