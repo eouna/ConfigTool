@@ -16,8 +16,13 @@ fn main() {
     println!("配置表加载完成, 资源目录: {}", root);
 <#list containerDefs as def>
     println!("${def.className}: {} 条", manager.${def.fieldName}.cfg_map.len());
-    for (id, cfg) in manager.${def.fieldName}.cfg_map.iter() {
+<#if printLoadData>
+    let mut ${def.fieldName}_ids: Vec<i32> = manager.${def.fieldName}.cfg_map.keys().copied().collect();
+    ${def.fieldName}_ids.sort_unstable();
+    for id in ${def.fieldName}_ids {
+        let cfg = manager.${def.fieldName}.cfg_map.get(&id).unwrap();
         println!("    id={} => {:#?}", id, cfg);
     }
+</#if>
 </#list>
 }

@@ -8,13 +8,12 @@ import com.eouna.configtool.core.boot.env.EnvironmentConstant;
 import com.eouna.configtool.core.factory.anno.Component;
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.logger.TextAreaLogger;
+import com.eouna.configtool.generator.DataLoadSourceHolder;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
+import com.eouna.configtool.generator.MainEntryExportHolder;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.utils.FileUtils;
 import com.eouna.configtool.utils.ToolsLoggerUtils;
-import javafx.scene.text.TextFlow;
-import org.apache.commons.lang3.StringUtils;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -25,12 +24,14 @@ import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javafx.scene.text.TextFlow;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 非GUI(命令行)模式下的配置表生成逻辑。
  *
- * <p>由 {@link ConfigToolAppEntrance} 在以非GUI方式启动时调用, 复用界面同一套模板生成逻辑
- * ({@link ExcelTemplateGenUtils#generateByTemplateParallel}), 因此两种模式产出一致。
+ * <p>由 {@link ConfigToolAppEntrance} 在以非GUI方式启动时调用, 复用界面同一套模板生成逻辑 ({@link
+ * ExcelTemplateGenUtils#generateByTemplateParallel}), 因此两种模式产出一致。
  *
  * <p>参数需使用 {@code --key=value} 形式(与容器 {@link CommandLineAndArgs} 解析规则一致)。
  *
@@ -60,6 +61,12 @@ public class NonGuiApplicationRunner {
 
   /** 导出语言参数名, 逗号分隔, 不设置默认java */
   public static final String ARG_LANG = "lang";
+
+  /** 数据读取方式参数名(excel/json), 默认excel */
+  public static final String ARG_LOAD_SOURCE = "load_source";
+
+  /** 是否导出主入口代码(true/false), 默认true */
+  public static final String ARG_EXPORT_MAIN = "export_main";
 
   /** 默认导出语言 */
   private static final String DEFAULT_LANG = "java";
@@ -106,8 +113,7 @@ public class NonGuiApplicationRunner {
           "  ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out",
           "  ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=go,rust");
 
-  @AutoInject
-  private SystemConfigHolder systemConfigHolder;
+  @AutoInject private SystemConfigHolder systemConfigHolder;
 
   /**
    * 执行非GUI模式的配置表生成流程。
@@ -132,6 +138,21 @@ public class NonGuiApplicationRunner {
       String targetDir = applyTargetDir(arguments);
       // 3. 导出语言, 不设置默认java; 非GUI固定追加json
       Set<ETemplateGenerator> generators = resolveGenerators(arguments);
+      // 数据读取方式(excel/json), 与界面「语言加载选项」等价
+      String loadSource = getOption(arguments, ARG_LOAD_SOURCE);
+      if (StringUtils.isNotBlank(loadSource)) {
+        DataLoadSourceHolder.getInstance().setLoadSource(loadSource);
+      }
+      LoggerUtils.getLogger()
+          .info("数据读取方式: {}", DataLoadSourceHolder.getInstance().getLoadSource());
+      // 是否导出主入口代码(默认导出)
+      String exportMain = getOption(arguments, ARG_EXPORT_MAIN);
+      if (StringUtils.isNotBlank(exportMain)) {
+        MainEntryExportHolder.getInstance()
+            .setExportMainEntry(Boolean.parseBoolean(exportMain.trim()));
+      }
+      LoggerUtils.getLogger()
+          .info("是否导出主入口代码: {}", MainEntryExportHolder.getInstance().isExportMainEntry());
       // 收集待生成的excel文件
       List<File> excelFileList = collectExcelFiles(excelTarget);
       if (excelFileList.isEmpty()) {
@@ -257,8 +278,7 @@ public class NonGuiApplicationRunner {
 
   /** 是否请求了帮助/用法说明 */
   private boolean isHelpRequested(CommandLineAndArgs arguments) {
-    for (String helpName :
-        new String[] {EnvironmentConstant.COMMAND_LINE_ARG_HELP, "usage", "h"}) {
+    for (String helpName : new String[] {EnvironmentConstant.COMMAND_LINE_ARG_HELP, "usage", "h"}) {
       if (arguments != null && arguments.containOptionName(helpName)) {
         return true;
       }

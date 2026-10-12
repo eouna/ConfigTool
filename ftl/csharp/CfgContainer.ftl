@@ -21,6 +21,21 @@ namespace ConfigTool.Cfg
             return new ${beanClassName}();
         }
 
+        public override string GetSheetName()
+        {
+            return "${sheetName}";
+        }
+
+        public override List<ConfigDataSource.FieldMeta> GetFieldMetas()
+        {
+            return new List<ConfigDataSource.FieldMeta>
+            {
+<#list fieldMetas as meta>
+                new ConfigDataSource.FieldMeta("${meta.name}", "${meta.rawType}"),
+</#list>
+            };
+        }
+
         public override List<string> GetExcelNameList()
         {
             return new List<string>

@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use calamine::{Data, Range};
 use chrono::NaiveDateTime;
 
 /// 配置Bean接口
@@ -17,24 +16,33 @@ pub trait CfgValue: Sized {
     fn parse(raw_type: &str, text: &str) -> Result<Self, String>;
 }
 
-/// 读取单元格文本
-pub fn cell_text(range: &Range<Data>, row: usize, col: usize) -> String {
-    match range.get_value((row as u32, col as u32)) {
-        Some(Data::String(value)) => value.trim().to_string(),
-        Some(Data::Int(value)) => value.to_string(),
-        Some(Data::Float(value)) => {
-            if value.fract() == 0.0 {
-                format!("{}", *value as i64)
-            } else {
-                format!("{}", value)
-            }
-        }
-        Some(Data::Bool(value)) => value.to_string(),
-        Some(Data::DateTime(value)) => value.to_string(),
-        Some(Data::DateTimeIso(value)) => value.clone(),
-        Some(Data::DurationIso(value)) => value.clone(),
-        _ => String::new(),
+/// 统一数据源返回的二维字符串表(与excel单元格文本等价)
+#[derive(Debug, Clone, Default)]
+pub struct SheetData {
+    pub rows: Vec<Vec<String>>,
+}
+
+impl SheetData {
+    pub fn width(&self) -> usize {
+        self.rows.iter().map(Vec::len).max().unwrap_or(0)
     }
+
+    pub fn height(&self) -> usize {
+        self.rows.len()
+    }
+
+    pub fn cell(&self, row: usize, col: usize) -> &str {
+        self.rows
+            .get(row)
+            .and_then(|values| values.get(col))
+            .map(String::as_str)
+            .unwrap_or("")
+    }
+}
+
+/// 读取单元格文本
+pub fn cell_text(sheet: &SheetData, row: usize, col: usize) -> String {
+    sheet.cell(row, col).trim().to_string()
 }
 
 /// 按字段名查找列下标
@@ -43,8 +51,8 @@ pub fn find_col(names: &[String], name: &str) -> Option<usize> {
 }
 
 /// 是否空行
-pub fn is_blank_row(range: &Range<Data>, row: usize) -> bool {
-    (0..range.width()).all(|col| cell_text(range, row, col as usize).is_empty())
+pub fn is_blank_row(sheet: &SheetData, row: usize) -> bool {
+    (0..sheet.width()).all(|col| cell_text(sheet, row, col).is_empty())
 }
 
 /// 去掉浮点数小数部分
@@ -56,7 +64,7 @@ fn int_like(text: &str) -> String {
 }
 
 /// Java时间格式转chrono格式
-fn java_date_to_chrono(java_format: &str) -> String {
+pub fn java_date_to_chrono(java_format: &str) -> String {
     java_format
         .replace("yyyy", "%Y")
         .replace("MM", "%m")
@@ -67,14 +75,14 @@ fn java_date_to_chrono(java_format: &str) -> String {
 }
 
 /// 解析 date<格式>
-fn date_format(raw_type: &str) -> Option<String> {
+pub fn date_format(raw_type: &str) -> Option<String> {
     let start = raw_type.find('<')?;
     let end = raw_type.rfind('>')?;
     Some(raw_type[start + 1..end].to_string())
 }
 
 /// 解析 list<...>{分隔符长度} / set<...>{分隔符长度}
-fn seq_spec(raw_type: &str) -> Option<(String, char, usize)> {
+pub fn seq_spec(raw_type: &str) -> Option<(String, char, usize)> {
     let lower = raw_type.trim().to_lowercase();
     if !(lower.starts_with("list<") || lower.starts_with("set<")) {
         return None;
@@ -90,7 +98,7 @@ fn seq_spec(raw_type: &str) -> Option<(String, char, usize)> {
 }
 
 /// 解析 map<键类型{分隔符}值类型>{分隔符长度}
-fn map_spec(raw_type: &str) -> Option<(String, char, String, char, usize)> {
+pub fn map_spec(raw_type: &str) -> Option<(String, char, String, char, usize)> {
     let lower = raw_type.trim().to_lowercase();
     if !lower.starts_with("map<") {
         return None;

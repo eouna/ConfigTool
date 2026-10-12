@@ -1,11 +1,10 @@
 package com.eouna.configtool.generator.bean;
 
+import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.google.common.base.Objects;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
-
-import com.eouna.configtool.configholder.SystemConfigHolder;
-import com.google.common.base.Objects;
 
 /**
  * excel数据结构
@@ -23,6 +22,7 @@ public class ExcelDataStruct {
 
   /** excel字段信息列表 */
   private final Set<ExcelFieldInfo> excelFieldInfoList = new LinkedHashSet<>();
+
   /** excel枚举字段信息列表 */
   private final Set<ExcelEnumFieldInfo> excelEnumFieldInfoList = new LinkedHashSet<>();
 
@@ -57,6 +57,7 @@ public class ExcelDataStruct {
   public static class FieldMetadata<T> {
     /** 数据 */
     private T fieldData;
+
     /** 绑定的字符串 */
     private final int configBindRow;
 
@@ -86,12 +87,27 @@ public class ExcelDataStruct {
   public static class ExcelFieldInfo {
     /** 字段描述 */
     protected FieldMetadata<String> fieldDesc;
+
     /** 字段类型 */
     protected FieldMetadata<String> fieldType;
+
     /** 字段名 */
     protected FieldMetadata<String> fieldName;
+
+    /** 配置表中书写的原始类型(如 Date<yyyy-MM-dd HH:mm> / List<int>{,}), 转换前的值 */
+    protected String originFieldType;
+
     /** 字段范围值 */
     protected FieldMetadata<String> fieldDataRange;
+
+    /** 配置表中书写的原始类型(转换前) */
+    public String getOriginFieldType() {
+      return originFieldType;
+    }
+
+    public void setOriginFieldType(String originFieldType) {
+      this.originFieldType = originFieldType;
+    }
 
     public ExcelFieldInfo() {
       this.fieldDesc =

@@ -311,6 +311,23 @@ public class ConfigDataBean {
     }
   }
 
+  /** 通用模板配置 */
+  @CfgDataBean
+  public static class CommonTemplateConf {
+
+    /** 模板加载数据时是否打印数据明细 */
+    @ConfigSettingControl(desc = "加载数据时是否打印数据", bindComponent = TextField.class)
+    private boolean printLoadData = true;
+
+    public boolean isPrintLoadData() {
+      return printLoadData;
+    }
+
+    public void setPrintLoadData(boolean printLoadData) {
+      this.printLoadData = printLoadData;
+    }
+  }
+
   @CfgDataBean
   public static class SyncConfig {
     /** 服务器列表 */

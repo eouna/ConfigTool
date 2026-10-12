@@ -1,6 +1,7 @@
 package com.eouna.configtool.configholder;
 
 import com.eouna.configtool.configholder.ConfigDataBean.CacheConfig;
+import com.eouna.configtool.configholder.ConfigDataBean.CommonTemplateConf;
 import com.eouna.configtool.configholder.ConfigDataBean.ExcelConf;
 import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
 import com.eouna.configtool.configholder.ConfigDataBean.JsonTemplateConf;
@@ -62,6 +63,11 @@ public class SystemConfigHolder {
   @ConfigAutowired
   @ConfigSettingControl(desc = "json模板配置")
   private JsonTemplateConf jsonTemplateConf;
+
+  /** 通用模板配置 */
+  @ConfigAutowired
+  @ConfigSettingControl(desc = "通用模板配置")
+  private CommonTemplateConf commonTemplateConf;
 
   /** 服务器同步相关配置 */
   @ConfigAutowired
@@ -365,6 +371,10 @@ public class SystemConfigHolder {
 
   public JsonTemplateConf getJsonTemplateConf() {
     return jsonTemplateConf;
+  }
+
+  public CommonTemplateConf getCommonTemplateConf() {
+    return commonTemplateConf;
   }
 
   public SyncConfig getSyncConfig() {

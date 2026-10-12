@@ -29,10 +29,12 @@ namespace ConfigTool.Cfg
             Console.WriteLine("配置表加载完成, 资源目录: " + root);
 <#list containerDefs as def>
             Console.WriteLine("${def.className}: " + manager.${def.fieldName}.CfgBeanMap.Count + " 条");
+<#if printLoadData>
             foreach (var pair in manager.${def.fieldName}.CfgBeanMap)
             {
                 Console.WriteLine("    id=" + pair.Key + " => " + pair.Value);
             }
+</#if>
 </#list>
         }
     }

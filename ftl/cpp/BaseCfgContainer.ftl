@@ -16,7 +16,7 @@ class BaseCfgContainer {
 
     virtual ~BaseCfgContainer() = default;
 
-    /// 加载配置表(运行期读取xlsx并解析)
+    /// 加载配置表(由具体数据源读取并解析)
     virtual void Load(const std::string& resourceRootPath) = 0;
 
     /// 根据ID获取配置

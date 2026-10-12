@@ -30,6 +30,12 @@ func New${containerClassName}() *${containerClassName} {
 			"${excelName}",
 </#list>
 		},
+		"${sheetBean.sheetName}",
+		[]FieldMeta{
+<#list fieldMetas as meta>
+			{Name: "${meta.name}", RawType: "${meta.rawType}"},
+</#list>
+		},
 	)
 	c.HasRelatedTable = ${hasRelatedTable?c}
 	c.IsParentConfigNode = ${isParentNode?c}

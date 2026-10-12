@@ -6,6 +6,8 @@ javaTemplateConf:
   dataManagerLoadDataCaller: loadAllData
   baseBeanIdName: id
   keepBindExcelRelativePath: false
+commonTemplateConf:
+  printLoadData: true
 syncConfig:
   serverList: 本地(Local),测试服1,测试服2
   localResourcePlacePath: resources/sample

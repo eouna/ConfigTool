@@ -13,8 +13,12 @@ import com.eouna.configtool.core.window.BaseWindowController;
 import com.eouna.configtool.core.window.MainWindowIdentifier;
 import com.eouna.configtool.core.window.WindowManager;
 import com.eouna.configtool.core.window.WindowThemeManager;
+import com.eouna.configtool.env.TemplateEnvContext;
+import com.eouna.configtool.env.TemplateEnvResult;
+import com.eouna.configtool.generator.DataLoadSourceHolder;
 import com.eouna.configtool.generator.DefaultFuture;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
+import com.eouna.configtool.generator.TemplateMainEntrySupport;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.utils.*;
 import com.eouna.configtool.utils.hotreload.HotClassLoaderUtils;
@@ -22,6 +26,13 @@ import com.eouna.configtool.utils.hotreload.HotClassLoaderUtils.MethodArgDataTup
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,7 +54,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableSet;
 import javafx.collections.SetChangeListener;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
@@ -51,17 +61,22 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Toggle;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextFlow;
@@ -105,7 +120,12 @@ public class ExcelGenWindowController extends BaseWindowController {
   @FXML private Button templateGenTargetPathButton;
   @FXML private Button templatePathButton;
   @FXML private Button generateTemplateBtn;
-  @FXML private Button preLoadBtn;
+  @FXML private Button refreshBtn;
+  @FXML private Button preloadBtn;
+  @FXML private Button skipPreloadBtn;
+  @FXML private Button deleteMainEntryBtn;
+  @FXML private Button prevStepBtn;
+  @FXML private Button nextStepBtn;
   @FXML private RadioMenuItem neumorphismThemeMenuItem;
   @FXML private RadioMenuItem lightThemeMenuItem;
   @FXML private RadioMenuItem grandBudapestThemeMenuItem;
@@ -120,8 +140,47 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 进度条 */
   @FXML HBox currentProgress;
 
-  /** 选择器 后续添加其他语言模板只需在此容器下添加即可,并绑定相对应的与语言处理器 */
-  @FXML HBox templateCheckBoxGroup;
+  /** 语言模板选择容器(单选框) */
+  @FXML FlowPane templateLangPane;
+
+  /** 语言模板选择组(单选) */
+  @FXML ToggleGroup templateLangGroup;
+
+  /** 语言加载选项选择组(单选: excel / json) */
+  @FXML ToggleGroup loadSourceGroup;
+
+  /** 加载选项: excel */
+  @FXML RadioButton loadSourceExcelRadio;
+
+  /** 加载选项: json */
+  @FXML RadioButton loadSourceJsonRadio;
+
+  /** js语言对应的单选框(只有加载选项为json时才可用) */
+  @FXML RadioButton langJsRadio;
+
+  /** 加载选项提示 */
+  @FXML Label loadSourceTipLabel;
+
+  /** 步骤内容容器(三步界面在此切换) */
+  @FXML StackPane stepPaneContainer;
+
+  /** 第一步: 生成语言模板(外层滚动) */
+  @FXML ScrollPane stepGenerateScroll;
+
+  /** 第二步: 语言预加载(外层滚动) */
+  @FXML ScrollPane stepPreloadScroll;
+
+  /** 第三步: 上传远端服务器(外层滚动) */
+  @FXML ScrollPane stepUploadScroll;
+
+  /** 第一步: 生成语言模板 */
+  @FXML VBox stepGeneratePane;
+
+  /** 第二步: 语言预加载 */
+  @FXML VBox stepPreloadPane;
+
+  /** 第三步: 上传远端服务器 */
+  @FXML VBox stepUploadPane;
 
   /** 服务器选择器 */
   @FXML VBox serverSelector;
@@ -129,6 +188,22 @@ public class ExcelGenWindowController extends BaseWindowController {
   // endregion============================== Box ==============================
   // region============================== label ==============================
   @FXML Label currentProgressTips;
+
+  /** 步骤标题 */
+  @FXML Label stepTitleLabel;
+
+  /** 步骤提示 */
+  @FXML Label stepHintLabel;
+
+  /** 第二步: 当前语言 */
+  @FXML Label preloadLangLabel;
+
+  /** 第二步: 运行环境状态 */
+  @FXML Label envStatusLabel;
+
+  /** 第二步: 预加载结果 */
+  @FXML Label preloadResultLabel;
+
   // endregion============================== label ==============================
   // region============================== ScrollPane =============================
   @FXML ScrollPane excelShowListContainer;
@@ -140,6 +215,12 @@ public class ExcelGenWindowController extends BaseWindowController {
 
   private static final String DIGITAL_REG = "\\d+";
 
+  /** 加载选项: excel */
+  private static final String LOAD_SOURCE_EXCEL = "excel";
+
+  /** 加载选项: json */
+  private static final String LOAD_SOURCE_JSON = "json";
+
   /** 模板文件生成按钮锁 */
   private static final AtomicBoolean TEMPLATE_IN_PROGRESS = new AtomicBoolean(true);
 
@@ -150,8 +231,17 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 当前进度计数器,用于界面底部进度显示 */
   private static final AtomicInteger CURRENT_PROGRESS_COUNTER = new AtomicInteger();
 
-  /** 选择的模板生成器 */
-  private static final Set<ETemplateGenerator> SELECTED_TEMPLATE_GENERATOR = new HashSet<>();
+  /** 当前步骤 */
+  private int currentStep = STEP_GENERATE;
+
+  /** 步骤常量: 生成语言模板 */
+  private static final int STEP_GENERATE = 1;
+
+  /** 步骤常量: 语言预加载 */
+  private static final int STEP_PRELOAD = 2;
+
+  /** 步骤常量: 上传服务器 */
+  private static final int STEP_UPLOAD = 3;
 
   /** 在生成过程中防止窗口变长, 所以需要固定进度条的长度 */
   private double percentageWidth;
@@ -166,6 +256,12 @@ public class ExcelGenWindowController extends BaseWindowController {
   private TextAreaLogger textAreaLogger;
 
   @AutoInject private WindowThemeManager windowThemeManager;
+
+  /** 各语言模板的运行环境检测结果 */
+  @AutoInject private TemplateEnvContext templateEnvContext;
+
+  /** 当前选择的数据读取方式(excel/json), 生成时供各语言模板选择数据源模板 */
+  @AutoInject private DataLoadSourceHolder dataLoadSourceHolder;
 
   public TextFlow getLogShowArea() {
     return logShowArea;
@@ -290,21 +386,623 @@ public class ExcelGenWindowController extends BaseWindowController {
         "excel字段数值范围行更新");
   }
 
+  /** 语言模板单选变化 */
   @FXML
-  protected void onTemplateCheckBoxClicked(ActionEvent actionEvent) {
-    CheckBox checkBox = (CheckBox) actionEvent.getSource();
-    ETemplateGenerator eTemplateGenerator =
-        ETemplateGenerator.getTemplateGeneratorByType(checkBox.getText());
-    if (!SELECTED_TEMPLATE_GENERATOR.contains(eTemplateGenerator)) {
-      SELECTED_TEMPLATE_GENERATOR.add(eTemplateGenerator);
-      checkBox.setSelected(true);
-    } else if (SELECTED_TEMPLATE_GENERATOR.size() > 1) {
-      SELECTED_TEMPLATE_GENERATOR.remove(eTemplateGenerator);
-      checkBox.setSelected(false);
-    } else {
-      checkBox.setSelected(true);
+  protected void onTemplateLangChanged() {
+    // js模板的数据源必须是json
+    if (isJsLangSelected()) {
+      forceLoadSourceJson();
+    }
+    refreshLangOptionUsage();
+  }
+
+  /** 语言加载选项单选变化 */
+  @FXML
+  protected void onLoadSourceChanged() {
+    refreshLangOptionUsage();
+  }
+
+  /**
+   * 刷新语言/加载选项的联动约束。
+   *
+   * <p>约束: 语言模板为js时只能选中json(js读取的是工具导出的json数据); 加载选项为excel时不可选择js。
+   */
+  private void refreshLangOptionUsage() {
+    boolean jsLang = isJsLangSelected();
+    boolean excelLoad = isExcelLoadSelected();
+    if (jsLang && excelLoad) {
+      // 兜底: 选中js时把加载选项切到json
+      forceLoadSourceJson();
+      excelLoad = false;
+    }
+    // js 选中时禁止选择 excel(只能 json); 其余语言两个选项都可用
+    if (loadSourceExcelRadio != null) {
+      loadSourceExcelRadio.setDisable(jsLang);
+    }
+    if (loadSourceTipLabel != null) {
+      if (jsLang) {
+        loadSourceTipLabel.setText("js 的数据源为 json");
+      } else if (LOAD_SOURCE_JSON.equalsIgnoreCase(getSelectedLoadSource())) {
+        loadSourceTipLabel.setText("选择 json 数据源时会同时导出 json 数据文件");
+      } else {
+        loadSourceTipLabel.setText("");
+      }
     }
   }
+
+  /** 当前选中的语言模板标识 */
+  private String getSelectedLangId() {
+    if (templateLangGroup == null || templateLangGroup.getSelectedToggle() == null) {
+      return "java";
+    }
+    Object userData = templateLangGroup.getSelectedToggle().getUserData();
+    return userData == null ? "java" : userData.toString();
+  }
+
+  /** 当前选中的语言生成器 */
+  private ETemplateGenerator getSelectedLangGenerator() {
+    return ETemplateGenerator.getTemplateGeneratorByType(getSelectedLangId());
+  }
+
+  /** 是否选中了js语言模板 */
+  private boolean isJsLangSelected() {
+    return ETemplateGenerator.JS_GENERATOR == getSelectedLangGenerator();
+  }
+
+  /** 当前选中的加载选项 */
+  private String getSelectedLoadSource() {
+    if (loadSourceGroup == null || loadSourceGroup.getSelectedToggle() == null) {
+      return LOAD_SOURCE_EXCEL;
+    }
+    Object userData = loadSourceGroup.getSelectedToggle().getUserData();
+    return userData == null ? LOAD_SOURCE_EXCEL : userData.toString();
+  }
+
+  /** 加载选项是否为excel */
+  private boolean isExcelLoadSelected() {
+    return LOAD_SOURCE_EXCEL.equalsIgnoreCase(getSelectedLoadSource());
+  }
+
+  /** 强制把加载选项切换为json */
+  private void forceLoadSourceJson() {
+    if (loadSourceGroup == null) {
+      return;
+    }
+    for (Toggle toggle : loadSourceGroup.getToggles()) {
+      Object userData = toggle.getUserData();
+      if (userData != null && LOAD_SOURCE_JSON.equalsIgnoreCase(userData.toString())) {
+        toggle.setSelected(true);
+        return;
+      }
+    }
+  }
+
+  /**
+   * 本次需要生成的模板集合。
+   *
+   * <p>语言模板为单选; 若选择js或数据读取方式选择json, 则同时生成json数据文件。
+   */
+  private Set<ETemplateGenerator> getSelectedGenerators() {
+    Set<ETemplateGenerator> generators = new HashSet<>();
+    ETemplateGenerator selected = getSelectedLangGenerator();
+    generators.add(selected);
+    if (selected == ETemplateGenerator.JS_GENERATOR
+        || LOAD_SOURCE_JSON.equalsIgnoreCase(getSelectedLoadSource())) {
+      generators.add(ETemplateGenerator.JSON_GENERATOR);
+    }
+    return generators;
+  }
+
+  // region============================== 步骤切换 ==============================
+
+  /** 上一步 */
+  @FXML
+  protected void onPrevStepClick() {
+    switchStep(currentStep - 1);
+  }
+
+  /** 下一步: 各步骤的主操作(第一步=生成; 第二步=跳过预加载) */
+  @FXML
+  protected void onNextStepClick() {
+    switch (currentStep) {
+      case STEP_GENERATE:
+        generateTemplateFiles();
+        break;
+      case STEP_PRELOAD:
+        goToUploadStep();
+        break;
+      default:
+        break;
+    }
+  }
+
+  /** 切换到指定步骤 */
+  private void switchStep(int step) {
+    if (step < STEP_GENERATE || step > STEP_UPLOAD) {
+      return;
+    }
+    if (step == STEP_UPLOAD && !hasServerOption()) {
+      if (textAreaLogger != null) {
+        textAreaLogger.info("没有可用的服务器配置, 不进入上传步骤");
+      }
+      return;
+    }
+    currentStep = step;
+    refreshStepView();
+  }
+
+  /** 刷新步骤界面(三步界面在同一个区域内切换) */
+  private void refreshStepView() {
+    if (stepGeneratePane == null) {
+      return;
+    }
+    setStepVisible(stepGenerateScroll, currentStep == STEP_GENERATE);
+    setStepVisible(stepPreloadScroll, currentStep == STEP_PRELOAD);
+    setStepVisible(stepUploadScroll, currentStep == STEP_UPLOAD);
+    if (stepTitleLabel != null) {
+      stepTitleLabel.setText(getStepTitle(currentStep));
+    }
+    if (stepHintLabel != null) {
+      stepHintLabel.setText(getStepHint(currentStep));
+    }
+    if (prevStepBtn != null) {
+      prevStepBtn.setDisable(currentStep <= STEP_GENERATE);
+    }
+    if (nextStepBtn != null) {
+      nextStepBtn.setDisable(currentStep >= STEP_UPLOAD);
+    }
+    if (currentStep == STEP_PRELOAD) {
+      refreshPreloadStep();
+    }
+    // 切换步骤后把滚动条复位到顶部(避免自动滚动到获得焦点的控件)
+    Platform.runLater(
+        () -> {
+          ScrollPane currentStepScroll = getCurrentStepScroll();
+          if (currentStepScroll != null) {
+            currentStepScroll.setVvalue(0);
+          }
+        });
+  }
+
+  /** 当前步骤对应的滚动容器 */
+  private ScrollPane getCurrentStepScroll() {
+    switch (currentStep) {
+      case STEP_PRELOAD:
+        return stepPreloadScroll;
+      case STEP_UPLOAD:
+        return stepUploadScroll;
+      default:
+        return stepGenerateScroll;
+    }
+  }
+
+  /** 设置步骤面板的显示与占位 */
+  private void setStepVisible(Node stepPane, boolean visible) {
+    if (stepPane == null) {
+      return;
+    }
+    stepPane.setVisible(visible);
+    stepPane.setManaged(visible);
+  }
+
+  private String getStepTitle(int step) {
+    switch (step) {
+      case STEP_PRELOAD:
+        return "第二步: 语言预加载";
+      case STEP_UPLOAD:
+        return "第三步: 上传远端服务器";
+      default:
+        return "第一步: 生成语言模板";
+    }
+  }
+
+  private String getStepHint(int step) {
+    switch (step) {
+      case STEP_PRELOAD:
+        return "选择「预加载」或「跳过」";
+      case STEP_UPLOAD:
+        return "勾选服务器后点击「同步配置表」";
+      default:
+        return "选择语言后点击「下一步」生成";
+    }
+  }
+
+  /** 是否存在可选的服务器 */
+  private boolean hasServerOption() {
+    return serverSelector != null && !serverSelector.getChildren().isEmpty();
+  }
+
+  /**
+   * 刷新: 重置所有选择并回到第一步。
+   *
+   * <p>重置内容: 步骤回到第一步、语言模板与语言加载选项恢复默认(java + excel)、服务器勾选、excel勾选、 第二步预加载状态与进度条。
+   */
+  @FXML
+  protected void onRefreshClick() {
+    // 1. 回到第一步
+    currentStep = STEP_GENERATE;
+    // 2. 语言模板 + 语言加载选项恢复默认
+    resetLanguageAndLoadSource();
+    // 3. 第二步预加载状态复位
+    resetPreloadState();
+    // 4. 服务器勾选复位
+    resetServerSelection();
+    // 5. excel勾选与进度复位
+    cleanExcelSelectedData();
+    resetPercentageData();
+    // 6. 流程状态复位
+    this.excelUpdateState = EExcelUpdateState.NONE;
+    // 7. 重新加载excel列表
+    reloadExcelList();
+    // 8. 刷新界面
+    refreshStepView();
+    if (textAreaLogger != null) {
+      textAreaLogger.info("已刷新: 所有选择已重置, 回到第一步");
+    }
+  }
+
+  /** 语言模板与语言加载选项恢复默认(java + excel) */
+  private void resetLanguageAndLoadSource() {
+    if (templateLangGroup != null) {
+      for (Toggle toggle : templateLangGroup.getToggles()) {
+        Object userData = toggle.getUserData();
+        if (userData != null && "java".equalsIgnoreCase(userData.toString())) {
+          toggle.setSelected(true);
+          break;
+        }
+      }
+    }
+    if (loadSourceGroup != null) {
+      for (Toggle toggle : loadSourceGroup.getToggles()) {
+        Object userData = toggle.getUserData();
+        if (userData != null && LOAD_SOURCE_EXCEL.equalsIgnoreCase(userData.toString())) {
+          toggle.setSelected(true);
+          break;
+        }
+      }
+    }
+    refreshLangOptionUsage();
+  }
+
+  /** 第二步预加载相关状态复位 */
+  private void resetPreloadState() {
+    if (preloadLangLabel != null) {
+      preloadLangLabel.setText("当前语言: -");
+    }
+    if (envStatusLabel != null) {
+      envStatusLabel.setText("运行环境: -");
+    }
+    if (preloadResultLabel != null) {
+      preloadResultLabel.setText("");
+    }
+    if (deleteMainEntryBtn != null) {
+      deleteMainEntryBtn.setVisible(false);
+      deleteMainEntryBtn.setManaged(false);
+    }
+  }
+
+  /** 服务器勾选复位 */
+  private void resetServerSelection() {
+    selectedServerList.clear();
+    if (serverSelector != null) {
+      serverSelector.getChildrenUnmodifiable().stream()
+          .filter(node -> node instanceof CheckBox)
+          .map(node -> (CheckBox) node)
+          .forEach(checkBox -> checkBox.setSelected(false));
+    }
+  }
+
+  // endregion============================== 步骤切换 ==============================
+
+  // region============================== 第二步: 语言预加载 ==============================
+
+  /** 刷新第二步的运行环境状态 */
+  private void refreshPreloadStep() {
+    String langId = getSelectedLangId();
+    ETemplateGenerator generator = getSelectedLangGenerator();
+    if (preloadLangLabel != null) {
+      preloadLangLabel.setText("当前语言: " + langId);
+    }
+    TemplateEnvResult envResult =
+        templateEnvContext == null ? null : templateEnvContext.get(langId);
+    boolean envAvailable = envResult != null && envResult.isAvailable();
+    if (envStatusLabel != null) {
+      if (envResult == null) {
+        envStatusLabel.setText("运行环境: 未检测");
+      } else if (!envResult.isEnvRequired()) {
+        envStatusLabel.setText("运行环境: 该语言无需运行环境");
+      } else if (envAvailable) {
+        envStatusLabel.setText("运行环境: 可用 - " + envResult.getVersion());
+      } else {
+        envStatusLabel.setText("运行环境: 未检测到, 需要 " + envResult.getCommand());
+      }
+    }
+    boolean canPreload = envAvailable && supportsPreload(generator);
+    if (preloadBtn != null) {
+      preloadBtn.setVisible(canPreload);
+      preloadBtn.setManaged(canPreload);
+      preloadBtn.setDisable(!canPreload);
+    }
+    if (skipPreloadBtn != null) {
+      skipPreloadBtn.setVisible(true);
+      skipPreloadBtn.setManaged(true);
+      skipPreloadBtn.setDisable(false);
+    }
+    // 删除主入口按钮默认隐藏, 预加载成功后出现
+    if (deleteMainEntryBtn != null) {
+      deleteMainEntryBtn.setVisible(false);
+      deleteMainEntryBtn.setManaged(false);
+    }
+    if (preloadResultLabel != null) {
+      preloadResultLabel.setText(canPreload ? "可以执行预加载, 也可以直接跳过" : "暂无可用的预加载方式, 请点击「跳过」");
+    }
+  }
+
+  /** 是否支持预加载(执行该语言生成的主入口) */
+  private boolean supportsPreload(ETemplateGenerator generator) {
+    return generator != null && TemplateMainEntrySupport.isPreloadSupported(getSelectedLangId());
+  }
+
+  /**
+   * 本次预加载要读取的数据路径(与"语言加载选项"一致)
+   *
+   * @return excel目录 或 json数据目录
+   */
+  private String getPreloadDataPath() {
+    if (isExcelLoadSelected()) {
+      return SystemConfigHolder.getInstance().getExcelConf().getPath().getExcelConfigLoadPath();
+    }
+    return SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplateFileGenTargetDir()
+        + File.separator
+        + "json";
+  }
+
+  /** 预加载: 执行当前语言生成的主入口, 读取当前选择的数据源 */
+  @FXML
+  protected void onPreloadClick() {
+    String langId = getSelectedLangId();
+    if (!TemplateMainEntrySupport.isPreloadSupported(langId)) {
+      if (preloadResultLabel != null) {
+        preloadResultLabel.setText("该语言暂无可运行的主入口, 已跳过");
+      }
+      textAreaLogger.info("{} 无需运行环境, 直接跳过预加载", langId);
+      goToUploadStep();
+      return;
+    }
+    // 没有主入口说明还没生成, 先提示
+    File outputDir =
+        new File(
+            SystemConfigHolder.getInstance()
+                .getExcelConf()
+                .getPath()
+                .getTemplateFileGenTargetDir());
+    if (TemplateMainEntrySupport.resolveMainEntryFiles(langId, outputDir).isEmpty()) {
+      if (preloadResultLabel != null) {
+        preloadResultLabel.setText("未找到主入口代码, 请先回到第一步生成模板");
+      }
+      textAreaLogger.error("未找到 {} 的主入口代码, 请先执行第一步生成模板", langId);
+      return;
+    }
+    preloadByMainEntry(langId, outputDir);
+  }
+
+  /** 跳过预加载 */
+  @FXML
+  protected void onSkipPreloadClick() {
+    goToUploadStep();
+  }
+
+  /** 进入第三步(没有服务器配置时停留在第二步) */
+  private void goToUploadStep() {
+    if (!hasServerOption()) {
+      if (preloadResultLabel != null) {
+        preloadResultLabel.setText("没有可用的服务器配置, 无法进入上传步骤");
+      }
+      textAreaLogger.info("没有可用的服务器配置, 不进入上传步骤");
+      return;
+    }
+    switchStep(STEP_UPLOAD);
+  }
+
+  /** 执行主入口完成预加载 */
+  private void preloadByMainEntry(String langId, File outputDir) {
+    String dataPath = getPreloadDataPath();
+    TemplateMainEntrySupport.PreloadPlan plan =
+        TemplateMainEntrySupport.createPlan(langId, outputDir, dataPath);
+    if (plan == null) {
+      if (preloadResultLabel != null) {
+        preloadResultLabel.setText("无法构建预加载命令, 请检查生成结果");
+      }
+      textAreaLogger.error("无法构建预加载命令, 已停留在当前步骤");
+      return;
+    }
+    textAreaLogger.info("开始预加载 {} , 数据源: {}", langId, dataPath);
+    textAreaLogger.info("执行: {}", plan.toDisplayString());
+    DefaultFuture.runAsync(
+        () -> {
+          boolean success = false;
+          try {
+            success = executePlan(plan);
+          } catch (Exception e) {
+            ToolsLoggerUtils.showErrorDialog("热加载失败", e);
+          } finally {
+            boolean result = success;
+            Platform.runLater(
+                () -> {
+                  if (preloadResultLabel != null) {
+                    preloadResultLabel.setText(result ? "预加载完成" : "预加载失败, 可查看日志");
+                  }
+                  // 预加载成功后允许删除生成的主入口代码
+                  if (deleteMainEntryBtn != null) {
+                    deleteMainEntryBtn.setVisible(result);
+                    deleteMainEntryBtn.setManaged(result);
+                  }
+                  // 预加载失败时停留在第二步, 必须由用户显式点击"跳过"才能进入上传步骤。
+                  if (result) {
+                    goToUploadStep();
+                  }
+                });
+          }
+        });
+  }
+
+  /** 依次执行计划中的命令, 输出写入日志 */
+  private boolean executePlan(TemplateMainEntrySupport.PreloadPlan plan) throws Exception {
+    for (List<String> command : plan.getCommands()) {
+      Process process = getProcess(plan, command);
+      byte[] outputBytes = process.getInputStream().readAllBytes();
+      String output = decodeProcessOutput(outputBytes);
+      if (!output.isEmpty()) {
+        for (String line : output.split("\\R")) {
+          if (!line.isEmpty()) {
+            LoggerUtils.getLogger().info(line);
+          }
+        }
+      }
+      int exitCode = process.waitFor();
+      if (exitCode != 0) {
+        String commandText = String.join(" ", command);
+        String message = "命令执行失败(exit=" + exitCode + "): " + commandText;
+        if (!output.isBlank()) {
+          message += System.lineSeparator() + System.lineSeparator() + output.trim();
+        }
+        textAreaLogger.error(message);
+        throw new IllegalStateException(message);
+      }
+    }
+    textAreaLogger.success("预加载成功, 主入口代码可保留, 也可点击「删除主入口」移除");
+    return true;
+  }
+
+  /**
+   * 获取执行器
+   *
+   * @param plan 计划
+   * @param command 命令
+   * @return processor
+   * @throws IOException IO
+   */
+  private Process getProcess(TemplateMainEntrySupport.PreloadPlan plan, List<String> command)
+      throws IOException {
+    ProcessBuilder processBuilder = new ProcessBuilder(command);
+    processBuilder.directory(plan.getWorkDir());
+    processBuilder.redirectErrorStream(true);
+    // 把该语言工具链所在目录放到PATH最前面, 避免用到其他版本的运行时DLL(如g++的libstdc++)
+    String toolDir = getLangToolDir();
+    if (toolDir != null) {
+      Map<String, String> environment = processBuilder.environment();
+      String pathKey = environment.containsKey("Path") ? "Path" : "PATH";
+      environment.compute(
+          pathKey, (k, oldPath) -> toolDir + File.pathSeparator + (oldPath == null ? "" : oldPath));
+    }
+    return processBuilder.start();
+  }
+
+  /** 解码子进程输出: 优先UTF-8, 失败后回退系统原生编码(兼容Windows下javac的GBK诊断信息) */
+  private static String decodeProcessOutput(byte[] outputBytes) {
+    if (outputBytes.length == 0) {
+      return "";
+    }
+    try {
+      return decodeStrict(outputBytes, StandardCharsets.UTF_8);
+    } catch (CharacterCodingException ignored) {
+      Charset nativeCharset = resolveNativeCharset();
+      if (!StandardCharsets.UTF_8.equals(nativeCharset)) {
+        try {
+          return decodeStrict(outputBytes, nativeCharset);
+        } catch (CharacterCodingException ignoredAgain) {
+          // 继续使用带替换字符的解码, 保证不会因为异常再次中断预加载流程。
+        }
+      }
+      return new String(outputBytes, StandardCharsets.UTF_8);
+    }
+  }
+
+  /** 严格按指定编码解码, 编码不匹配时抛出异常以便回退 */
+  private static String decodeStrict(byte[] outputBytes, Charset charset)
+      throws CharacterCodingException {
+    CharsetDecoder decoder =
+        charset
+            .newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT);
+    CharBuffer chars = decoder.decode(ByteBuffer.wrap(outputBytes));
+    return chars.toString();
+  }
+
+  /** 读取Java运行环境对应的原生编码, 例如中文Windows下的GBK */
+  private static Charset resolveNativeCharset() {
+    for (String propertyName :
+        new String[] {"native.encoding", "sun.jnu.encoding", "file.encoding"}) {
+      String charsetName = System.getProperty(propertyName);
+      if (charsetName == null || charsetName.isBlank()) {
+        continue;
+      }
+      try {
+        return Charset.forName(charsetName);
+      } catch (Exception ignored) {
+        // 尝试下一个编码来源
+      }
+    }
+    return Charset.defaultCharset();
+  }
+
+  /** 当前语言工具链所在目录(用于修正运行时PATH) */
+  private String getLangToolDir() {
+    if (templateEnvContext == null) {
+      return null;
+    }
+    TemplateEnvResult envResult = templateEnvContext.get(getSelectedLangId());
+    if (envResult == null) {
+      return null;
+    }
+    String executablePath = envResult.getExecutablePath();
+    if (executablePath == null || "-".equals(executablePath)) {
+      return null;
+    }
+    File executable = new File(executablePath);
+    return executable.isFile() ? executable.getParent() : null;
+  }
+
+  /** 删除生成的主入口代码 */
+  @FXML
+  protected void onDeleteMainEntryClick() {
+    String langId = getSelectedLangId();
+    File outputDir =
+        new File(
+            SystemConfigHolder.getInstance()
+                .getExcelConf()
+                .getPath()
+                .getTemplateFileGenTargetDir());
+    List<File> mainEntries = TemplateMainEntrySupport.resolveMainEntryFiles(langId, outputDir);
+    if (mainEntries.isEmpty()) {
+      textAreaLogger.info("{} 没有可删除的主入口代码", langId);
+      return;
+    }
+    int deleted = 0;
+    for (File entry : mainEntries) {
+      try {
+        if (entry.delete()) {
+          deleted++;
+          textAreaLogger.info("已删除主入口文件: {}", entry.getPath());
+        } else {
+          textAreaLogger.error("删除主入口文件失败: {}", entry.getPath());
+        }
+      } catch (Exception e) {
+        textAreaLogger.error("删除主入口文件异常: " + entry.getPath(), e);
+      }
+    }
+    textAreaLogger.success("已删除 {} 个 {} 主入口文件", deleted, langId);
+    if (deleteMainEntryBtn != null) {
+      deleteMainEntryBtn.setVisible(false);
+      deleteMainEntryBtn.setManaged(false);
+    }
+    if (preloadResultLabel != null) {
+      preloadResultLabel.setText("主入口代码已删除");
+    }
+  }
+
+  // endregion============================== 第二步: 语言预加载 ==============================
 
   @FXML
   protected void onConfigExplainClick() {
@@ -432,25 +1130,31 @@ public class ExcelGenWindowController extends BaseWindowController {
   @Override
   public void onMounted(Object... args) {
     this.textAreaLogger = new TextAreaLogger(logShowArea);
+    // 每次追加日志后滚动到底部; 同时监听内容高度, 覆盖自动换行导致的布局变化。
+    this.textAreaLogger.setCallbackAfterFresh(this::scrollLogToBottom);
+    if (logShowArea != null) {
+      logShowArea
+          .heightProperty()
+          .addListener((observable, oldHeight, newHeight) -> scrollLogToBottom());
+    }
     windowThemeManager.addThemeChangeListener(this::syncThemeMenuSelection);
     syncThemeMenuSelection(windowThemeManager.getCurrentThemeId());
     // 初始化配置字段
     initConfigField();
-    // 初始化添加默认的模板
-    this.templateCheckBoxGroup
-        .getChildrenUnmodifiable()
-        .forEach(
-            (checkBox) -> {
-              if (((CheckBox) checkBox).isSelected()) {
-                ETemplateGenerator eTemplateGenerator =
-                    ETemplateGenerator.getTemplateGeneratorByType(((CheckBox) checkBox).getText());
-                SELECTED_TEMPLATE_GENERATOR.add(eTemplateGenerator);
-              }
-            });
+    // 初始化语言/加载选项的联动约束(默认: java + excel)
+    refreshLangOptionUsage();
     // 刷新excel列表
     reloadExcelList();
     // 添加服务器选择列表数据
     initServerSelector();
+    // 默认停留在第一步
+    refreshStepView();
+    Platform.runLater(
+        () -> {
+          if (stepGenerateScroll != null) {
+            stepGenerateScroll.setVvalue(0);
+          }
+        });
     super.onMounted(args);
     // 列表变化时直接将状态置为NONE
     EXCEL_SELECTED_LIST.addListener(
@@ -653,11 +1357,17 @@ public class ExcelGenWindowController extends BaseWindowController {
             reloadExcelFile.stream()
                 .sorted(Comparator.comparing(File::getName))
                 .collect(Collectors.toList());
+        // 本次选中的语言模板(单选, 选择js时同时生成json)
+        Set<ETemplateGenerator> selectedGenerators = getSelectedGenerators();
+        // 记录本次选择的数据读取方式, 各语言模板据此选择 excel/json 数据源模板
+        dataLoadSourceHolder.setLoadSource(getSelectedLoadSource());
+        textAreaLogger.info("本次数据读取方式: {}", dataLoadSourceHolder.getLoadSource());
+        textAreaLogger.info("本次导出语言: {}", selectedGenerators);
         // excel文件生成java文件 并行处理
         ExcelTemplateGenUtils.generateByTemplateParallel(
             textAreaLogger,
             reloadExcelFile,
-            SELECTED_TEMPLATE_GENERATOR,
+            selectedGenerators,
             (res) -> {
               // 重置按钮状态
               toggleTemplateGenBtn(false);
@@ -670,6 +1380,8 @@ public class ExcelGenWindowController extends BaseWindowController {
                       updateExcelProcessBtnUsage(EExcelUpdateState.GEN_TEMPLATE);
                       currentProgress.setPrefWidth(percentageWidth);
                       currentProgressTips.setText("100%");
+                      // 生成成功后进入第二步: 语言预加载
+                      switchStep(STEP_PRELOAD);
                     } else {
                       currentProgress.getStyleClass().remove("progress-fill-danger");
                       currentProgress.getStyleClass().add("progress-fill-danger");
@@ -686,7 +1398,16 @@ public class ExcelGenWindowController extends BaseWindowController {
   }
 
   private void toggleTemplateGenBtn(boolean isClose) {
-    textFormBox.setDisable(isClose);
+    // 生成期间只锁步骤内容区, 底部固定操作栏(清除日志/刷新)仍可用
+    if (stepPaneContainer != null) {
+      stepPaneContainer.setDisable(isClose);
+    }
+    if (prevStepBtn != null) {
+      prevStepBtn.setDisable(isClose || currentStep <= STEP_GENERATE);
+    }
+    if (nextStepBtn != null) {
+      nextStepBtn.setDisable(isClose || currentStep >= STEP_UPLOAD);
+    }
     excelShowListContainer.setDisable(isClose);
   }
 
@@ -916,24 +1637,28 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (this.excelUpdateState.isCanGoNext(excelUpdateState)) {
       this.excelUpdateState = excelUpdateState;
     } else {
-      textAreaLogger.error(
-          "状态切换失败, oldStatus: {}, newStatus: {}",
-          this.excelUpdateState.name(),
-          excelUpdateState.name());
-      throw new RuntimeException(
-          "状态切换失败, oldStatus: "
-              + this.excelUpdateState.name()
-              + ", newStatus: "
-              + excelUpdateState.name());
+      // 分步骤执行后允许跨步骤(例如跳过预加载直接上传), 这里不再抛异常, 仅记录状态流转
+      LoggerUtils.getLogger()
+          .info("excel流程状态流转: {} -> {}", this.excelUpdateState.name(), excelUpdateState.name());
+      this.excelUpdateState = excelUpdateState;
     }
     generateTemplateBtn.setDisable(
         this.excelUpdateState.checkDisable(EExcelUpdateState.GEN_TEMPLATE));
-    preLoadBtn.setDisable(this.excelUpdateState.checkDisable(EExcelUpdateState.LOAD_DATA));
+    preloadBtn.setDisable(this.excelUpdateState.checkDisable(EExcelUpdateState.LOAD_DATA));
     syncConfBtn.setDisable(this.excelUpdateState.checkDisable(EExcelUpdateState.SYNC_DATA));
   }
 
   public ScrollPane getLogShowScrollPane() {
     return logShowScrollPane;
+  }
+
+  /** 将日志区域滚动到最底部(等待一次布局, 确保新增内容已经计入滚动高度) */
+  private void scrollLogToBottom() {
+    if (logShowScrollPane == null) {
+      return;
+    }
+    logShowScrollPane.setVvalue(1.0D);
+    Platform.runLater(() -> logShowScrollPane.setVvalue(1.0D));
   }
 
   @Override

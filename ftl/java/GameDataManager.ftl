@@ -560,7 +560,4 @@ public class ${dataManagerClassName} {
     }
   }
 
-  public static void main(String[] args) throws Exception {
-    loadAllData("${excelLoadDir}");
-  }
 }

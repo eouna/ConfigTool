@@ -36,11 +36,11 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 
 /**
- * C++模板生成器(按Java模板重写: 运行期读取xlsx并解析)。
+ * C++模板生成器(按Java模板重写: 运行期读取Excel或JSON数据源并解析)。
  *
  * <p>与Java模板对应关系: BaseCfgContainer -&gt; BaseCfgContainer.h, CfgBean -&gt; bean/xxx.h(含内嵌枚举),
  * CfgContainer -&gt; container/xxxContainer.h, GameDataManager -&gt; GameDataManager.h;
- * xlsx读取由随模板输出的 third_party/miniz + XlsxReader.h 完成, 运行期仅依赖标准库。
+ * Excel读取由随模板输出的 third_party/miniz + XlsxReader.h 完成, JSON读取由内置轻量解析器完成, 均不引入外部运行时依赖。
  *
  * @author CCL
  */
@@ -49,26 +49,40 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
   private static final String CPP_DIR = "cpp";
   private static final String THIRD_PARTY_DIR = "third_party";
 
-  /** CMakeLists内容(含${}变量, 不走FreeMarker直接写出) */
-  private static final String CMAKE_LISTS_CONTENT =
-      "cmake_minimum_required(VERSION 3.15)\n"
-          + "project(ConfigToolCpp C CXX)\n\n"
-          + "set(CMAKE_CXX_STANDARD 17)\n"
-          + "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n\n"
-          + "if(MSVC)\n"
-          + "    add_compile_options(/utf-8 /W4)\n"
-          + "else()\n"
-          + "    add_compile_options(-Wall -Wextra)\n"
-          + "    find_package(Threads REQUIRED)\n"
-          + "endif()\n\n"
-          + "add_executable(config_tool_cpp main.cpp third_party/miniz.c third_party/miniz_tdef.c third_party/miniz_tinfl.c third_party/miniz_zip.c)\n"
-          + "target_include_directories(config_tool_cpp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/third_party)\n\n"
-          + "if(NOT MSVC)\n"
-          + "    target_link_libraries(config_tool_cpp PRIVATE Threads::Threads)\n"
-          + "endif()\n";
+  /** 构造CMakeLists内容(json数据源不需要miniz) */
+  private static String buildCmakeLists(boolean jsonSource) {
+    String sources =
+        jsonSource
+            ? "main.cpp"
+            : "main.cpp third_party/miniz.c third_party/miniz_tdef.c third_party/miniz_tinfl.c third_party/miniz_zip.c";
+    String includeDirs =
+        jsonSource
+            ? "${CMAKE_CURRENT_SOURCE_DIR}/include"
+            : "${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/third_party";
+    return "cmake_minimum_required(VERSION 3.15)\n"
+        + "project(ConfigToolCpp C CXX)\n\n"
+        + "set(CMAKE_CXX_STANDARD 17)\n"
+        + "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n\n"
+        + "if(MSVC)\n"
+        + "    add_compile_options(/utf-8 /W4)\n"
+        + "else()\n"
+        + "    add_compile_options(-Wall -Wextra)\n"
+        + "    find_package(Threads REQUIRED)\n"
+        + "endif()\n\n"
+        + "add_executable(config_tool_cpp "
+        + sources
+        + ")\n"
+        + "target_include_directories(config_tool_cpp PRIVATE "
+        + includeDirs
+        + ")\n\n"
+        + "if(NOT MSVC)\n"
+        + "    target_link_libraries(config_tool_cpp PRIVATE Threads::Threads)\n"
+        + "endif()\n";
+  }
 
   /** 容器定义 */
   private final Map<String, ContainerDef> containerDefMap = new ConcurrentSkipListMap<>();
+
   /** 已生成bean */
   private final Set<String> generatedBeanSet = ConcurrentHashMap.newKeySet();
 
@@ -94,23 +108,48 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
 
       // 运行期基础头文件
       Map<String, Object> baseDataMap = new LinkedHashMap<>();
-      baseDataMap.put("fieldInfo", new com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo());
-      baseDataMap.put("constFieldInfo", new com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelConstantFieldInfo());
-      baseDataMap.put("constantSheetName", SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
+      baseDataMap.put(
+          "fieldInfo", new com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo());
+      baseDataMap.put(
+          "constFieldInfo",
+          new com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelConstantFieldInfo());
+      baseDataMap.put(
+          "constantSheetName",
+          SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
       baseDataMap.put("dataStartRow", ExcelTemplateGenUtils.getConfigFieldMaxRow() + 1);
       baseDataMap.put("idName", getJavaTemplateConf().getBaseBeanIdName());
       baseDataMap.put("skipStr", getJavaTemplateConf().getDataRangeServerSkipStr());
       baseDataMap.put("date", getGenerateDate());
-      generateTemplate(baseDataMap, "BaseCfgContainer.ftl", baseDir + "include" + File.separator + "container" + File.separator + "BaseCfgContainer.h");
+      generateTemplate(
+          baseDataMap,
+          "BaseCfgContainer.ftl",
+          baseDir
+              + "include"
+              + File.separator
+              + "container"
+              + File.separator
+              + "BaseCfgContainer.h");
 
       Map<String, Object> defsDataMap = new LinkedHashMap<>();
-      generateTemplate(defsDataMap, "CfgDefs.ftl", baseDir + "include" + File.separator + "CfgDefs.h");
-      generateTemplate(defsDataMap, "XlsxReader.ftl", baseDir + "include" + File.separator + "XlsxReader.h");
+      generateTemplate(
+          defsDataMap, "CfgDefs.ftl", baseDir + "include" + File.separator + "CfgDefs.h");
 
-      // 随模板输出的miniz(离线可用)
-      copyThirdParty(baseDir);
+      boolean jsonSource = isJsonLoadSource();
+      generateTemplate(
+          defsDataMap,
+          getDataSourceTemplateName("DataSource"),
+          baseDir + "include" + File.separator + "DataSource.h");
+      if (!jsonSource) {
+        generateTemplate(
+            defsDataMap, "XlsxReader.ftl", baseDir + "include" + File.separator + "XlsxReader.h");
+        // 随模板输出的miniz(离线可用)
+        copyThirdParty(baseDir);
+      }
 
-      Files.writeString(Paths.get(baseDir + "CMakeLists.txt"), CMAKE_LISTS_CONTENT, StandardCharsets.UTF_8);
+      Files.writeString(
+          Paths.get(baseDir + "CMakeLists.txt"),
+          buildCmakeLists(jsonSource),
+          StandardCharsets.UTF_8);
     } catch (Exception e) {
       LoggerUtils.getLogger().error("初始化C++输出目录异常", e);
       exceptionCollector.add(e);
@@ -142,6 +181,11 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
     Set<Integer> skipCols = ExcelTemplateGenUtils.getSkipCellList(sheet, skipStr);
 
     List<Map<String, Object>> fields = new ArrayList<>();
+    List<Map<String, String>> fieldMetas = new ArrayList<>();
+    Map<String, String> idMeta = new LinkedHashMap<>();
+    idMeta.put("name", idName);
+    idMeta.put("rawType", "int");
+    fieldMetas.add(idMeta);
     Map<String, Set<String>> enums = new TreeMap<>();
     for (int col = 0; col < lastCol; col++) {
       if (skipCols.contains(col)) {
@@ -168,6 +212,10 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
       field.put("type", toCppType(javaType, false, beanClassName));
       field.put("qualifiedType", toCppType(javaType, true, beanClassName));
       fields.add(field);
+      Map<String, String> meta = new LinkedHashMap<>();
+      meta.put("name", name);
+      meta.put("rawType", rawType);
+      fieldMetas.add(meta);
     }
     if (fields.isEmpty()) {
       throw new ExcelParseException("C++配置表没有可用字段: " + sheet.getSheetName());
@@ -187,7 +235,17 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
     beanDataMap.put("enumDefs", enumDefs);
     beanDataMap.put("date", getGenerateDate());
     generateTemplate(
-        beanDataMap, "Bean.ftl", getTargetDir() + CPP_DIR + File.separator + "include" + File.separator + "bean" + File.separator + beanClassName + ".h");
+        beanDataMap,
+        "Bean.ftl",
+        getTargetDir()
+            + CPP_DIR
+            + File.separator
+            + "include"
+            + File.separator
+            + "bean"
+            + File.separator
+            + beanClassName
+            + ".h");
 
     List<Map<String, String>> constantFields = loadConstantFields(workbook, beanClassName);
     String containerClassName = beanClassName + "Container";
@@ -198,16 +256,28 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
     containerDataMap.put("sheetName", sheet.getSheetName());
     containerDataMap.put("idName", idName);
     containerDataMap.put("fields", fields);
+    containerDataMap.put("fieldMetas", fieldMetas);
     containerDataMap.put("constantFields", constantFields);
     containerDataMap.put("date", getGenerateDate());
     generateTemplate(
         containerDataMap,
         "Container.ftl",
-        getTargetDir() + CPP_DIR + File.separator + "include" + File.separator + "container" + File.separator + containerClassName + ".h");
+        getTargetDir()
+            + CPP_DIR
+            + File.separator
+            + "include"
+            + File.separator
+            + "container"
+            + File.separator
+            + containerClassName
+            + ".h");
 
     containerDefMap.put(
         containerClassName,
-        new ContainerDef(containerClassName, "m_" + toLowerCamel(containerClassName), "Get" + containerClassName));
+        new ContainerDef(
+            containerClassName,
+            "m_" + toLowerCamel(containerClassName),
+            "Get" + containerClassName));
   }
 
   @Override
@@ -221,19 +291,28 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
       Map<String, Object> managerDataMap = new LinkedHashMap<>();
       managerDataMap.put("containerDefs", containerDefs);
       managerDataMap.put("dataManagerClassName", templateConf.getDataManagerClassName());
-      managerDataMap.put("loadMethodName", StrUtils.upperFirst(templateConf.getDataManagerLoadDataCaller()));
+      managerDataMap.put(
+          "loadMethodName", StrUtils.upperFirst(templateConf.getDataManagerLoadDataCaller()));
       managerDataMap.put("date", getGenerateDate());
-      generateTemplate(managerDataMap, "GameDataManager.ftl", baseDir + "include" + File.separator + "GameDataManager.h");
+      generateTemplate(
+          managerDataMap,
+          "GameDataManager.ftl",
+          baseDir + "include" + File.separator + "GameDataManager.h");
 
       Map<String, Object> mainDataMap = new LinkedHashMap<>();
       mainDataMap.put("dataManagerClassName", templateConf.getDataManagerClassName());
-      mainDataMap.put("loadMethodName", StrUtils.upperFirst(templateConf.getDataManagerLoadDataCaller()));
+      mainDataMap.put(
+          "loadMethodName", StrUtils.upperFirst(templateConf.getDataManagerLoadDataCaller()));
       mainDataMap.put(
           "excelLoadDir",
-          SystemConfigHolder.getInstance().getExcelConf().getPath().getExcelConfigLoadPath().replace("\\", "\\\\"));
+          getMainEntryDataPath().replace("\\", "\\\\"));
       mainDataMap.put("containerDefs", containerDefs);
       mainDataMap.put("date", getGenerateDate());
-      generateTemplate(mainDataMap, "Main.ftl", baseDir + "main.cpp");
+      mainDataMap.put("printLoadData", isPrintLoadData());
+      // 主入口代码是否导出由命令行 --export_main / 界面控制
+      if (isExportMainEntry()) {
+        generateTemplate(mainDataMap, "Main.ftl", baseDir + "main.cpp");
+      }
 
       if (textAreaLogger != null) {
         textAreaLogger.info("生成C++模板文件结束");
@@ -247,9 +326,23 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
 
   /** 复制随模板输出的第三方库(miniz) */
   private void copyThirdParty(String baseDir) throws Exception {
-    String templatePath = SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplatePath();
-    String sourceDir = templatePath + File.separator + CPP_DIR + File.separator + THIRD_PARTY_DIR + File.separator;
-    for (String fileName : new String[] {"miniz.h", "miniz.c", "miniz_export.h", "miniz_common.h", "miniz_tdef.h", "miniz_tdef.c", "miniz_tinfl.h", "miniz_tinfl.c", "miniz_zip.h", "miniz_zip.c"}) {
+    String templatePath =
+        SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplatePath();
+    String sourceDir =
+        templatePath + File.separator + CPP_DIR + File.separator + THIRD_PARTY_DIR + File.separator;
+    for (String fileName :
+        new String[] {
+          "miniz.h",
+          "miniz.c",
+          "miniz_export.h",
+          "miniz_common.h",
+          "miniz_tdef.h",
+          "miniz_tdef.c",
+          "miniz_tinfl.h",
+          "miniz_tinfl.c",
+          "miniz_zip.h",
+          "miniz_zip.c"
+        }) {
       File source = new File(sourceDir + fileName);
       if (!source.exists()) {
         throw new ExcelParseException("缺少第三方依赖文件: " + source.getPath());
@@ -267,15 +360,19 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
     if (workbook == null) {
       return constantFields;
     }
-    String constantSheetName = SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
+    String constantSheetName =
+        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
     int sheetIndex = workbook.getSheetIndex(constantSheetName);
     if (sheetIndex < 0) {
       return constantFields;
     }
     Sheet sheet = workbook.getSheetAt(sheetIndex);
-    int typeCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
-    int nameCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
-    int descCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldDescCol();
+    int typeCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
+    int nameCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
+    int descCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldDescCol();
     for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
       Row row = sheet.getRow(rowIndex);
       if (row == null) {
@@ -374,8 +471,11 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
       int splitIndex = findTopLevelComma(sub);
       String keyType = sub.substring(0, splitIndex);
       String valueType = sub.substring(splitIndex + 1);
-      return "std::unordered_map<" + toCppType(keyType, qualified, beanClassName) + ", "
-          + toCppType(valueType, qualified, beanClassName) + ">";
+      return "std::unordered_map<"
+          + toCppType(keyType, qualified, beanClassName)
+          + ", "
+          + toCppType(valueType, qualified, beanClassName)
+          + ">";
     }
     // 枚举
     return qualified ? beanClassName + "::" + type : type;

@@ -44,8 +44,10 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
 
   /** 枚举(枚举名 -> 值) */
   private final Map<String, Set<String>> enumCache = new ConcurrentSkipListMap<>();
+
   /** 容器定义 */
   private final Map<String, ContainerDef> containerDefMap = new ConcurrentSkipListMap<>();
+
   /** 已生成bean */
   private final Set<String> generatedBeanSet = ConcurrentHashMap.newKeySet();
 
@@ -154,7 +156,8 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
     beanDataMap.put("idName", idName);
     beanDataMap.put("fields", fields);
     beanDataMap.put("date", getGenerateDate());
-    generateTemplate(beanDataMap, "Bean.ftl", getTargetDir() + LUA_DIR + File.separator + beanModule + ".lua");
+    generateTemplate(
+        beanDataMap, "Bean.ftl", getTargetDir() + LUA_DIR + File.separator + beanModule + ".lua");
 
     Map<String, Object> dataDataMap = new HashMap<>(8);
     dataDataMap.put("beanClassName", beanClassName);
@@ -162,7 +165,8 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
     dataDataMap.put("sheetName", sheet.getSheetName());
     dataDataMap.put("date", getGenerateDate());
     dataDataMap.put("body", dataBody.toString());
-    generateTemplate(dataDataMap, "Data.ftl", getTargetDir() + LUA_DIR + File.separator + dataModule + ".lua");
+    generateTemplate(
+        dataDataMap, "Data.ftl", getTargetDir() + LUA_DIR + File.separator + dataModule + ".lua");
 
     // 常量
     List<Map<String, String>> constantFields = loadConstantFields(workbook);
@@ -182,7 +186,9 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
       constantDataMap.put("date", getGenerateDate());
       constantDataMap.put("body", constantBody.toString());
       generateTemplate(
-          constantDataMap, "Constants.ftl", getTargetDir() + LUA_DIR + File.separator + constantsModule + ".lua");
+          constantDataMap,
+          "Constants.ftl",
+          getTargetDir() + LUA_DIR + File.separator + constantsModule + ".lua");
     }
 
     Map<String, Object> containerDataMap = new HashMap<>(8);
@@ -219,7 +225,8 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
         Map<String, Object> enumDataMap = new HashMap<>(4);
         enumDataMap.put("enumDefs", enumDefs);
         enumDataMap.put("date", getGenerateDate());
-        generateTemplate(enumDataMap, "Enums.ftl", targetDir + LUA_DIR + File.separator + "enums.lua");
+        generateTemplate(
+            enumDataMap, "Enums.ftl", targetDir + LUA_DIR + File.separator + "enums.lua");
       }
 
       Map<String, Object> managerDataMap = new HashMap<>(8);
@@ -228,16 +235,23 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
       managerDataMap.put("loadMethodName", templateConf.getDataManagerLoadDataCaller());
       managerDataMap.put("date", getGenerateDate());
       generateTemplate(
-          managerDataMap, "GameDataManager.ftl", targetDir + LUA_DIR + File.separator + "game_data_manager.lua");
+          managerDataMap,
+          "GameDataManager.ftl",
+          targetDir + LUA_DIR + File.separator + "game_data_manager.lua");
 
       Map<String, Object> debugDataMap = new HashMap<>(8);
       debugDataMap.put("dataManagerClassName", templateConf.getDataManagerClassName());
       debugDataMap.put("dataManagerModule", "game_data_manager");
       debugDataMap.put("loadMethodName", templateConf.getDataManagerLoadDataCaller());
-      debugDataMap.put("excelLoadDir", "");
+      debugDataMap.put("excelLoadDir", getMainEntryDataPath().replace("\\", "\\\\"));
       debugDataMap.put("containerDefs", containerDefs);
       debugDataMap.put("date", getGenerateDate());
-      generateTemplate(debugDataMap, "DebugMain.ftl", targetDir + LUA_DIR + File.separator + "main.lua");
+      debugDataMap.put("printLoadData", isPrintLoadData());
+      // 主入口代码是否导出由命令行 --export_main / 界面控制
+      if (isExportMainEntry()) {
+        generateTemplate(
+            debugDataMap, "DebugMain.ftl", targetDir + LUA_DIR + File.separator + "main.lua");
+      }
 
       if (textAreaLogger != null) {
         textAreaLogger.info("生成Lua模板文件结束");
@@ -255,15 +269,19 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
     if (workbook == null) {
       return constants;
     }
-    String constantSheetName = SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
+    String constantSheetName =
+        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
     int sheetIndex = workbook.getSheetIndex(constantSheetName);
     if (sheetIndex < 0) {
       return constants;
     }
     Sheet sheet = workbook.getSheetAt(sheetIndex);
-    int typeCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
-    int nameCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
-    int valueCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldValRowRow();
+    int typeCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
+    int nameCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
+    int valueCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldValRowRow();
     for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
       String name = cellText(sheet, rowIndex, nameCol);
       String rawType = cellText(sheet, rowIndex, typeCol);
@@ -287,7 +305,8 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
       ExcelFieldParseAdapter.EnumFieldAdapter enumAdapter =
           (ExcelFieldParseAdapter.EnumFieldAdapter) adapter.getFieldAdapter();
       enumCache
-          .computeIfAbsent(enumAdapter.getEnumClassName(rawType), key -> new ConcurrentSkipListSet<>())
+          .computeIfAbsent(
+              enumAdapter.getEnumClassName(rawType), key -> new ConcurrentSkipListSet<>())
           .addAll(enumAdapter.getEnumFieldSet(rawType));
     }
     return adapter.getFieldAdapter().parseFiledStrToJavaClassType(text, rawType);
@@ -307,8 +326,12 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
     if (type.equals("string") || type.contains("string")) {
       return "string";
     }
-    if (type.contains("int") || type.contains("byte") || type.contains("short")
-        || type.contains("long") || type.contains("float") || type.contains("double")) {
+    if (type.contains("int")
+        || type.contains("byte")
+        || type.contains("short")
+        || type.contains("long")
+        || type.contains("float")
+        || type.contains("double")) {
       return "number";
     }
     // 枚举
@@ -361,11 +384,7 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
 
   private static String quote(String value) {
     String escaped =
-        value
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\r", "\\r")
-            .replace("\n", "\\n");
+        value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n");
     return "\"" + escaped + "\"";
   }
 

@@ -1,8 +1,9 @@
 -- 临时调试入口(自动生成, 不需要时可直接删除)
--- 运行: lua main.lua
+-- 运行: lua main.lua <配置表根目录>
 local ${dataManagerClassName} = require("${dataManagerModule}")
 local enums = require("enums")
 
+<#if printLoadData>
 --- 递归格式化table, 便于查看解析结果
 local function formatValue(value)
     if type(value) ~= "table" then
@@ -18,8 +19,10 @@ local function formatValue(value)
     end
     return "{" .. table.concat(parts, ", ") .. "}"
 end
+</#if>
 
-${dataManagerClassName}.${loadMethodName}("${excelLoadDir}")
+local dataPath = arg and arg[1] or "${excelLoadDir}"
+${dataManagerClassName}.${loadMethodName}(dataPath)
 print("配置表加载完成")
 <#list containerDefs as def>
 do
@@ -29,6 +32,7 @@ do
         count = count + 1
     end
     print("${def.className}: " .. count .. " 条")
+<#if printLoadData>
     for id, cfg in pairs(container.cfgMap) do
         local parts = {}
         for _, field in ipairs(container.beanDef.fields) do
@@ -36,5 +40,6 @@ do
         end
         print("    " .. table.concat(parts, ", "))
     end
+</#if>
 end
 </#list>

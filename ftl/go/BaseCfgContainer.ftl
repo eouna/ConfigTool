@@ -1,18 +1,13 @@
 package ${packageName}
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/xuri/excelize/v2"
 )
 
 // CfgBean 配置Bean接口
@@ -62,6 +57,12 @@ type BaseCfgContainer[T CfgBean] struct {
 	// 跳过列配置值(数据范围列匹配该值时跳过该列)
 	SkipStr string
 
+	// 当前容器对应的表名(工作薄名), json数据源按该名字读取 <表名>.json
+	SheetName string
+
+	// 字段元数据(字段名 + 配置表中的原始类型, 按列顺序), json数据源据此还原表头
+	FieldMetas []FieldMeta
+
 	// 是否关联其他表
 	HasRelatedTable bool
 	// 是否是父配置表
@@ -75,6 +76,8 @@ type BaseCfgContainer[T CfgBean] struct {
 	newBeanFunc     func() T
 	excelNameList   []string
 	constantTargets map[string]any
+	// 数据源(excel/json, 由生成时选择的数据读取方式决定)
+	dataSource DataSource
 }
 
 // newBaseCfgContainer 创建基础容器
@@ -93,13 +96,18 @@ func newBaseCfgContainer[T CfgBean]() BaseCfgContainer[T] {
 		SkipStr:           "${skipStr}",
 		CfgBeanMap:        map[int32]T{},
 		Md5CacheMap:       map[string]string{},
+		dataSource:        NewDataSource(),
 	}
 }
 
 // Init 初始化容器
-func (c *BaseCfgContainer[T]) Init(newBean func() T, excelNameList []string) {
+//
+// sheetName 为当前表名(工作薄名), json数据源按 <sheetName>.json 读取数据
+func (c *BaseCfgContainer[T]) Init(newBean func() T, excelNameList []string, sheetName string, fieldMetas []FieldMeta) {
 	c.newBeanFunc = newBean
 	c.excelNameList = excelNameList
+	c.SheetName = sheetName
+	c.FieldMetas = fieldMetas
 }
 
 // SetConstantTargets 设置常量字段名到目标字段指针的映射
@@ -127,43 +135,52 @@ func (c *BaseCfgContainer[T]) LoadData(resourceRootPath string) error {
 	}
 	tempCfgMap := make(map[int32]T)
 	md5Map := make(map[string]string)
-	for _, excelName := range c.excelNameList {
-		fullPath := filepath.Join(resourceRootPath, excelName)
-		rawData, err := os.ReadFile(fullPath)
+	if c.dataSource == nil {
+		c.dataSource = NewDataSource()
+	}
+	// json数据源下一张表只对应一个数据文件, 避免分表时重复读取
+	sourceFiles := c.excelNameList
+	if c.dataSource.IsSingleSource() && len(sourceFiles) > 1 {
+		sourceFiles = sourceFiles[:1]
+	}
+	for _, excelName := range sourceFiles {
+		// 数据源读取(与具体数据源无关, excel/json共用同一套解析)
+		req := SheetReadRequest{
+			RootPath:     resourceRootPath,
+			FileName:     excelName,
+			SheetName:    c.SheetName,
+			Fields:       c.FieldMetas,
+			NameRow:      c.FieldNameRow,
+			TypeRow:      c.FieldTypeRow,
+			RangeRow:     c.FieldDataRangeRow,
+			DataStartRow: c.DataStartRow,
+		}
+		digest, err := c.dataSource.FileDigest(req)
 		if err != nil {
 			return err
 		}
-		sum := md5.Sum(rawData)
-		md5Map[filepath.Base(excelName)] = hex.EncodeToString(sum[:])
+		md5Map[filepath.Base(excelName)] = digest
 
-		workbook, err := excelize.OpenFile(fullPath)
+		rows, err := c.dataSource.ReadSheet(req)
 		if err != nil {
 			return err
 		}
-		sheetNames := workbook.GetSheetList()
-		if len(sheetNames) == 0 {
-			_ = workbook.Close()
-			continue
-		}
-		rows, err := workbook.GetRows(sheetNames[0])
-		if err != nil {
-			_ = workbook.Close()
-			return err
-		}
-		if err = c.loadSheetRows(rows, tempCfgMap); err != nil {
-			_ = workbook.Close()
-			return err
+		if len(rows) > 0 {
+			if err = c.loadSheetRows(rows, tempCfgMap); err != nil {
+				return err
+			}
 		}
 		// 常量字段
 		if len(c.constantTargets) > 0 && c.ConstantSheetName != "" {
-			if constRows, constErr := workbook.GetRows(c.ConstantSheetName); constErr == nil && len(constRows) > 1 {
+			constReq := req
+			constReq.SheetName = c.ConstantSheetName
+			constRows, constErr := c.dataSource.ReadConstantRows(constReq)
+			if constErr == nil && len(constRows) > 1 {
 				if err = c.loadConstantFields(constRows[1:]); err != nil {
-					_ = workbook.Close()
 					return err
 				}
 			}
 		}
-		_ = workbook.Close()
 	}
 	c.CfgBeanMap = tempCfgMap
 	c.Md5CacheMap = md5Map

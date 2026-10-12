@@ -667,6 +667,15 @@ public enum ExcelFieldParseAdapter {
           // val解析后的值
           Object valParsed =
               valFieldDataAdapter.getFieldAdapter().parseFiledStrToJavaClassType(valStr, valType);
+          // key重复会导致数据被静默覆盖(json往返时更明显), 这里直接报错
+          if (map.containsKey(keyParsed)) {
+            throw new ExcelFormatCheckException(
+                "Map类型字段出现重复的key: "
+                    + keyStr
+                    + " (类型: "
+                    + fieldType
+                    + "), 请检查配置; json对象key唯一, 重复key无法无损导出");
+          }
           map.put(keyParsed, valParsed);
         }
       }

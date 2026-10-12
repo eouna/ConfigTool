@@ -1,9 +1,8 @@
 package com.eouna.configtool.ui.controllers;
 
-import java.io.IOException;
-
 import com.eouna.configtool.core.window.BaseMultiWindowController;
 import com.eouna.configtool.core.window.WindowManager;
+import java.io.IOException;
 import javafx.fxml.FXML;
 import javafx.scene.Parent;
 import javafx.scene.control.ScrollPane;
@@ -35,7 +34,7 @@ public class ShowModalController extends BaseMultiWindowController {
     String title = (String) initArgs[0];
     newStage.setTitle(title);
     newStage.setResizable(false);
-    newStage.initModality(Modality.NONE);
+    newStage.initModality(Modality.APPLICATION_MODAL);
     return newStage;
   }
 

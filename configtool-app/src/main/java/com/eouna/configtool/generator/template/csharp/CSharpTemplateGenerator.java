@@ -18,7 +18,6 @@ import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
 import com.eouna.configtool.utils.ExcelUtils;
 import com.eouna.configtool.utils.FileUtils;
 import com.eouna.configtool.utils.StrUtils;
-
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -32,7 +31,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -49,19 +47,27 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
 
   /** 程序集/项目名 */
   private static final String ASSEMBLY_NAME = "ConfigToolCfg";
+
   /** 源码目录 */
   private static final String SRC_DIR = "src";
+
   /** bean目录 */
   private static final String BEAN_DIR = "bean";
+
   /** container目录 */
   private static final String CONTAINER_DIR = "container";
 
   /** 枚举(枚举名 -> 值) */
   private final Map<String, Set<String>> enumCache = new ConcurrentSkipListMap<>();
+
   /** 容器定义 */
   private final Map<String, ContainerDef> containerDefMap = new ConcurrentSkipListMap<>();
+
   /** 已生成的bean */
   private final Set<String> generatedBeanSet = ConcurrentHashMap.newKeySet();
+
+  /** cfgBean类名 -> 字段元数据(字段名 + 配置表原始类型), 供容器与json数据源使用 */
+  private final Map<String, List<Map<String, String>>> fieldMetaCache = new ConcurrentHashMap<>();
 
   @Override
   protected String getTemplateBindRelatedPath() {
@@ -77,10 +83,23 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
       enumCache.clear();
       containerDefMap.clear();
       generatedBeanSet.clear();
+      fieldMetaCache.clear();
       String targetDir = getTargetDir();
       FileUtils.getOrCreateDir(targetDir + SRC_DIR);
       FileUtils.getOrCreateDir(targetDir + SRC_DIR + File.separator + BEAN_DIR);
       FileUtils.getOrCreateDir(targetDir + SRC_DIR + File.separator + CONTAINER_DIR);
+
+      Map<String, Object> dataSourceDataMap = new HashMap<>(2);
+      dataSourceDataMap.put("date", getGenerateDate());
+      generateTemplate(
+          dataSourceDataMap,
+          getDataSourceTemplateName("DataSource"),
+          targetDir
+              + SRC_DIR
+              + File.separator
+              + CONTAINER_DIR
+              + File.separator
+              + "ConfigDataSource.cs");
 
       Map<String, Object> baseDataMap = new HashMap<>(8);
       baseDataMap.put("fieldInfo", new ExcelFieldInfo());
@@ -92,7 +111,14 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
       baseDataMap.put("idName", getJavaTemplateConf().getBaseBeanIdName());
       baseDataMap.put("skipStr", getJavaTemplateConf().getDataRangeServerSkipStr());
       generateTemplate(
-          baseDataMap, "BaseCfgContainer.ftl", targetDir + SRC_DIR + File.separator + CONTAINER_DIR + File.separator + "BaseCfgContainer.cs");
+          baseDataMap,
+          "BaseCfgContainer.ftl",
+          targetDir
+              + SRC_DIR
+              + File.separator
+              + CONTAINER_DIR
+              + File.separator
+              + "BaseCfgContainer.cs");
 
       Map<String, Object> csprojDataMap = new HashMap<>(2);
       csprojDataMap.put("assemblyName", ASSEMBLY_NAME);
@@ -119,6 +145,8 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
       throw new ExcelParseException("生成C# Bean失败, 存在重复的工作薄名: " + sheet.getSheetName());
     }
     ExcelDataStruct dataStruct = loadDataStruct(file, sheet);
+    // 先保留配置表中的原始类型, json数据源据此还原字段值
+    fieldMetaCache.put(beanClassName, buildFieldMetaList(dataStruct));
     convertToCSharpTypes(dataStruct);
     // 枚举放入各自的cfg类(nested enum), 因此按表收集
     List<EnumDef> enumDefs = buildEnumDefs(dataStruct);
@@ -130,7 +158,9 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
     beanDataMap.put("idName", getJavaTemplateConf().getBaseBeanIdName());
     beanDataMap.put("enumDefs", enumDefs);
     generateTemplate(
-        beanDataMap, "CfgBean.ftl", targetDir() + SRC_DIR + File.separator + BEAN_DIR + File.separator + beanClassName + ".cs");
+        beanDataMap,
+        "CfgBean.ftl",
+        targetDir() + SRC_DIR + File.separator + BEAN_DIR + File.separator + beanClassName + ".cs");
 
     List<ExcelConstantFieldInfo> constantFields = loadConstantFields(workbook);
     String containerClassName = beanClassName + "Container";
@@ -140,13 +170,22 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
     containerDataMap.put("bindExcelList", List.of(file.getName()));
     containerDataMap.put("sheetBean", sheetBean);
     containerDataMap.put("excelName", file.getName());
+    containerDataMap.put("sheetName", sheet.getSheetName());
+    containerDataMap.put("fieldMetas", fieldMetaCache.getOrDefault(beanClassName, List.of()));
     containerDataMap.put("date", getGenerateDate());
     containerDataMap.put("constantFields", constantFields);
     generateTemplate(
         containerDataMap,
         "CfgContainer.ftl",
-        targetDir() + SRC_DIR + File.separator + CONTAINER_DIR + File.separator + containerClassName + ".cs");
-    containerDefMap.put(containerClassName, new ContainerDef(containerClassName, containerClassName));
+        targetDir()
+            + SRC_DIR
+            + File.separator
+            + CONTAINER_DIR
+            + File.separator
+            + containerClassName
+            + ".cs");
+    containerDefMap.put(
+        containerClassName, new ContainerDef(containerClassName, containerClassName));
   }
 
   @Override
@@ -157,11 +196,11 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
       String targetDir = getTargetDir();
       List<ContainerDef> containerDefs = new ArrayList<>(containerDefMap.values());
 
-
       Map<String, Object> managerDataMap = new HashMap<>(8);
       managerDataMap.put("containerDefs", containerDefs);
       managerDataMap.put("dataManagerClassName", templateConf.getDataManagerClassName());
-      managerDataMap.put("loadMethodName", StrUtils.upperFirst(templateConf.getDataManagerLoadDataCaller()));
+      managerDataMap.put(
+          "loadMethodName", StrUtils.upperFirst(templateConf.getDataManagerLoadDataCaller()));
       managerDataMap.put("date", getGenerateDate());
       generateTemplate(
           managerDataMap,
@@ -170,13 +209,19 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
 
       Map<String, Object> debugDataMap = new HashMap<>(8);
       debugDataMap.put("dataManagerClassName", templateConf.getDataManagerClassName());
-      debugDataMap.put("loadMethodName", StrUtils.upperFirst(templateConf.getDataManagerLoadDataCaller()));
+      debugDataMap.put(
+          "loadMethodName", StrUtils.upperFirst(templateConf.getDataManagerLoadDataCaller()));
       debugDataMap.put(
           "excelLoadDir",
-          SystemConfigHolder.getInstance().getExcelConf().getPath().getExcelConfigLoadPath());
+          getMainEntryDataPath());
       debugDataMap.put("containerDefs", containerDefs);
       debugDataMap.put("date", getGenerateDate());
-      generateTemplate(debugDataMap, "DebugMain.ftl", targetDir + SRC_DIR + File.separator + "Program.cs");
+      debugDataMap.put("printLoadData", isPrintLoadData());
+      // 主入口代码是否导出由命令行 --export_main / 界面控制
+      if (isExportMainEntry()) {
+        generateTemplate(
+            debugDataMap, "DebugMain.ftl", targetDir + SRC_DIR + File.separator + "Program.cs");
+      }
 
       if (textAreaLogger != null) {
         textAreaLogger.info("生成C#模板文件结束");
@@ -185,15 +230,35 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
       LoggerUtils.getLogger().error("生成C#管理器/枚举时发生异常", e);
     } finally {
       generatedBeanSet.clear();
+      fieldMetaCache.clear();
     }
+  }
+
+  /** 组装字段元数据列表(字段名 + 配置表原始类型, id列补第一列) */
+  private List<Map<String, String>> buildFieldMetaList(ExcelDataStruct dataStruct) {
+    List<Map<String, String>> fieldMetas = new ArrayList<>();
+    Map<String, String> idMeta = new HashMap<>(2);
+    idMeta.put("name", getJavaTemplateConf().getBaseBeanIdName());
+    idMeta.put("rawType", "int");
+    fieldMetas.add(idMeta);
+    for (ExcelFieldInfo fieldInfo : dataStruct.getExcelFieldInfoList()) {
+      Map<String, String> meta = new HashMap<>(2);
+      meta.put("name", fieldInfo.getFieldName().getFieldData());
+      String rawType = fieldInfo.getOriginFieldType();
+      meta.put("rawType", rawType == null ? "" : rawType);
+      fieldMetas.add(meta);
+    }
+    return fieldMetas;
   }
 
   private ExcelDataStruct loadDataStruct(File file, Sheet sheet) {
     ExcelDataStruct dataStruct = new ExcelDataStruct(file.getName(), sheet.getSheetName());
     String idName = getJavaTemplateConf().getBaseBeanIdName();
     Set<Integer> skipColList =
-        ExcelTemplateGenUtils.getSkipCellList(sheet, getJavaTemplateConf().getDataRangeServerSkipStr());
-    Set<ExcelFieldInfo> excelFields = ExcelTemplateGenUtils.getExcelFields(file, sheet, skipColList);
+        ExcelTemplateGenUtils.getSkipCellList(
+            sheet, getJavaTemplateConf().getDataRangeServerSkipStr());
+    Set<ExcelFieldInfo> excelFields =
+        ExcelTemplateGenUtils.getExcelFields(file, sheet, skipColList);
     if (excelFields == null) {
       return dataStruct;
     }
@@ -208,15 +273,19 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
     if (workbook == null) {
       return constantFields;
     }
-    String constantSheetName = SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
+    String constantSheetName =
+        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
     int sheetIndex = workbook.getSheetIndex(constantSheetName);
     if (sheetIndex < 0) {
       return constantFields;
     }
     Sheet sheet = workbook.getSheetAt(sheetIndex);
-    int typeCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
-    int nameCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
-    int descCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldDescCol();
+    int typeCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
+    int nameCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
+    int descCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldDescCol();
     for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
       Row row = sheet.getRow(rowIndex);
       if (row == null) {
@@ -353,7 +422,9 @@ public class CSharpTemplateGenerator extends AbstractTemplateGenerator {
 
   private static String getTargetDir() {
     return SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplateFileGenTargetDir()
-        + File.separator + "csharp" + File.separator;
+        + File.separator
+        + "csharp"
+        + File.separator;
   }
 
   private static String targetDir() {

@@ -9,6 +9,7 @@ import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
 import com.eouna.configtool.generator.base.ExcelFileStructure;
 import com.eouna.configtool.generator.bean.ExcelDataStruct;
+import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelConstantFieldInfo;
 import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelEnumFieldInfo;
 import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo;
 import com.eouna.configtool.generator.bean.ExcelSheetBean;
@@ -16,7 +17,6 @@ import com.eouna.configtool.generator.exceptions.ExcelParseException;
 import com.eouna.configtool.generator.template.AbstractTemplateGenerator;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
-import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelConstantFieldInfo;
 import com.eouna.configtool.utils.ExcelUtils;
 import com.eouna.configtool.utils.FileUtils;
 import com.eouna.configtool.utils.StrUtils;
@@ -29,7 +29,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
-
 import org.apache.poi.ss.usermodel.*;
 
 /**
@@ -46,6 +45,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
 
   /** bean名和container名对应的文件 */
   protected Map<String, ExcelSheetBean> cfgBeanAndContainerRecMap = new ConcurrentHashMap<>();
+
+  /** cfgBean类名 -> 字段元数据(字段名 + 配置表原始类型), 供容器与json数据源使用 */
+  private final Map<String, List<Map<String, String>>> fieldMetaCache = new ConcurrentHashMap<>();
 
   @Override
   public void generatorBefore(
@@ -104,6 +106,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     String cfgBeanPackageName = getCfgBeanPackageName();
     Map<String, Object> dataMap = new HashMap<>(1);
     dataMap.put("packageName", cfgBeanPackageName);
+    dataMap.put("dataSourcePackageName", getDataSourcePackageName());
     dataMap.put(
         "idName", SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
     // 生成模板文件
@@ -117,6 +120,18 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
         throw new IOException("不能创建文件夹: " + baseBeanOutputFileDir);
       }
     }
+    // 数据源读取独立成一个类: 由「语言加载选项」/--load_source 选择 excel / json 模板
+    File dataSourceOutputDir = new File(basePath + "data");
+    if (!dataSourceOutputDir.exists() && !dataSourceOutputDir.mkdirs()) {
+      throw new IOException("不能创建文件夹: " + dataSourceOutputDir);
+    }
+    Map<String, Object> dataSourceDataMap = new HashMap<>(2);
+    dataSourceDataMap.put("dataSourcePackageName", getDataSourcePackageName());
+    dataSourceDataMap.put("date", getGenerateDate());
+    generateTemplate(
+        dataSourceDataMap,
+        getDataSourceTemplateName("DataSource"),
+        dataSourceOutputDir.getPath() + File.separator + "ConfigDataSource.java");
     // 获取输路径
     String baseContainerOutputFilePath =
         baseContainerOutputFileDir.getPath()
@@ -136,6 +151,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     dataMap.put("dataStartRow", ExcelTemplateGenUtils.getConfigFieldMaxRow() + 1);
     dataMap.put("beanPackageName", cfgBeanPackageName);
     dataMap.put("baseCfgBean", DefaultEnvConfigConstant.BASE_BEAN_TEMPLATE_CLASS_NAME);
+    dataMap.put("dataSourcePackageName", getDataSourcePackageName());
     dataMap.put(
         "idName", SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
     dataMap.put(
@@ -279,6 +295,8 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
 
     // 加载字段信息
     ExcelDataStruct dataStruct = loadFieldInfo(!isParent, curGenFile, childExcel, sheet, sheetBean);
+    // 缓存字段元数据(字段名 + 配置表原始类型)
+    fieldMetaCache.put(cfgBeanClassName, buildFieldMetaList(dataStruct));
 
     Map<String, Object> dataMap = new HashMap<>(8);
     String packageName = getCfgBeanPackageName();
@@ -347,14 +365,17 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     String skipStr =
         SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr();
     Set<Integer> skipColList = ExcelTemplateGenUtils.getSkipCellList(sheet, skipStr);
-    if (childExcelFileList.size() > 1) {
+    // 虚拟父表没有实际sheet(单sheet==null), 即使只有一个子文件也必须从子文件合并字段和枚举。
+    if (childExcelFileList.size() > 1 || sheet == null) {
       // 加载子excel信息
       for (File childExcelFile : childExcelFileList) {
         try (Workbook workbook = WorkbookFactory.create(childExcelFile, null, true)) {
           Sheet childSheet = workbook.getSheetAt(0);
+          Set<Integer> childSkipColList =
+              ExcelTemplateGenUtils.getSkipCellList(childSheet, skipStr);
           // 获取excel字段信息
           Set<ExcelFieldInfo> excelFieldInfos =
-              ExcelTemplateGenUtils.getExcelFields(file, childSheet, skipColList);
+              ExcelTemplateGenUtils.getExcelFields(file, childSheet, childSkipColList);
           Iterator<ExcelFieldInfo> iterator = excelFieldInfos.iterator();
           while (iterator.hasNext()) {
             ExcelFieldInfo excelFieldInfo = iterator.next();
@@ -429,8 +450,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
       boolean hasParentSheet, ExcelDataStruct dataStruct, Set<ExcelFieldInfo> excelFieldInfo) {
     Set<ExcelEnumFieldInfo> excelEnumFieldInfoList = new HashSet<>();
     for (ExcelFieldInfo fieldInfo : excelFieldInfo) {
-      // 枚举随各自的cfg生成(子表也声明自己的枚举, Java中会隐藏父类的同名嵌套类型)
-      if (fieldInfo instanceof ExcelEnumFieldInfo) {
+      // 枚举只在"没有父表"的bean里声明: 子表继承父表的嵌套枚举。
+      // 若子表也声明同名嵌套类型, 会隐藏父类类型, 导致 getXxx() 覆盖时返回类型不兼容而编译失败。
+      if (!hasParentSheet && fieldInfo instanceof ExcelEnumFieldInfo) {
         excelEnumFieldInfoList.add((ExcelEnumFieldInfo) fieldInfo);
       }
       dataStruct.getExcelFieldInfoList().add(fieldInfo);
@@ -504,6 +526,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
             .sorted(String::compareTo)
             .collect(Collectors.toList());
     dataMap.put("containerPackageName", containerPackageName);
+    dataMap.put(
+        "fieldMetas", fieldMetaCache.getOrDefault(cfgBeanClassName, Collections.emptyList()));
+    dataMap.put("dataSourcePackageName", getDataSourcePackageName());
     dataMap.put("beanPackageName", beanPackageName);
     dataMap.put("bindExcelList", bindExcelList);
     // 是否具有关联表, 有分表的子表和父表都应为true
@@ -633,9 +658,10 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     try {
       ExcelGenPathConf pathConf = SystemConfigHolder.getInstance().getExcelConf().getPath();
       // 生成GameDataManager
-      String templateGenTargetDir = pathConf.getTemplateFileGenTargetDir() + File.separator + "java" + File.separator;
+      String templateGenTargetDir =
+          pathConf.getTemplateFileGenTargetDir() + File.separator + "java" + File.separator;
       // 生成GameDataManager
-      String excelLoadDir = pathConf.getExcelConfigLoadPath().replace("\\", "\\\\");
+      String excelLoadDir = getMainEntryDataPath().replace("\\", "\\\\");
       // java模板配置
       JavaTemplateConf javaTemplateConf = SystemConfigHolder.getInstance().getJavaTemplateConf();
       // 获取输路径
@@ -661,6 +687,26 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
       generateTemplate(
           dataMap, javaTemplateConf.getDataManagerClassName() + ".ftl", outputFilePath);
 
+      // 主入口独立成一个主函数模板(不放在GameDataManager里)
+      String mainClassName = javaTemplateConf.getDataManagerClassName() + "Main";
+      Map<String, Object> mainDataMap = new HashMap<>(8);
+      mainDataMap.put("packageName", javaTemplateConf.getPackageName());
+      mainDataMap.put("dataManagerClassName", javaTemplateConf.getDataManagerClassName());
+      mainDataMap.put("mainClassName", mainClassName);
+      mainDataMap.put("excelLoadDir", excelLoadDir);
+      mainDataMap.put("date", getGenerateDate());
+      mainDataMap.put("printLoadData", isPrintLoadData());
+      mainDataMap.put("beanAndContainerMap", cfgBeanOfContainerNameMap);
+      // 主入口代码是否导出由命令行 --export_main / 界面控制
+      if (isExportMainEntry()) {
+        generateTemplate(
+            mainDataMap,
+            "Main.ftl",
+            templateGenTargetDir
+                + mainClassName
+                + ETemplateGenerator.JAVA_GENERATOR.getTemplateHandler().getFileIdentifier());
+      }
+
       textAreaLogger.info("生成JAVA模板文件结束");
     } catch (TemplateException | IOException e) {
       LoggerUtils.getLogger().error("生成GameDataManager时发生异常", e);
@@ -674,6 +720,28 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
   @Override
   protected String getTemplateBindRelatedPath() {
     return ETemplateGenerator.JAVA_GENERATOR.getTemplateHandler().getTemplateBindRelatedPath();
+  }
+
+  /** 数据源包名(生成的数据源类所在包) */
+  private String getDataSourcePackageName() {
+    return SystemConfigHolder.getInstance().getJavaTemplateConf().getPackageName() + ".data";
+  }
+
+  /** 组装字段元数据列表(字段名 + 配置表原始类型, id列补第一列) */
+  private List<Map<String, String>> buildFieldMetaList(ExcelDataStruct dataStruct) {
+    List<Map<String, String>> fieldMetas = new ArrayList<>();
+    Map<String, String> idMeta = new LinkedHashMap<>();
+    idMeta.put("name", SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
+    idMeta.put("rawType", "int");
+    fieldMetas.add(idMeta);
+    for (ExcelFieldInfo fieldInfo : dataStruct.getExcelFieldInfoList()) {
+      Map<String, String> meta = new LinkedHashMap<>();
+      meta.put("name", fieldInfo.getFieldName().getFieldData());
+      String rawType = fieldInfo.getOriginFieldType();
+      meta.put("rawType", rawType == null ? "" : rawType);
+      fieldMetas.add(meta);
+    }
+    return fieldMetas;
   }
 
   /** 配置表包名 */

@@ -1,6 +1,5 @@
 package com.eouna.configtool.generator.template.rust;
 
-import com.eouna.configtool.configholder.ConfigDataBean.ExcelGenPathConf;
 import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
 import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.core.logger.LoggerUtils;
@@ -34,7 +33,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -52,15 +50,19 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
 
   /** Rust crate 名 */
   private static final String RUST_CRATE = "config_tool_cfg";
+
   /** 源码根目录 */
   private static final String SRC_DIR = "src";
 
   /** 所有枚举(枚举名 -> 值), 并行生成需线程安全 */
   private final Map<String, Set<String>> enumCache = new ConcurrentSkipListMap<>();
+
   /** 容器定义(容器类名 -> 定义) */
   private final Map<String, ContainerDef> containerDefMap = new ConcurrentSkipListMap<>();
+
   /** bean类名 -> 模块名 */
   private final Map<String, String> beanModuleMap = new ConcurrentSkipListMap<>();
+
   /** 已生成的bean类名(用于重复sheet校验) */
   private final Set<String> generatedBeanSet = ConcurrentHashMap.newKeySet();
 
@@ -89,15 +91,27 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
       containerDataMap.put("fieldInfo", new ExcelFieldInfo());
       containerDataMap.put("constFieldInfo", new ExcelConstantFieldInfo());
       containerDataMap.put(
-          "constantSheetName", SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
+          "constantSheetName",
+          SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
       containerDataMap.put("dataStartRow", ExcelTemplateGenUtils.getConfigFieldMaxRow() + 1);
       containerDataMap.put("idName", getJavaTemplateConf().getBaseBeanIdName());
-      containerDataMap.put(
-          "skipStr", getJavaTemplateConf().getDataRangeServerSkipStr());
+      containerDataMap.put("skipStr", getJavaTemplateConf().getDataRangeServerSkipStr());
       generateTemplate(
           containerDataMap,
           "BaseCfgContainer.ftl",
-          targetDir + SRC_DIR + File.separator + "container" + File.separator + "base_cfg_container.rs");
+          targetDir
+              + SRC_DIR
+              + File.separator
+              + "container"
+              + File.separator
+              + "base_cfg_container.rs");
+
+      // 数据源读取独立成一个文件: 由「语言加载选项」/--load_source 选择 excel / json 模板
+      Map<String, Object> dataSourceDataMap = new HashMap<>(2);
+      generateTemplate(
+          dataSourceDataMap,
+          getDataSourceTemplateName("DataSource"),
+          targetDir + SRC_DIR + File.separator + "container" + File.separator + "data_source.rs");
 
       Map<String, Object> cargoDataMap = new HashMap<>(2);
       cargoDataMap.put("crateName", RUST_CRATE);
@@ -122,11 +136,12 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
     }
     String beanClassName = getCfgBeanClassName(sheet.getSheetName());
     if (!generatedBeanSet.add(beanClassName)) {
-      throw new ExcelParseException(
-          "生成Rust Bean失败, 存在重复的工作薄名: " + sheet.getSheetName());
+      throw new ExcelParseException("生成Rust Bean失败, 存在重复的工作薄名: " + sheet.getSheetName());
     }
     // 字段信息
     ExcelDataStruct dataStruct = loadDataStruct(file, sheet);
+    // 先保存配置表中的原始类型, json数据源据此还原字段值
+    List<Map<String, String>> fieldMetas = buildFieldMetaList(dataStruct);
     convertToRustTypes(dataStruct);
     // 枚举跟随各自的cfg(同文件内嵌), 因此按表收集
     List<EnumDef> enumDefs = buildEnumDefs(dataStruct);
@@ -137,7 +152,14 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
     List<ExcelConstantFieldInfo> constantFields = loadConstantFields(workbook);
     String containerClassName = beanClassName + "Container";
     writeContainer(
-        file, sheet, sheetBean, beanClassName, containerClassName, dataStruct, constantFields);
+        file,
+        sheet,
+        sheetBean,
+        beanClassName,
+        containerClassName,
+        dataStruct,
+        fieldMetas,
+        constantFields);
     successGenListPlaceholder();
   }
 
@@ -150,15 +172,15 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
     ExcelDataStruct dataStruct = new ExcelDataStruct(file.getName(), sheet.getSheetName());
     String idName = getJavaTemplateConf().getBaseBeanIdName();
     Set<Integer> skipColList =
-        ExcelTemplateGenUtils.getSkipCellList(sheet, getJavaTemplateConf().getDataRangeServerSkipStr());
-    Set<ExcelFieldInfo> excelFields = ExcelTemplateGenUtils.getExcelFields(file, sheet, skipColList);
+        ExcelTemplateGenUtils.getSkipCellList(
+            sheet, getJavaTemplateConf().getDataRangeServerSkipStr());
+    Set<ExcelFieldInfo> excelFields =
+        ExcelTemplateGenUtils.getExcelFields(file, sheet, skipColList);
     if (excelFields == null) {
       return dataStruct;
     }
     Set<ExcelFieldInfo> fields = new LinkedHashSet<>(excelFields);
-    fields.removeIf(
-        fieldInfo ->
-            idName.equalsIgnoreCase(fieldInfo.getFieldName().getFieldData()));
+    fields.removeIf(fieldInfo -> idName.equalsIgnoreCase(fieldInfo.getFieldName().getFieldData()));
     dataStruct.getExcelFieldInfoList().addAll(fields);
     return dataStruct;
   }
@@ -169,15 +191,19 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
     if (workbook == null) {
       return constantFields;
     }
-    String constantSheetName = SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
+    String constantSheetName =
+        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
     int sheetIndex = workbook.getSheetIndex(constantSheetName);
     if (sheetIndex < 0) {
       return constantFields;
     }
     Sheet sheet = workbook.getSheetAt(sheetIndex);
-    int typeCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
-    int nameCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
-    int descCol = SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldDescCol();
+    int typeCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldTypeCol();
+    int nameCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
+    int descCol =
+        SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldDescCol();
     for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
       Row row = sheet.getRow(rowIndex);
       if (row == null) {
@@ -209,6 +235,23 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
     return constantFields;
   }
 
+  /** 组装字段元数据列表(字段名 + 配置表原始类型, id列补第一列) */
+  private List<Map<String, String>> buildFieldMetaList(ExcelDataStruct dataStruct) {
+    List<Map<String, String>> fieldMetas = new ArrayList<>();
+    Map<String, String> idMeta = new HashMap<>(2);
+    idMeta.put("name", getJavaTemplateConf().getBaseBeanIdName());
+    idMeta.put("rawType", "int");
+    fieldMetas.add(idMeta);
+    for (ExcelFieldInfo fieldInfo : dataStruct.getExcelFieldInfoList()) {
+      Map<String, String> meta = new HashMap<>(2);
+      meta.put("name", fieldInfo.getFieldName().getFieldData());
+      String rawType = fieldInfo.getOriginFieldType();
+      meta.put("rawType", rawType == null ? "" : rawType);
+      fieldMetas.add(meta);
+    }
+    return fieldMetas;
+  }
+
   /** 生成bean文件 */
   private void writeBean(String beanClassName, ExcelDataStruct dataStruct, List<EnumDef> enumDefs)
       throws IOException, TemplateException {
@@ -222,7 +265,13 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
     generateTemplate(
         dataMap,
         "CfgBean.ftl",
-        getTargetDir() + SRC_DIR + File.separator + "bean" + File.separator + toSnakeCase(beanClassName) + ".rs");
+        getTargetDir()
+            + SRC_DIR
+            + File.separator
+            + "bean"
+            + File.separator
+            + toSnakeCase(beanClassName)
+            + ".rs");
   }
 
   /** 生成容器文件 */
@@ -233,6 +282,7 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
       String beanClassName,
       String containerClassName,
       ExcelDataStruct dataStruct,
+      List<Map<String, String>> fieldMetas,
       List<ExcelConstantFieldInfo> constantFields)
       throws IOException, TemplateException {
     Map<String, Object> dataMap = new HashMap<>(16);
@@ -242,11 +292,15 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
     dataMap.put("beanModule", toSnakeCase(beanClassName));
     dataMap.put("bindExcelList", List.of(file.getName()));
     dataMap.put("sheetBean", sheetBean);
+    dataMap.put("sheetName", sheet.getSheetName());
     dataMap.put("excelName", file.getName());
+    dataMap.put("fieldMetas", fieldMetas);
     dataMap.put("date", getGenerateDate());
     dataMap.put("idName", getJavaTemplateConf().getBaseBeanIdName());
     dataMap.put("dataStartRow", ExcelTemplateGenUtils.getConfigFieldMaxRow() + 1);
-    dataMap.put("constantSheetName", SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
+    dataMap.put(
+        "constantSheetName",
+        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
     dataMap.put("fieldInfo", new ExcelFieldInfo());
     dataMap.put("constFieldInfo", new ExcelConstantFieldInfo());
     dataMap.put("dataStruct", dataStruct);
@@ -254,7 +308,13 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
     generateTemplate(
         dataMap,
         "CfgContainer.ftl",
-        getTargetDir() + SRC_DIR + File.separator + "container" + File.separator + toSnakeCase(containerClassName) + ".rs");
+        getTargetDir()
+            + SRC_DIR
+            + File.separator
+            + "container"
+            + File.separator
+            + toSnakeCase(containerClassName)
+            + ".rs");
     containerDefMap.put(
         containerClassName,
         new ContainerDef(
@@ -269,18 +329,22 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
       String targetDir = getTargetDir();
       List<ContainerDef> containerDefs = new ArrayList<>(containerDefMap.values());
 
-
       // bean/mod.rs
       Map<String, Object> beanModDataMap = new HashMap<>(4);
       beanModDataMap.put("beanModules", new ArrayList<>(new TreeSet<>(beanModuleMap.values())));
       generateTemplate(
-          beanModDataMap, "BeanMod.ftl", targetDir + SRC_DIR + File.separator + "bean" + File.separator + "mod.rs");
+          beanModDataMap,
+          "BeanMod.ftl",
+          targetDir + SRC_DIR + File.separator + "bean" + File.separator + "mod.rs");
 
       // container/mod.rs
       Map<String, Object> containerModDataMap = new HashMap<>(4);
       containerModDataMap.put(
           "containerModules",
-          containerDefs.stream().map(ContainerDef::getModuleName).sorted().collect(Collectors.toList()));
+          containerDefs.stream()
+              .map(ContainerDef::getModuleName)
+              .sorted()
+              .collect(Collectors.toList()));
       generateTemplate(
           containerModDataMap,
           "ContainerMod.ftl",
@@ -290,10 +354,13 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
       Map<String, Object> managerDataMap = new HashMap<>(8);
       managerDataMap.put("containerDefs", containerDefs);
       managerDataMap.put("dataManagerClassName", templateConf.getDataManagerClassName());
-      managerDataMap.put("loadMethodName", toSnakeCase(templateConf.getDataManagerLoadDataCaller()));
+      managerDataMap.put(
+          "loadMethodName", toSnakeCase(templateConf.getDataManagerLoadDataCaller()));
       managerDataMap.put("date", getGenerateDate());
       generateTemplate(
-          managerDataMap, "GameDataManager.ftl", targetDir + SRC_DIR + File.separator + "game_data_manager.rs");
+          managerDataMap,
+          "GameDataManager.ftl",
+          targetDir + SRC_DIR + File.separator + "game_data_manager.rs");
 
       // lib.rs
       Map<String, Object> libDataMap = new HashMap<>(2);
@@ -307,10 +374,15 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
       debugDataMap.put("loadMethodName", toSnakeCase(templateConf.getDataManagerLoadDataCaller()));
       debugDataMap.put(
           "excelLoadDir",
-          SystemConfigHolder.getInstance().getExcelConf().getPath().getExcelConfigLoadPath().replace("\\", "\\\\"));
+          getMainEntryDataPath().replace("\\", "\\\\"));
       debugDataMap.put("containerDefs", containerDefs);
       debugDataMap.put("date", getGenerateDate());
-      generateTemplate(debugDataMap, "DebugMain.ftl", targetDir + SRC_DIR + File.separator + "main.rs");
+      debugDataMap.put("printLoadData", isPrintLoadData());
+      // 主入口代码是否导出由命令行 --export_main / 界面控制
+      if (isExportMainEntry()) {
+        generateTemplate(
+            debugDataMap, "DebugMain.ftl", targetDir + SRC_DIR + File.separator + "main.rs");
+      }
 
       if (textAreaLogger != null) {
         textAreaLogger.info("生成Rust模板文件结束");
@@ -383,7 +455,11 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
       int splitIndex = findTopLevelComma(sub);
       String keyType = sub.substring(0, splitIndex);
       String valueType = sub.substring(splitIndex + 1);
-      return "std::collections::HashMap<" + toRustType(keyType) + ", " + toRustType(valueType) + ">";
+      return "std::collections::HashMap<"
+          + toRustType(keyType)
+          + ", "
+          + toRustType(valueType)
+          + ">";
     }
     // 枚举
     return type;
@@ -447,7 +523,9 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
 
   private static String getTargetDir() {
     return SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplateFileGenTargetDir()
-        + File.separator + "rust" + File.separator;
+        + File.separator
+        + "rust"
+        + File.separator;
   }
 
   private static JavaTemplateConf getJavaTemplateConf() {

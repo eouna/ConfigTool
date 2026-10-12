@@ -9,6 +9,7 @@ import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
 import com.eouna.configtool.generator.base.ExcelFileStructure;
 import com.eouna.configtool.generator.bean.ExcelDataStruct;
+import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelConstantFieldInfo;
 import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelEnumFieldInfo;
 import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelFieldInfo;
 import com.eouna.configtool.generator.bean.ExcelSheetBean;
@@ -16,7 +17,6 @@ import com.eouna.configtool.generator.exceptions.ExcelParseException;
 import com.eouna.configtool.generator.template.AbstractTemplateGenerator;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
-import com.eouna.configtool.generator.bean.ExcelDataStruct.ExcelConstantFieldInfo;
 import com.eouna.configtool.utils.ExcelUtils;
 import com.eouna.configtool.utils.FileUtils;
 import com.eouna.configtool.utils.StrUtils;
@@ -30,9 +30,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
-
 import org.apache.poi.ss.usermodel.*;
 
 /**
@@ -45,8 +43,10 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
 
   /** Go 模块名 */
   private static final String GO_MODULE = "configtool";
+
   /** Go bean 包名 */
   private static final String GO_BEAN_PACKAGE = "bean";
+
   /** Go container 包名 */
   private static final String GO_CONTAINER_PACKAGE = "container";
 
@@ -58,6 +58,9 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
   /** 配置表和配置表容器map */
   protected Map<String, String> cfgBeanOfContainerNameMap =
       new ConcurrentSkipListMap<>(String::compareTo);
+
+  /** cfgBean类名 -> 字段元数据(字段名 + 配置表原始类型), 供容器Init与json数据源还原表头 */
+  private final Map<String, List<Map<String, String>>> fieldMetaCache = new ConcurrentHashMap<>();
 
   /** bean名和container名对应的文件 */
   protected Map<String, ExcelSheetBean> cfgBeanAndContainerRecMap = new ConcurrentHashMap<>();
@@ -120,6 +123,21 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
             + File.separator
             + DefaultEnvConfigConstant.BASE_BEAN_TEMPLATE_CLASS_NAME
             + ETemplateGenerator.GO_GENERATOR.getTemplateHandler().getFileIdentifier();
+
+    // 数据源读取独立成一个类: 由「语言加载选项」选择 excel / json 模板
+    File containerOutputDir = new File(basePath + DefaultEnvConfigConstant.CONTAINER_PATH);
+    if (!containerOutputDir.exists()) {
+      if (!containerOutputDir.mkdirs()) {
+        throw new IOException("不能创建文件夹: " + containerOutputDir);
+      }
+    }
+    Map<String, Object> dataSourceDataMap = new HashMap<>(2);
+    dataSourceDataMap.put("packageName", getCfgBeanContainerPackageName());
+    dataSourceDataMap.put("date", getGenerateDate());
+    generateTemplate(
+        dataSourceDataMap,
+        getDataSourceTemplateName("DataSource"),
+        containerOutputDir.getPath() + File.separator + "DataSource.go");
     String cfgBeanPackageName = getCfgBeanPackageName();
     Map<String, Object> dataMap = new HashMap<>(1);
     dataMap.put("packageName", cfgBeanPackageName);
@@ -299,6 +317,8 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
     // 加载字段信息
     ExcelDataStruct dataStruct = loadFieldInfo(!isParent, curGenFile, childExcel, sheet, sheetBean);
     // 将Java字段类型转换为Go字段类型
+    // 缓存字段元数据(此时fieldType还是配置表中的原始类型), 供容器Init与json数据源还原表头
+    fieldMetaCache.put(cfgBeanClassName, buildFieldMetaList(dataStruct));
     convertToGoTypes(dataStruct);
     // 收集枚举, 统一在Enums.go中声明
     collectGoEnums(dataStruct);
@@ -314,6 +334,24 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
     generateTemplate(dataMap, DefaultEnvConfigConstant.CFG_BEAN_TEMPLATE_NAME, outputFilePath);
     // 保存生成成功之后的路径和工作薄数据
     cfgBeanAndContainerRecMap.put(outputFilePath, sheetBean);
+  }
+
+  /** 组装字段元数据列表(字段名 + 配置表原始类型) */
+  private List<Map<String, String>> buildFieldMetaList(ExcelDataStruct dataStruct) {
+    List<Map<String, String>> fieldMetas = new ArrayList<>();
+    // id列不在字段列表中(bean里是继承来的Id), json数据源需要显式补上第一列
+    Map<String, String> idMeta = new LinkedHashMap<>();
+    idMeta.put("name", SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
+    idMeta.put("rawType", "int");
+    fieldMetas.add(idMeta);
+    for (ExcelFieldInfo fieldInfo : dataStruct.getExcelFieldInfoList()) {
+      Map<String, String> meta = new LinkedHashMap<>();
+      meta.put("name", fieldInfo.getFieldName().getFieldData());
+      String rawType = fieldInfo.getOriginFieldType();
+      meta.put("rawType", rawType == null ? "" : rawType);
+      fieldMetas.add(meta);
+    }
+    return fieldMetas;
   }
 
   /**
@@ -534,6 +572,8 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
     // 是否是父节点
     dataMap.put("isParentNode", childExcel.size() > 1);
     dataMap.put("containerClassName", cfgBeanContainerClassName);
+    dataMap.put(
+        "fieldMetas", fieldMetaCache.getOrDefault(cfgBeanClassName, Collections.emptyList()));
     dataMap.put("beanClassName", cfgBeanClassName);
     dataMap.put("parentClassName", parentClassName);
     dataMap.put("sheetBean", sheetBean);
@@ -656,9 +696,10 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
     try {
       ExcelGenPathConf pathConf = SystemConfigHolder.getInstance().getExcelConf().getPath();
       // 生成GameDataManager
-      String templateGenTargetDir = pathConf.getTemplateFileGenTargetDir() + File.separator + "go" + File.separator;
+      String templateGenTargetDir =
+          pathConf.getTemplateFileGenTargetDir() + File.separator + "go" + File.separator;
       // 生成GameDataManager
-      String excelLoadDir = pathConf.getExcelConfigLoadPath().replace("\\", "\\\\");
+      String excelLoadDir = getMainEntryDataPath().replace("\\", "\\\\");
       // java模板配置
       JavaTemplateConf javaTemplateConf = SystemConfigHolder.getInstance().getJavaTemplateConf();
       // 获取输路径
@@ -717,9 +758,14 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
       debugDataMap.put("loadMethodName", javaTemplateConf.getDataManagerLoadDataCaller());
       debugDataMap.put("beanAndContainerMap", cfgBeanOfContainerNameMap);
       debugDataMap.put("date", getGenerateDate());
+      debugDataMap.put("printLoadData", isPrintLoadData());
       File debugDir = new File(templateGenTargetDir + "debug");
       FileUtils.getOrCreateDir(debugDir.getPath());
-      generateTemplate(debugDataMap, "DebugMain.ftl", debugDir.getPath() + File.separator + "main.go");
+      // 主入口代码是否导出由命令行 --export_main / 界面控制
+      if (isExportMainEntry()) {
+        generateTemplate(
+            debugDataMap, "DebugMain.ftl", debugDir.getPath() + File.separator + "main.go");
+      }
 
       textAreaLogger.info("生成Go模板文件结束");
     } catch (TemplateException | IOException e) {
@@ -811,9 +857,7 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
   /** 将excel数据结构中的Java类型转换为Go类型 */
   private static void convertToGoTypes(ExcelDataStruct dataStruct) {
     for (ExcelFieldInfo fieldInfo : dataStruct.getExcelFieldInfoList()) {
-      fieldInfo
-          .getFieldType()
-          .setFieldData(toGoType(fieldInfo.getFieldType().getFieldData()));
+      fieldInfo.getFieldType().setFieldData(toGoType(fieldInfo.getFieldType().getFieldData()));
     }
     for (ExcelFieldInfo enumFieldInfo : dataStruct.getExcelEnumFieldInfoList()) {
       enumFieldInfo

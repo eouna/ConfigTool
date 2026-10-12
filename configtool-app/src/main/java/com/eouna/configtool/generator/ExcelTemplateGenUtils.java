@@ -586,6 +586,8 @@ public class ExcelTemplateGenUtils {
           ((ExcelEnumFieldInfo) excelFieldInfo)
               .setEnumClassName(((EnumFieldAdapter) fieldAdapter).getEnumClassName(fieldTypeStr));
         }
+        // 记录配置表中的原始类型, 供各语言的数据源(如json)还原表头使用
+        excelFieldInfo.setOriginFieldType(fieldTypeStr);
         String fieldType = fieldAdapter.getTargetFieldTypeStr(fieldTypeStr);
         excelFieldInfo.getFieldType().setFieldData(fieldType);
       }

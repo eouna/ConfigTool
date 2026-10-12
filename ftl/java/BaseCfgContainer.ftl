@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import javax.annotation.processing.Generated;
 
 import ${beanPackageName}.${baseCfgBean};
+import ${dataSourcePackageName}.ConfigDataSource;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.poi.ss.usermodel.*;
@@ -76,6 +77,9 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
 
   /** excel文件的md5码 */
   protected Map<String, String> md5CacheMap = Collections.emptyMap();
+
+  /** 数据源(excel/json, 生成时按界面/命令行选择) */
+  protected ConfigDataSource dataSource = ConfigDataSource.create();
   /** 数字匹配 */
   private static final Pattern DIGITAL_MATCH = Pattern.compile("\\d*?");
 
@@ -123,6 +127,12 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
    */
   public abstract BaseCfgContainer<T> getNewContainer();
 
+  /** 当前容器对应的表名(工作薄名), json数据源按 <表名>.json 读取 */
+  public abstract String getSheetName();
+
+  /** 字段元数据(字段名 + 配置表原始类型), json数据源据此还原表头 */
+  public abstract List<ConfigDataSource.FieldMeta> getFieldMetas();
+
   public BaseCfgContainer() {}
 
   /**
@@ -136,15 +146,33 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
       throw new RuntimeException("bind excel path list is empty");
     }
     // 检查和获取绑定的excel文件
-    List<File> excelFileList = checkAndGetExcelFile(resourceRootPath);
+    // json数据源不依赖excel文件, 直接按表名读取 <表名>.json; excel数据源按绑定的excel文件读取
+    List<File> excelFileList;
+    if (dataSource.singleSource()) {
+      excelFileList = Collections.singletonList(new File(resourceRootPath, getSheetName() + ".xlsx"));
+    } else {
+      excelFileList = checkAndGetExcelFile(resourceRootPath);
+    }
+    // json数据源下一张表只对应一个数据文件, 避免分表重复读取
+    if (dataSource.singleSource() && excelFileList.size() > 1) {
+      excelFileList = new ArrayList<>(excelFileList.subList(0, 1));
+    }
     Map<Integer, T> tempCfgMap = new HashMap<>(8);
     Map<String, String> md5HexMap = new HashMap<>(excelFileList.size());
     for (File file : excelFileList) {
       // 给文件的md5赋值
-      String md5Hex = DigestUtils.md5Hex(Files.newInputStream(file.toPath()));
+      String md5Hex = dataSource.fileDigest(resourceRootPath, file, getSheetName());
       md5HexMap.put(file.getName(), md5Hex);
       // 文件中途发生异常不跳出,继续向后面遍历
-      Workbook wb = WorkbookFactory.create(file, null, true);
+      Workbook wb =
+          dataSource.openWorkbook(
+              resourceRootPath,
+              file,
+              getSheetName(),
+              getFieldMetas(),
+              getFieldNameRow(),
+              getFieldTypeRow(),
+              getDataStartRow());
       Sheet sheet = wb.getSheetAt(0);
       Map<Integer, ExcelFieldInfo> excelFieldInfoMap = loadFieldInfo(sheet, sheet.getRow(0));
       // 获取子类中字段信息

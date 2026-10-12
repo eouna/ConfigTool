@@ -6,6 +6,7 @@ import com.eouna.configtool.core.window.WindowManager;
 import com.eouna.configtool.ui.controllers.ExcelGenWindowController;
 import com.eouna.configtool.ui.controllers.ShowModalController;
 import javafx.application.Platform;
+import javafx.stage.Modality;
 import lombok.Setter;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.controlsfx.dialog.ExceptionDialog;
@@ -32,8 +33,9 @@ public class ToolsLoggerUtils {
    * @param e 异常
    */
   public static void showErrorDialog(String title, Throwable e) {
+    String errorMessage = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
     String content =
-        "[   msg   ]: " + e.getMessage() + "\n[   trace  ]: " + ExceptionUtils.getStackTrace(e);
+        "[   msg   ]: " + errorMessage + "\n[   trace  ]: " + ExceptionUtils.getStackTrace(e);
     // 非GUI模式不弹窗, 只记录日志
     if (headlessMode) {
       LoggerUtils.getLogger().error(title + ": " + content, e);
@@ -45,10 +47,11 @@ public class ToolsLoggerUtils {
     }
     Platform.runLater(
         () -> {
-          if (e.getMessage().length() < MAX_EXCEPTION_DIALOG_SHOW_LEN) {
+          if (errorMessage.length() < MAX_EXCEPTION_DIALOG_SHOW_LEN) {
             ExceptionDialog exceptionDialog = new ExceptionDialog(e);
             exceptionDialog.setTitle(title);
             exceptionDialog.setHeaderText("异常信息");
+            exceptionDialog.initModality(Modality.APPLICATION_MODAL);
             exceptionDialog.showAndWait();
           } else {
             ShowModalController show =
@@ -80,6 +83,7 @@ public class ToolsLoggerUtils {
             ExceptionDialog exceptionDialog = new ExceptionDialog(new RuntimeException(content));
             exceptionDialog.setTitle(title);
             exceptionDialog.setHeaderText("异常信息");
+            exceptionDialog.initModality(Modality.APPLICATION_MODAL);
             exceptionDialog.showAndWait();
           } else {
             ShowModalController show =

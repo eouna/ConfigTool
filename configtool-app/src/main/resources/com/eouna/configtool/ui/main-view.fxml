@@ -1,29 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.CheckBox?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.Menu?>
-<?import javafx.scene.control.MenuBar?>
-<?import javafx.scene.control.MenuItem?>
-<?import javafx.scene.control.RadioMenuItem?>
-<?import javafx.scene.control.ScrollPane?>
-<?import javafx.scene.control.Separator?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.ToggleGroup?>
-<?import javafx.scene.control.ToolBar?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.text.Font?>
-<?import javafx.scene.text.TextFlow?>
-<?import org.kordamp.ikonli.javafx.FontIcon?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import org.kordamp.ikonli.javafx.*?>
 <VBox fx:id="rootBox" alignment="TOP_LEFT" minHeight="720.0" minWidth="1180.0"
       prefHeight="800.0" prefWidth="1280.0" spacing="0" styleClass="app-root"
       xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.eouna.configtool.ui.controllers.ExcelGenWindowController">
     <fx:define>
         <ToggleGroup fx:id="themeToggleGroup"/>
+        <ToggleGroup fx:id="templateLangGroup"/>
+        <ToggleGroup fx:id="loadSourceGroup"/>
     </fx:define>
     <MenuBar>
         <menus>
@@ -62,7 +50,8 @@
                     <FontIcon iconLiteral="fa-paint-brush" iconSize="14"/>
                 </graphic>
                 <items>
-                    <RadioMenuItem fx:id="neumorphismThemeMenuItem" mnemonicParsing="false" toggleGroup="$themeToggleGroup"
+                    <RadioMenuItem fx:id="neumorphismThemeMenuItem" mnemonicParsing="false"
+                                   toggleGroup="$themeToggleGroup"
                                    onAction="#onNeumorphismThemeSelected" selected="true"
                                    text="新拟态"/>
                     <RadioMenuItem fx:id="lightThemeMenuItem" mnemonicParsing="false" toggleGroup="$themeToggleGroup"
@@ -94,200 +83,337 @@
     </MenuBar>
     <Separator prefHeight="1.0" styleClass="theme-separator"/>
 
-    <ScrollPane fx:id="excelShowListContainer" minHeight="190.0" prefHeight="290.0"
+    <ScrollPane fx:id="excelShowListContainer" minHeight="150.0" prefHeight="220.0"
                 maxHeight="1.7976931348623157E308" pannable="true"
                 styleClass="surface-scroll excel-list"
                 VBox.vgrow="ALWAYS"/>
 
     <Separator prefHeight="1.0" styleClass="theme-separator"/>
 
-    <HBox alignment="TOP_LEFT" minHeight="380.0" prefHeight="458.0"
+    <HBox alignment="TOP_LEFT" minHeight="440.0" prefHeight="528.0"
           maxHeight="1.7976931348623157E308" spacing="0" VBox.vgrow="ALWAYS">
-        <ScrollPane fx:id="logShowScrollPane" minWidth="480.0" prefWidth="839.0"
+        <ScrollPane fx:id="logShowScrollPane" minWidth="420.0" prefWidth="760.0"
                     maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
+                    fitToWidth="true" hbarPolicy="NEVER"
                     pannable="true"
                     styleClass="surface-scroll log-panel">
-            <TextFlow fx:id="logShowArea" styleClass="log-flow" minWidth="540.0" prefWidth="820.0"/>
+            <TextFlow fx:id="logShowArea" styleClass="log-flow" minWidth="0.0"/>
         </ScrollPane>
 
         <Separator orientation="VERTICAL" prefWidth="1.0" styleClass="theme-separator"/>
 
-        <VBox fx:id="textFormBox" minWidth="440.0" prefWidth="440.0"
-              maxWidth="440.0" maxHeight="1.7976931348623157E308"
+        <VBox fx:id="textFormBox" minWidth="520.0" prefWidth="520.0"
+              maxWidth="520.0" maxHeight="1.7976931348623157E308"
               styleClass="settings-panel">
-            <VBox alignment="CENTER_LEFT" prefHeight="41.0" minHeight="41.0" maxHeight="41.0" styleClass="form-row" style="-fx-padding: 0 8 0 10;">
-                <HBox alignment="CENTER_LEFT" spacing="6.0">
-                    <Label minWidth="100.0" prefWidth="100.0" text="excel配置目录">
-                        <font>
-                            <Font size="13.0"/>
-                        </font>
-                    </Label>
-                    <Label text=":"/>
-                    <TextField fx:id="excelConfigPathField" disable="true"
-                               minWidth="120.0" prefHeight="26.0" prefWidth="250.0"
-                               maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"/>
-                    <Button fx:id="excelConfigPathButton" minWidth="54.0" prefWidth="54.0"
-                            maxWidth="54.0" prefHeight="26.0"
-                            onAction="#onExcelConfigPathSelectClick" text="选择"/>
-                </HBox>
-                <Separator prefHeight="1.0" styleClass="theme-separator"/>
-            </VBox>
-
-            <VBox alignment="CENTER_LEFT" prefHeight="41.0" minHeight="41.0" maxHeight="41.0" styleClass="form-row" style="-fx-padding: 0 8 0 10;">
-                <HBox alignment="CENTER_LEFT" spacing="6.0">
-                    <Label minWidth="100.0" prefWidth="100.0" text="生成目录">
-                        <font>
-                            <Font size="13.0"/>
-                        </font>
-                    </Label>
-                    <Label text=":"/>
-                    <TextField fx:id="templateGenTargetPathField" disable="true"
-                               minWidth="120.0" prefHeight="26.0" prefWidth="250.0"
-                               maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"/>
-                    <Button fx:id="templateGenTargetPathButton" minWidth="54.0"
-                            prefWidth="54.0" maxWidth="54.0" prefHeight="26.0"
-                            onAction="#onTemplateGenTargetConfigPathSelectClick" text="选择"/>
-                </HBox>
-                <Separator prefHeight="1.0" styleClass="theme-separator"/>
-            </VBox>
-
-            <VBox alignment="CENTER_LEFT" prefHeight="41.0" minHeight="41.0" maxHeight="41.0" styleClass="form-row" style="-fx-padding: 0 8 0 10;">
-                <HBox alignment="CENTER_LEFT" spacing="6.0">
-                    <Label minWidth="100.0" prefWidth="100.0" text="模板目录">
-                        <font>
-                            <Font size="13.0"/>
-                        </font>
-                    </Label>
-                    <Label text=":"/>
-                    <TextField fx:id="templatePathField" disable="true"
-                               minWidth="120.0" prefHeight="26.0" prefWidth="250.0"
-                               maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"/>
-                    <Button fx:id="templatePathButton" minWidth="54.0" prefWidth="54.0"
-                            maxWidth="54.0" prefHeight="26.0"
-                            onAction="#onTemplatePathSelectClick" text="选择"/>
-                </HBox>
-                <Separator prefHeight="1.0" styleClass="theme-separator"/>
-            </VBox>
-
-            <VBox styleClass="config-section" prefHeight="82.0" minHeight="82.0" maxHeight="82.0" spacing="6.0"
-                  style="-fx-padding: 6 8 6 8;">
-                <HBox spacing="8.0">
-                    <HBox alignment="CENTER_LEFT" spacing="4.0" prefWidth="204.0"
-                          HBox.hgrow="ALWAYS">
-                        <Label minWidth="98.0" prefWidth="98.0" text="字段描述列">
-                            <font>
-                                <Font size="13.0"/>
-                            </font>
-                        </Label>
-                        <Label text=":"/>
-                        <TextField fx:id="excelFileDescRowField"
-                                   accessibleRole="CHECK_MENU_ITEM" minWidth="70.0"
-                                   prefHeight="25.0" prefWidth="96.0"
-                                   maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
-                                   onKeyReleased="#onExcelFileDescRowFieldChange"/>
-                    </HBox>
-                    <HBox alignment="CENTER_LEFT" spacing="4.0" prefWidth="204.0"
-                          HBox.hgrow="ALWAYS">
-                        <Label minWidth="98.0" prefWidth="98.0" text="字段类型列">
-                            <font>
-                                <Font size="13.0"/>
-                            </font>
-                        </Label>
-                        <Label text=":"/>
-                        <TextField fx:id="excelFileTypeRowField"
-                                   accessibleRole="CHECK_MENU_ITEM" minWidth="70.0"
-                                   prefHeight="25.0" prefWidth="96.0"
-                                   maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
-                                   onKeyReleased="#onExcelFileTypeRowFieldChange"/>
-                    </HBox>
-                </HBox>
-                <HBox spacing="8.0">
-                    <HBox alignment="CENTER_LEFT" spacing="4.0" prefWidth="204.0"
-                          HBox.hgrow="ALWAYS">
-                        <Label minWidth="98.0" prefWidth="98.0" text="字段名列">
-                            <font>
-                                <Font size="13.0"/>
-                            </font>
-                        </Label>
-                        <Label text=":"/>
-                        <TextField fx:id="excelFileNameRowField"
-                                   accessibleRole="CHECK_MENU_ITEM" minWidth="70.0"
-                                   prefHeight="25.0" prefWidth="96.0"
-                                   maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
-                                   onKeyReleased="#onExcelFileNameRowFieldChange"/>
-                    </HBox>
-                    <HBox alignment="CENTER_LEFT" spacing="4.0" prefWidth="204.0"
-                          HBox.hgrow="ALWAYS">
-                        <Label minWidth="98.0" prefWidth="98.0" text="字段数值范围列">
-                            <font>
-                                <Font size="13.0"/>
-                            </font>
-                        </Label>
-                        <Label text=":"/>
-                        <TextField fx:id="excelFileDataRangeRowField"
-                                   accessibleRole="CHECK_MENU_ITEM" minWidth="70.0"
-                                   prefHeight="25.0" prefWidth="96.0"
-                                   maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
-                                   onKeyReleased="#onExcelFileDataRangeRowFieldChange"/>
-                    </HBox>
-                </HBox>
-            </VBox>
-
-            <Separator prefHeight="1.0" styleClass="theme-separator"/>
-
-            <HBox fx:id="templateCheckBoxGroup" styleClass="option-row" alignment="CENTER" prefHeight="42.0"
-                  minHeight="42.0" maxHeight="42.0" spacing="4.0">
-                <CheckBox mnemonicParsing="false" prefWidth="58.0" text="java"
-                          onAction="#onTemplateCheckBoxClicked" selected="true"/>
-                <CheckBox mnemonicParsing="false" prefWidth="58.0" text="json"
-                          onAction="#onTemplateCheckBoxClicked"/>
-                <CheckBox mnemonicParsing="false" prefWidth="50.0" text="go"
-                          onAction="#onTemplateCheckBoxClicked"/>
-                <CheckBox mnemonicParsing="false" prefWidth="54.0" text="rust"
-                          onAction="#onTemplateCheckBoxClicked"/>
-                <CheckBox mnemonicParsing="false" prefWidth="72.0" text="csharp"
-                          onAction="#onTemplateCheckBoxClicked"/>
-                <CheckBox mnemonicParsing="false" prefWidth="58.0" text="lua"
-                          onAction="#onTemplateCheckBoxClicked"/>
-                <CheckBox mnemonicParsing="false" prefWidth="58.0" text="cpp"
-                          onAction="#onTemplateCheckBoxClicked"/>
+            <!-- region 步骤标题 -->
+            <HBox alignment="CENTER_LEFT" prefHeight="36.0" minHeight="36.0" maxHeight="36.0"
+                  spacing="8.0" style="-fx-padding: 0 10 0 10;">
+                <Label fx:id="stepTitleLabel" text="第一步: 生成语言模板">
+                    <font>
+                        <Font size="14.0"/>
+                    </font>
+                </Label>
+                <Label fx:id="stepHintLabel" text="选择语言后点击「下一步」生成">
+                    <font>
+                        <Font size="11.0"/>
+                    </font>
+                </Label>
             </HBox>
+            <Separator prefHeight="1.0" styleClass="theme-separator"/>
+            <!-- endregion 步骤标题 -->
+
+            <!-- region 步骤内容(在同一个区域内切换) -->
+            <StackPane fx:id="stepPaneContainer" VBox.vgrow="ALWAYS">
+
+                <!-- ==================== 第一步: 生成语言模板 ==================== -->
+                <ScrollPane fx:id="stepGenerateScroll" fitToWidth="true" hbarPolicy="NEVER" styleClass="surface-scroll">
+                    <VBox fx:id="stepGeneratePane" styleClass="step-pane">
+                        <VBox alignment="CENTER_LEFT" prefHeight="41.0" minHeight="41.0" maxHeight="41.0"
+                              styleClass="form-row" style="-fx-padding: 0 8 0 10;">
+                            <HBox alignment="CENTER_LEFT" spacing="6.0">
+                                <Label minWidth="100.0" prefWidth="100.0" text="excel配置目录">
+                                    <font>
+                                        <Font size="13.0"/>
+                                    </font>
+                                </Label>
+                                <Label text=":"/>
+                                <TextField fx:id="excelConfigPathField" disable="true"
+                                           minWidth="120.0" prefHeight="26.0" prefWidth="250.0"
+                                           maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"/>
+                                <Button fx:id="excelConfigPathButton" minWidth="54.0" prefWidth="54.0"
+                                        maxWidth="54.0" prefHeight="26.0"
+                                        onAction="#onExcelConfigPathSelectClick" text="选择"/>
+                            </HBox>
+                            <Separator prefHeight="1.0" styleClass="theme-separator"/>
+                        </VBox>
+
+                        <VBox alignment="CENTER_LEFT" prefHeight="41.0" minHeight="41.0" maxHeight="41.0"
+                              styleClass="form-row" style="-fx-padding: 0 8 0 10;">
+                            <HBox alignment="CENTER_LEFT" spacing="6.0">
+                                <Label minWidth="100.0" prefWidth="100.0" text="生成目录">
+                                    <font>
+                                        <Font size="13.0"/>
+                                    </font>
+                                </Label>
+                                <Label text=":"/>
+                                <TextField fx:id="templateGenTargetPathField" disable="true"
+                                           minWidth="120.0" prefHeight="26.0" prefWidth="250.0"
+                                           maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"/>
+                                <Button fx:id="templateGenTargetPathButton" minWidth="54.0"
+                                        prefWidth="54.0" maxWidth="54.0" prefHeight="26.0"
+                                        onAction="#onTemplateGenTargetConfigPathSelectClick" text="选择"/>
+                            </HBox>
+                            <Separator prefHeight="1.0" styleClass="theme-separator"/>
+                        </VBox>
+
+                        <VBox alignment="CENTER_LEFT" prefHeight="41.0" minHeight="41.0" maxHeight="41.0"
+                              styleClass="form-row" style="-fx-padding: 0 8 0 10;">
+                            <HBox alignment="CENTER_LEFT" spacing="6.0">
+                                <Label minWidth="100.0" prefWidth="100.0" text="模板目录">
+                                    <font>
+                                        <Font size="13.0"/>
+                                    </font>
+                                </Label>
+                                <Label text=":"/>
+                                <TextField fx:id="templatePathField" disable="true"
+                                           minWidth="120.0" prefHeight="26.0" prefWidth="250.0"
+                                           maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"/>
+                                <Button fx:id="templatePathButton" minWidth="54.0" prefWidth="54.0"
+                                        maxWidth="54.0" prefHeight="26.0"
+                                        onAction="#onTemplatePathSelectClick" text="选择"/>
+                            </HBox>
+                            <Separator prefHeight="1.0" styleClass="theme-separator"/>
+                        </VBox>
+
+                        <VBox styleClass="config-section" prefHeight="82.0" minHeight="82.0" maxHeight="82.0"
+                              spacing="6.0"
+                              style="-fx-padding: 6 8 6 8;">
+                            <HBox spacing="8.0">
+                                <HBox alignment="CENTER_LEFT" spacing="4.0" prefWidth="204.0"
+                                      HBox.hgrow="ALWAYS">
+                                    <Label minWidth="98.0" prefWidth="98.0" text="字段描述列">
+                                        <font>
+                                            <Font size="13.0"/>
+                                        </font>
+                                    </Label>
+                                    <Label text=":"/>
+                                    <TextField fx:id="excelFileDescRowField"
+                                               accessibleRole="CHECK_MENU_ITEM" minWidth="70.0"
+                                               prefHeight="25.0" prefWidth="96.0"
+                                               maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
+                                               onKeyReleased="#onExcelFileDescRowFieldChange"/>
+                                </HBox>
+                                <HBox alignment="CENTER_LEFT" spacing="4.0" prefWidth="204.0"
+                                      HBox.hgrow="ALWAYS">
+                                    <Label minWidth="98.0" prefWidth="98.0" text="字段类型列">
+                                        <font>
+                                            <Font size="13.0"/>
+                                        </font>
+                                    </Label>
+                                    <Label text=":"/>
+                                    <TextField fx:id="excelFileTypeRowField"
+                                               accessibleRole="CHECK_MENU_ITEM" minWidth="70.0"
+                                               prefHeight="25.0" prefWidth="96.0"
+                                               maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
+                                               onKeyReleased="#onExcelFileTypeRowFieldChange"/>
+                                </HBox>
+                            </HBox>
+                            <HBox spacing="8.0">
+                                <HBox alignment="CENTER_LEFT" spacing="4.0" prefWidth="204.0"
+                                      HBox.hgrow="ALWAYS">
+                                    <Label minWidth="98.0" prefWidth="98.0" text="字段名列">
+                                        <font>
+                                            <Font size="13.0"/>
+                                        </font>
+                                    </Label>
+                                    <Label text=":"/>
+                                    <TextField fx:id="excelFileNameRowField"
+                                               accessibleRole="CHECK_MENU_ITEM" minWidth="70.0"
+                                               prefHeight="25.0" prefWidth="96.0"
+                                               maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
+                                               onKeyReleased="#onExcelFileNameRowFieldChange"/>
+                                </HBox>
+                                <HBox alignment="CENTER_LEFT" spacing="4.0" prefWidth="204.0"
+                                      HBox.hgrow="ALWAYS">
+                                    <Label minWidth="98.0" prefWidth="98.0" text="字段数值范围列">
+                                        <font>
+                                            <Font size="13.0"/>
+                                        </font>
+                                    </Label>
+                                    <Label text=":"/>
+                                    <TextField fx:id="excelFileDataRangeRowField"
+                                               accessibleRole="CHECK_MENU_ITEM" minWidth="70.0"
+                                               prefHeight="25.0" prefWidth="96.0"
+                                               maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"
+                                               onKeyReleased="#onExcelFileDataRangeRowFieldChange"/>
+                                </HBox>
+                            </HBox>
+                        </VBox>
+
+                        <Separator prefHeight="1.0" styleClass="theme-separator"/>
+
+                        <!-- 语言导出模板(独立区域 + 背景色) -->
+                        <VBox styleClass="option-block" spacing="6.0" style="-fx-padding: 10 12 10 12;">
+                            <Label styleClass="option-block-title" text="语言导出模板(单选)"/>
+                            <FlowPane fx:id="templateLangPane" alignment="CENTER_LEFT" hgap="6.0" vgap="6.0"
+                                      prefHeight="72.0" minHeight="72.0">
+                                <RadioButton fx:id="langJavaRadio" mnemonicParsing="false" prefWidth="56.0"
+                                             text="java" userData="java" toggleGroup="$templateLangGroup"
+                                             selected="true" onAction="#onTemplateLangChanged"/>
+
+                                <RadioButton mnemonicParsing="false" prefWidth="50.0" text="go"
+                                             userData="go" toggleGroup="$templateLangGroup"
+                                             onAction="#onTemplateLangChanged"/>
+                                <RadioButton mnemonicParsing="false" prefWidth="54.0" text="rust"
+                                             userData="rust" toggleGroup="$templateLangGroup"
+                                             onAction="#onTemplateLangChanged"/>
+                                <RadioButton mnemonicParsing="false" prefWidth="84.0" text="csharp"
+                                             userData="csharp" toggleGroup="$templateLangGroup"
+                                             onAction="#onTemplateLangChanged"/>
+                                <RadioButton mnemonicParsing="false" prefWidth="56.0" text="lua"
+                                             userData="lua" toggleGroup="$templateLangGroup"
+                                             onAction="#onTemplateLangChanged"/>
+                                <RadioButton mnemonicParsing="false" prefWidth="56.0" text="cpp"
+                                             userData="cpp" toggleGroup="$templateLangGroup"
+                                             onAction="#onTemplateLangChanged"/>
+                                <RadioButton fx:id="langJsRadio" mnemonicParsing="false" prefWidth="50.0"
+                                             text="js" userData="js" toggleGroup="$templateLangGroup"
+                                             onAction="#onTemplateLangChanged"/>
+                            </FlowPane>
+                        </VBox>
+
+                        <!-- 语言加载选项(独立区域 + 背景色, 与生成区域分开) -->
+                        <VBox styleClass="option-block" spacing="6.0" style="-fx-padding: 10 12 10 12;">
+                            <Label styleClass="option-block-title" text="语言加载选项(单选)"/>
+                            <HBox alignment="CENTER_LEFT" spacing="16.0">
+                                <RadioButton fx:id="loadSourceExcelRadio" mnemonicParsing="false"
+                                             text="excel" userData="excel" toggleGroup="$loadSourceGroup"
+                                             selected="true" onAction="#onLoadSourceChanged"/>
+                                <RadioButton fx:id="loadSourceJsonRadio" mnemonicParsing="false"
+                                             text="json" userData="json" toggleGroup="$loadSourceGroup"
+                                             onAction="#onLoadSourceChanged"/>
+                                <Label fx:id="loadSourceTipLabel" text="">
+                                    <font>
+                                        <Font size="11.0"/>
+                                    </font>
+                                </Label>
+                            </HBox>
+                        </VBox>
+
+                        <!-- 模板生成区域(与加载选项分开) -->
+                        <HBox alignment="CENTER" style="-fx-padding: 0 0 6 0;">
+                            <Button fx:id="generateTemplateBtn" mnemonicParsing="false"
+                                    onAction="#generateTemplateFiles" prefHeight="32.0"
+                                    prefWidth="150.0" text="生成模板">
+                                <graphic>
+                                    <FontIcon iconLiteral="fa-fighter-jet" iconSize="14"/>
+                                </graphic>
+                                <font>
+                                    <Font size="12.0"/>
+                                </font>
+                            </Button>
+                        </HBox>
+                    </VBox>
+                </ScrollPane>
+
+                <!-- ==================== 第二步: 语言预加载 ==================== -->
+                <ScrollPane fx:id="stepPreloadScroll" fitToWidth="true" hbarPolicy="NEVER" styleClass="surface-scroll">
+                    <VBox fx:id="stepPreloadPane" styleClass="step-pane" spacing="10.0"
+                          style="-fx-padding: 14 12 14 12;">
+                        <Label fx:id="preloadLangLabel" text="当前语言: -" wrapText="true">
+                            <font>
+                                <Font size="13.0"/>
+                            </font>
+                        </Label>
+                        <Label fx:id="envStatusLabel" text="运行环境: -" wrapText="true">
+                            <font>
+                                <Font size="13.0"/>
+                            </font>
+                        </Label>
+                        <Label fx:id="preloadResultLabel" text="" wrapText="true">
+                            <font>
+                                <Font size="12.0"/>
+                            </font>
+                        </Label>
+                        <HBox alignment="CENTER_LEFT" spacing="8.0">
+                            <Button fx:id="preloadBtn" mnemonicParsing="false" onAction="#onPreloadClick"
+                                    prefHeight="30.0" prefWidth="100.0" text="预加载">
+                                <graphic>
+                                    <FontIcon iconLiteral="fa-download" iconSize="14"/>
+                                </graphic>
+                            </Button>
+                            <Button fx:id="skipPreloadBtn" mnemonicParsing="false"
+                                    onAction="#onSkipPreloadClick" prefHeight="30.0" prefWidth="90.0"
+                                    text="跳过">
+                                <graphic>
+                                    <FontIcon iconLiteral="fa-step-forward" iconSize="14"/>
+                                </graphic>
+                            </Button>
+                            <Button fx:id="deleteMainEntryBtn" mnemonicParsing="false"
+                                    managed="false" visible="false"
+                                    onAction="#onDeleteMainEntryClick" prefHeight="30.0"
+                                    prefWidth="120.0" text="删除主入口">
+                                <graphic>
+                                    <FontIcon iconLiteral="fa-trash" iconSize="14"/>
+                                </graphic>
+                            </Button>
+                        </HBox>
+                    </VBox>
+                </ScrollPane>
+
+                <!-- ==================== 第三步: 上传远端服务器 ==================== -->
+                <ScrollPane fx:id="stepUploadScroll" fitToWidth="true" hbarPolicy="NEVER" styleClass="surface-scroll">
+                    <VBox fx:id="stepUploadPane" styleClass="step-pane" spacing="10.0"
+                          style="-fx-padding: 14 12 14 12;">
+                        <Label text="勾选要上传的服务器, 点击「同步配置表」推送到远端" wrapText="true">
+                            <font>
+                                <Font size="13.0"/>
+                            </font>
+                        </Label>
+                        <!-- 服务器选择列表(独立区域 + 背景色, 竖向排列) -->
+                        <VBox styleClass="option-block" spacing="8.0" style="-fx-padding: 10 12 10 12;"
+                              VBox.vgrow="ALWAYS">
+                            <Label styleClass="option-block-title" text="服务器列表"/>
+                            <ScrollPane fitToWidth="true" minHeight="150.0" prefHeight="180.0"
+                                        maxHeight="1.7976931348623157E308" VBox.vgrow="ALWAYS"
+                                        styleClass="surface-scroll">
+                                <VBox fx:id="serverSelector" spacing="6.0" style="-fx-padding: 6;"/>
+                            </ScrollPane>
+                        </VBox>
+                        <!-- 上传按钮(独立一行) -->
+                        <HBox alignment="CENTER">
+                            <Button fx:id="syncConfBtn" mnemonicParsing="false" prefHeight="32.0"
+                                    prefWidth="170.0" onAction="#syncExcelConfigToServer"
+                                    text="同步配置表">
+                                <graphic>
+                                    <FontIcon iconLiteral="fa-cloud-upload" iconSize="14"/>
+                                </graphic>
+                                <font>
+                                    <Font size="12.0"/>
+                                </font>
+                            </Button>
+                        </HBox>
+                    </VBox>
+                </ScrollPane>
+            </StackPane>
+            <!-- endregion 步骤内容 -->
 
             <Separator prefHeight="1.0" styleClass="theme-separator"/>
 
-            <ToolBar styleClass="action-toolbar" nodeOrientation="RIGHT_TO_LEFT" prefHeight="50.0" minHeight="50.0"
+            <!-- region 固定底部操作栏 -->
+            <ToolBar styleClass="action-toolbar" prefHeight="50.0" minHeight="50.0"
                      maxHeight="50.0">
-                <Button fx:id="generateTemplateBtn" mnemonicParsing="false"
-                        onAction="#generateTemplateFiles" prefHeight="30.0"
-                        prefWidth="104.0" text="生成模板">
+                <Button fx:id="prevStepBtn" mnemonicParsing="false" onAction="#onPrevStepClick"
+                        prefHeight="30.0" prefWidth="92.0" text="上一步">
                     <graphic>
-                        <FontIcon iconLiteral="fa-fighter-jet" iconSize="14"/>
+                        <FontIcon iconLiteral="fa-arrow-left" iconSize="14"/>
                     </graphic>
                     <font>
                         <Font size="12.0"/>
                     </font>
                 </Button>
-                <Button fx:id="preLoadBtn" mnemonicParsing="false"
-                        onAction="#tryLoadAndCheckGameData" prefHeight="30.0"
-                        prefWidth="112.0" text="Java预加载">
-                    <graphic>
-                        <FontIcon iconLiteral="fa-coffee" iconSize="14"/>
-                    </graphic>
-                    <font>
-                        <Font size="12.0"/>
-                    </font>
-                </Button>
-                <Button mnemonicParsing="false" onAction="#clearLogArea"
-                        prefHeight="30.0" prefWidth="92.0" text="清除日志">
-                    <graphic>
-                        <FontIcon iconLiteral="fa-remove" iconSize="16"/>
-                    </graphic>
-                    <font>
-                        <Font size="12.0"/>
-                    </font>
-                </Button>
-                <Button mnemonicParsing="false" onAction="#reloadExcelList"
-                        prefHeight="30.0" prefWidth="64.0" text="刷新">
+                <Button fx:id="refreshBtn" mnemonicParsing="false" onAction="#onRefreshClick"
+                        prefHeight="30.0" prefWidth="78.0" text="刷新">
                     <graphic>
                         <FontIcon iconLiteral="fa-rotate-left" iconSize="16"/>
                     </graphic>
@@ -295,23 +421,26 @@
                         <Font size="12.0"/>
                     </font>
                 </Button>
+                <Button mnemonicParsing="false" onAction="#clearLogArea"
+                        prefHeight="30.0" prefWidth="98.0" text="清除日志">
+                    <graphic>
+                        <FontIcon iconLiteral="fa-remove" iconSize="16"/>
+                    </graphic>
+                    <font>
+                        <Font size="12.0"/>
+                    </font>
+                </Button>
+                <Button fx:id="nextStepBtn" mnemonicParsing="false" onAction="#onNextStepClick"
+                        prefHeight="30.0" prefWidth="92.0" text="下一步">
+                    <graphic>
+                        <FontIcon iconLiteral="fa-arrow-right" iconSize="14"/>
+                    </graphic>
+                    <font>
+                        <Font size="12.0"/>
+                    </font>
+                </Button>
             </ToolBar>
-
-            <Separator prefHeight="1.0" styleClass="theme-separator"/>
-
-            <HBox styleClass="server-panel" alignment="CENTER" minHeight="110.0" prefHeight="150.0"
-                  maxHeight="1.7976931348623157E308" spacing="8.0"
-                  style="-fx-padding: 8.0;" VBox.vgrow="ALWAYS">
-                <Label text="服务器列表:"/>
-                <ScrollPane minWidth="210.0" prefWidth="220.0" minHeight="90.0"
-                            prefHeight="120.0" maxHeight="1.7976931348623157E308"
-                            HBox.hgrow="ALWAYS">
-                    <VBox fx:id="serverSelector" spacing="5.0" style="-fx-padding: 5;"/>
-                </ScrollPane>
-                <Button fx:id="syncConfBtn" minWidth="88.0" prefWidth="88.0"
-                        maxWidth="88.0" onAction="#syncExcelConfigToServer"
-                        text="同步配置表"/>
-            </HBox>
+            <!-- endregion 固定底部操作栏 -->
         </VBox>
     </HBox>
 

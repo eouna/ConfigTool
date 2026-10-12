@@ -94,8 +94,17 @@ namespace ConfigTool.Cfg
         /// <summary>配置ID对应的配置数据</summary>
         public Dictionary<int, T> CfgBeanMap { get; protected set; } = new Dictionary<int, T>();
 
+        /// <summary>数据源(excel/json, 生成时按界面/命令行选择)</summary>
+        protected ConfigDataSource DataSource = ConfigDataSource.Create();
+
         /// <summary>绑定的excel文件列表</summary>
         public abstract List<string> GetExcelNameList();
+
+        /// <summary>当前容器对应的表名(工作薄名), json数据源按 &lt;表名&gt;.json 读取</summary>
+        public abstract string GetSheetName();
+
+        /// <summary>字段元数据(字段名 + 配置表原始类型), json数据源据此还原表头</summary>
+        public abstract List<ConfigDataSource.FieldMeta> GetFieldMetas();
 
         /// <summary>创建新的bean</summary>
         protected abstract T CreateNewBean();
@@ -108,10 +117,19 @@ namespace ConfigTool.Cfg
                 throw new ArgumentException("bind excel path list is empty");
             }
             var tempMap = new Dictionary<int, T>();
-            foreach (var excelName in GetExcelNameList())
+            List<string> sourceNames = DataSource.SingleSource
+                ? new List<string> { GetSheetName() + ".xlsx" }
+                : GetExcelNameList();
+            foreach (var excelName in sourceNames)
             {
-                var fullPath = Path.Combine(resourceRootPath, excelName);
-                using var workbook = new XLWorkbook(fullPath);
+                using var workbook = DataSource.OpenWorkbook(
+                    resourceRootPath,
+                    excelName,
+                    GetSheetName(),
+                    GetFieldMetas(),
+                    FieldNameRow,
+                    FieldTypeRow,
+                    DataStartRow);
                 var sheet = workbook.Worksheet(1);
                 int lastRow = sheet.LastRowUsed()?.RowNumber() ?? 0;
                 int lastCol = sheet.LastColumnUsed()?.ColumnNumber() ?? 0;

@@ -2,8 +2,10 @@
 #![allow(non_snake_case)]
 
 pub mod base_cfg_container;
+pub mod data_source;
 <#list containerModules as moduleName>
 pub mod ${moduleName};
 </#list>
 
 pub use base_cfg_container::*;
+pub use data_source::*;

@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+<#if printLoadData>
 	"sort"
+</#if>
 
 	genpackage "${moduleName}"
 )
@@ -26,6 +28,8 @@ func main() {
 	}
 	fmt.Printf("配置表加载完成, 资源目录: %s\n", rootPath)
 <#list beanAndContainerMap as beanName, containerName>
+	fmt.Printf("${containerName}: %d 条\n", len(manager.${containerName}.CfgBeanMap))
+<#if printLoadData>
 	{
 		cfgMap := manager.${containerName}.CfgBeanMap
 		ids := make([]int, 0, len(cfgMap))
@@ -33,10 +37,10 @@ func main() {
 			ids = append(ids, int(id))
 		}
 		sort.Ints(ids)
-		fmt.Printf("${containerName}: %d 条\n", len(ids))
 		for _, id := range ids {
 			fmt.Printf("    id=%d => %+v\n", id, cfgMap[int32(id)])
 		}
 	}
+</#if>
 </#list>
 }

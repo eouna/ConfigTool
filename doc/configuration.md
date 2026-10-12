@@ -24,8 +24,10 @@
 
 ## 1. 配置注意事项
 
-1. 由于不同的项目 excel 配置行表示的意义不一致, 但基础的行数据不能缺省, 此配置表需要四个字段表示行进行模板配置, 行数不定可配置. 分别为: **字段描述行、字段类型行、字段名行以及字段数据范围行**
-2. 配置工具只会读取 excel 的第一个工作薄中的数据内容, 且生成出来的后的配置 bean 将以工作薄中的名字+cfg 为类名, 如工作薄名为 `Activity` 则最终的配置实例名则为 `ActivityCfg`, 如果工作薄名为 `ActivityCfg` 则直接以该名字作为类名
+1. 由于不同的项目 excel 配置行表示的意义不一致, 但基础的行数据不能缺省, 此配置表需要四个字段表示行进行模板配置, 行数不定可配置.
+   分别为: **字段描述行、字段类型行、字段名行以及字段数据范围行**
+2. 配置工具只会读取 excel 的第一个工作薄中的数据内容, 且生成出来的后的配置 bean 将以工作薄中的名字+cfg 为类名, 如工作薄名为
+   `Activity` 则最终的配置实例名则为 `ActivityCfg`, 如果工作薄名为 `ActivityCfg` 则直接以该名字作为类名
 3. 所有配置表的第一列必须为 ID 列, 且 id 列的命名为 `id` , id 列的名字是可配置项, 如果不配置默认为 `id`
 
 ## 2. 字段命名
@@ -35,22 +37,25 @@
 
 ## 3. 字段类型配置说明
 
+> 面向策划的**填写方法、示例与常见报错对照**见 [用法说明 - 配置表字段填写指南](usage.md#配置表字段填写指南策划向)。
+> 下面是类型在程序语言里的对应关系与取值范围。
+
 字段类型支持常见的类型, 不同的类型在不同的语言中表示不同, 后续将进行扩展
 
-| 字段说明 | 字段表示 | 配置表中对应的字段 | 范围 | 是否是基础字段 |
-|-------|-----------------------|:--------------------------------|-----------------------|:--------|
-| 整形 | java(int/Integer) | int/Int | ±21亿 | 是 |
-| 单字节 | java(byte/Byte) | byte/Byte | -128-127 | 是 |
-| 短整型 | java(short/Shot) | short/Short | -32768-32767 | 是 |
-| 长整形 | java(long/Long) | long/Long | ±92*10^17 | 是 |
-| 布尔类型 | java(boolean/Boolean) | boo/Bool/boolean/Boolean | true/false/TURE/FALSE | 是 |
-| 字符串类型 | java(String) | string/String | | 是 |
-| 浮点型 | java(float/Float) | float/Float | ±3.4028235E38(7-8位有效) | 是 |
-| 双精度 | java(double/Double) | double/Double | ±1.79E+308(16-17位有效) | 是 |
-| 列表 | java(List) | list/List | | 否 |
-| 不重复列表 | java(Set) | set/Set | | 否 |
-| 键值对 | java(Map) | map/Map | | 否 |
-| 枚举类型 | java(Enum) | 使用 ```枚举名(枚举字段,枚举字段)``` 方式表示为一个枚举 | | 否 |
+| 字段说明  | 字段表示                  | 配置表中对应的字段                         | 范围                    | 是否是基础字段 |
+|-------|-----------------------|:----------------------------------|-----------------------|:--------|
+| 整形    | java(int/Integer)     | int/Int                           | ±21亿                  | 是       |
+| 单字节   | java(byte/Byte)       | byte/Byte                         | -128-127              | 是       |
+| 短整型   | java(short/Shot)      | short/Short                       | -32768-32767          | 是       |
+| 长整形   | java(long/Long)       | long/Long                         | ±92*10^17             | 是       |
+| 布尔类型  | java(boolean/Boolean) | boo/Bool/boolean/Boolean          | true/false/TURE/FALSE | 是       |
+| 字符串类型 | java(String)          | string/String                     |                       | 是       |
+| 浮点型   | java(float/Float)     | float/Float                       | ±3.4028235E38(7-8位有效) | 是       |
+| 双精度   | java(double/Double)   | double/Double                     | ±1.79E+308(16-17位有效)  | 是       |
+| 列表    | java(List)            | list/List                         |                       | 否       |
+| 不重复列表 | java(Set)             | set/Set                           |                       | 否       |
+| 键值对   | java(Map)             | map/Map                           |                       | 否       |
+| 枚举类型  | java(Enum)            | 使用 ```枚举名(枚举字段,枚举字段)``` 方式表示为一个枚举 |                       | 否       |
 
 more:
 
@@ -70,7 +75,8 @@ more:
 
 ## 5. 分表说明
 
-分表通过 excel 表名进行区分, 如果表名中包含字符 `_`, 则说明是一个分表. 现在只支持两层结构, 后续支持多层结构的分表. 通过 `_` 进行分隔, `_` 前的一致的表则视为同一组分表.
+分表通过 excel 表名进行区分, 如果表名中包含字符 `_`, 则说明是一个分表. 现在只支持两层结构, 后续支持多层结构的分表. 通过
+`_` 进行分隔, `_` 前的一致的表则视为同一组分表.
 
 **注意: 分表内的字段名不能重复！**
 
@@ -125,26 +131,27 @@ java.rmi/sun.rmi.transport=ALL-UNNAMED
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
 <dependencies>
-	<!--日志-->
-	<dependency>
-		<groupId>ch.qos.logback</groupId>
-		<artifactId>logback-classic</artifactId>
-		<version>1.2.11</version>
-	</dependency>
-	<!--excel解析-->
-	<dependency>
-		<groupId>org.apache.poi</groupId>
-		<artifactId>poi</artifactId>
-		<version>4.1.2</version>
-	</dependency>
-	<!--excel解析-->
-	<dependency>
-		<groupId>org.apache.poi</groupId>
-		<artifactId>poi-ooxml</artifactId>
-		<version>4.1.2</version>
-	</dependency>
+    <!--日志-->
+    <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>1.2.11</version>
+    </dependency>
+    <!--excel解析-->
+    <dependency>
+        <groupId>org.apache.poi</groupId>
+        <artifactId>poi</artifactId>
+        <version>4.1.2</version>
+    </dependency>
+    <!--excel解析-->
+    <dependency>
+        <groupId>org.apache.poi</groupId>
+        <artifactId>poi-ooxml</artifactId>
+        <version>4.1.2</version>
+    </dependency>
 </dependencies>
 ```
+
 ---
 
 ## 10. 功能特性一览

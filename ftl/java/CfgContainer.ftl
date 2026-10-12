@@ -40,6 +40,20 @@ public class ${containerClassName} extends ${parentClassName}<${beanClassName}> 
   }
 
   @Override
+  public String getSheetName() {
+    return "${sheetBean.sheetName}";
+  }
+
+  @Override
+  public List<${dataSourcePackageName}.ConfigDataSource.FieldMeta> getFieldMetas() {
+    List<${dataSourcePackageName}.ConfigDataSource.FieldMeta> fieldMetas = new ArrayList<>();
+<#list fieldMetas as meta>
+    fieldMetas.add(new ${dataSourcePackageName}.ConfigDataSource.FieldMeta("${meta.name}", "${meta.rawType}"));
+</#list>
+    return fieldMetas;
+  }
+
+  @Override
   public ${containerClassName} getNewContainer() {
     return new ${containerClassName}();
   }

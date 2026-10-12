@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 calamine = "0.24"
 chrono = "0.4"
+serde_json = "1"

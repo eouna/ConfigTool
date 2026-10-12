@@ -15,6 +15,7 @@ import com.eouna.configtool.core.factory.anno.Component;
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.window.WindowManager;
 import com.eouna.configtool.core.window.WindowThemeManager;
+import com.eouna.configtool.env.TemplateEnvContext;
 import com.eouna.configtool.ui.controllers.ExcelGenWindowController;
 import com.eouna.configtool.utils.FileUtils;
 import java.io.IOException;
@@ -43,6 +44,9 @@ public class ConfigToolAppEntrance
   /** 非GUI(命令行)模式下的生成逻辑 */
   @AutoInject private NonGuiApplicationRunner nonGuiApplicationRunner;
 
+  /** 各语言模板的运行环境检测结果(容器管理, 注解注入) */
+  @AutoInject private TemplateEnvContext templateEnvContext;
+
   @Override
   public void setApplicationContext(ApplicationContext applicationContext) {
     this.applicationContext = applicationContext;
@@ -66,6 +70,8 @@ public class ConfigToolAppEntrance
       LoggerUtils.getLogger().error("系统配置加载失败，请检查系统配置是否正确", e);
       throw new RuntimeException("系统配置加载失败，请检查系统配置是否正确", e);
     }
+    // 检查所有支持导出的语言模板的运行环境, 结果缓存在内存中(Holder)供后续使用
+    templateEnvContext.refresh();
     // 禁止窗口重新设置大小
     stage.setResizable(false);
     stage.setMaximized(false);
