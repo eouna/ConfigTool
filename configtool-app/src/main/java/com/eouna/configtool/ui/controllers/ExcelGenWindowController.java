@@ -1137,6 +1137,15 @@ public class ExcelGenWindowController extends BaseWindowController {
           .heightProperty()
           .addListener((observable, oldHeight, newHeight) -> scrollLogToBottom());
     }
+    // 让第一步内容至少铺满可视区域, 生成模板按钮所在行即可在剩余空间中垂直居中。
+    if (stepGeneratePane != null && stepGenerateScroll != null) {
+      stepGeneratePane.setMinHeight(stepGenerateScroll.getViewportBounds().getHeight());
+      stepGenerateScroll
+          .viewportBoundsProperty()
+          .addListener(
+              (observable, oldBounds, newBounds) ->
+                  stepGeneratePane.setMinHeight(newBounds.getHeight()));
+    }
     windowThemeManager.addThemeChangeListener(this::syncThemeMenuSelection);
     syncThemeMenuSelection(windowThemeManager.getCurrentThemeId());
     // 初始化配置字段

@@ -301,7 +301,7 @@
                         </VBox>
 
                         <!-- 模板生成区域(与加载选项分开) -->
-                        <HBox alignment="CENTER" style="-fx-padding: 0 0 6 0;">
+                        <HBox alignment="CENTER" VBox.vgrow="ALWAYS" style="-fx-padding: 0 0 6 0;">
                             <Button fx:id="generateTemplateBtn" mnemonicParsing="false"
                                     onAction="#generateTemplateFiles" prefHeight="32.0"
                                     prefWidth="150.0" text="生成模板">

@@ -1,21 +1,37 @@
 ﻿#requires -version 5.1
 # ConfigTool 一键打包: 绿色免解包目录版 + 单文件 exe
-# 用法: powershell -ExecutionPolicy Bypass -File package.ps1 [-HttpProxy http://127.0.0.1:10808] [-SkipSmokeTest] [-KeepBuild]
+# 用法: powershell -ExecutionPolicy Bypass -File package.ps1 [-HttpProxy http://127.0.0.1:10808] [-Version 覆盖版本] [-SkipSmokeTest] [-KeepBuild]
 # 说明: JDK(含jpackage/jlink)缺失时自动下载 Temurin 17; Maven 缺失时用工程自带 mvnw; 压缩/打包用 Windows 内置 tar+IExpress, 无需第三方工具
+# 版本默认读取 pom.xml 的 project.version; 绿色版和单文件版按 ConfigTool-Windows/Portable-v<version>-x64 命名
 param(
     [string]$HttpProxy = 'http://127.0.0.1:10808',
-    [string]$Version = '1.0.5',
+    [string]$Version = '',
     [switch]$SkipSmokeTest,
     [switch]$KeepBuild
 )
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
 if (-not $Root) { $Root = (Get-Location).Path }
+$PomPath = Join-Path $Root 'pom.xml'
+if (-not (Test-Path -LiteralPath $PomPath)) { throw ('未找到项目版本文件: ' + $PomPath) }
+$PomXmlText = [System.IO.File]::ReadAllText($PomPath, [System.Text.Encoding]::UTF8)
+$ProjectVersion = [string]([xml]$PomXmlText).project.version
+if ([string]::IsNullOrWhiteSpace($ProjectVersion)) { throw ('pom.xml 中未找到 project.version: ' + $PomPath) }
+$ProjectVersion = $ProjectVersion.Trim()
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = $ProjectVersion
+} else {
+    $Version = $Version.Trim()
+    if ($Version -ne $ProjectVersion) { Write-Host ('  版本覆盖: ' + $ProjectVersion + ' -> ' + $Version) -ForegroundColor Yellow }
+}
 $BuildDir  = Join-Path $Root 'build'
+$DistDir   = Join-Path $Root 'dist'
 $GreenDir  = Join-Path $Root 'dist\green'
 $SingleDir = Join-Path $Root 'dist\single'
 $JdkDir    = Join-Path $Root 'tools\jdk'
-$ExeName   = 'ConfigTool-portable.exe'
+$GreenArchiveName = 'ConfigTool-Windows-v' + $Version + '-x64.zip'
+$GreenArchive = Join-Path $DistDir $GreenArchiveName
+$ExeName   = 'ConfigTool-Portable-v' + $Version + '-x64.exe'
 $RuntimeModules = @(
     'java.base','java.compiler','java.datatransfer','java.xml','java.prefs','java.desktop',
     'java.logging','java.management','java.naming','java.security.jgss','java.security.sasl',
@@ -103,7 +119,7 @@ try {
     & $mvn -B -pl configtool-app -am package '-Dexec.skip=true'
     Assert-Exit 'mvn package'
 } finally { Pop-Location }
-$appJar = Join-Path $Root 'configtool-app\target\configtool-app-1.0.5.jar'
+$appJar = Join-Path $Root ('configtool-app\target\configtool-app-' + $Version + '.jar')
 if (-not (Test-Path $appJar)) { throw ('未找到 jar: ' + $appJar) }
 Write-Ok ('fat jar: ' + [math]::Round((Get-Item $appJar).Length / 1MB, 1) + ' MB')
 
@@ -148,6 +164,20 @@ Remove-Directory $GreenDir
 New-Item -ItemType Directory -Force -Path $GreenDir | Out-Null
 Copy-Contents $appImage $GreenDir
 Write-Ok ('绿色版: ' + (Join-Path $GreenDir 'ConfigTool.exe'))
+
+# 绿色版发布包统一命名为 ConfigTool-Windows-v<version>-x64.zip
+New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
+Remove-File $GreenArchive
+Push-Location $GreenDir
+try {
+    & tar.exe '-a' '-cf' $GreenArchive '--options' 'zip:compression=store' '.'
+    if ($LASTEXITCODE -ne 0) {
+        Remove-File $GreenArchive
+        & tar.exe '-a' '-cf' $GreenArchive '.'
+        Assert-Exit 'tar 打包绿色版 zip'
+    }
+} finally { Pop-Location }
+Write-Ok ('绿色版发布包: ' + $GreenArchive)
 
 # ---------------- 5. 单文件自解压 exe ----------------
 Write-Step '5/6 生成单文件版'
@@ -256,4 +286,5 @@ if (-not $KeepBuild) { Remove-Directory $BuildDir }
 
 Write-Step '打包完成'
 Write-Host ('  绿色免解包目录版 : ' + $GreenDir)
+Write-Host ('  绿色版发布包    : ' + $GreenArchive)
 Write-Host ('  单文件版         : ' + $exePath)
