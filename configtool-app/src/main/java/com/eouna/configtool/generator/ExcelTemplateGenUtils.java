@@ -307,25 +307,42 @@ public class ExcelTemplateGenUtils {
       List<File> successGenList,
       List<Exception> exceptionCollector) {
     try {
-      // 打印收集到的异常
-      formatExceptionMsg(exceptionCollector);
       // 如果生成成功没有异常
       if (exceptionCollector.isEmpty()) {
         // 调用模板生成之后的逻辑
-        templateGenerators.forEach(
-            templateGenerator ->
-                templateGenerator
-                    .getTemplateGenerator()
-                    .generatorAfter(textAreaLogger, excelFileStructureMap));
+        // 注意: 单个生成器的后置处理失败(如运行库缺模块导致的 NoClassDefFoundError)不能中断整体流程,
+        // 否则完成回调不会被调用, 界面会一直停留在当前步骤
+        for (ETemplateGenerator templateGenerator : templateGenerators) {
+          try {
+            templateGenerator
+                .getTemplateGenerator()
+                .generatorAfter(textAreaLogger, excelFileStructureMap);
+          } catch (Throwable throwable) {
+            LoggerUtils.getLogger().error("模板后置处理异常, 语言: " + templateGenerator, throwable);
+            textAreaLogger.error(
+                "生成模板后置处理异常, 语言: {}, 异常: {}",
+                templateGenerator,
+                ExceptionUtils.getStackTrace(throwable));
+            exceptionCollector.add(
+                throwable instanceof Exception
+                    ? (Exception) throwable
+                    : new RuntimeException(throwable));
+          }
+        }
       }
+      // 打印收集到的异常(生成阶段与后置处理阶段的异常都在此统一提示)
+      formatExceptionMsg(exceptionCollector);
       // 调用此方法的逻辑
       finishedCallBack.accept(exceptionCollector.isEmpty());
       textAreaLogger.info(
           "生成模板文件结束,总耗时: {}ms,生成文件数: {}",
           System.currentTimeMillis() - startTime,
           successGenList.size());
-    } catch (Exception e) {
-      ToolsLoggerUtils.showErrorDialog("调用生成成功回调异常", e);
+    } catch (Throwable throwable) {
+      // 后置处理本身出错时也要让调用方拿到结果, 避免界面卡在当前步骤
+      LoggerUtils.getLogger().error("生成完成回调处理异常", throwable);
+      textAreaLogger.error("生成模板文件结束回调异常, 异常: {}", ExceptionUtils.getStackTrace(throwable));
+      ToolsLoggerUtils.showErrorDialog("调用生成成功回调异常", throwable);
     } finally {
       exceptionCollector.clear();
     }

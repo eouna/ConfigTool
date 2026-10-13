@@ -32,10 +32,12 @@ $JdkDir    = Join-Path $Root 'tools\jdk'
 $GreenArchiveName = 'ConfigTool-Windows-v' + $Version + '-x64.zip'
 $GreenArchive = Join-Path $DistDir $GreenArchiveName
 $ExeName   = 'ConfigTool-Portable-v' + $Version + '-x64.exe'
+# 注意: java.sql 必须包含(Gson 序列化 json 数据源、POI、SQLite 缓存都会用到 java.sql.*),
+# 遗漏时 json 数据源生成会在 Gson 初始化处抛 NoClassDefFoundError: java/sql/Time
 $RuntimeModules = @(
     'java.base','java.compiler','java.datatransfer','java.xml','java.prefs','java.desktop',
     'java.logging','java.management','java.naming','java.security.jgss','java.security.sasl',
-    'java.xml.crypto','jdk.unsupported','javafx.base','javafx.graphics','javafx.controls','javafx.fxml'
+    'java.xml.crypto','java.sql','jdk.unsupported','javafx.base','javafx.graphics','javafx.controls','javafx.fxml'
 ) -join ','
 $AppJavaOptions = @(
     '-Duser.dir=$APPDIR',
@@ -260,6 +262,50 @@ if (-not $SkipSmokeTest) {
     $env:JAVA_HOME = $null
     $env:Path = 'C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem'
     try {
+        # 无界面模式自检: json 数据源生成
+        # 回归防护: 精简运行库漏掉 java.sql 时, Gson 初始化会抛 NoClassDefFoundError, json 数据源无法生成
+        $slimJava  = Join-Path $GreenDir 'runtime\bin\java.exe'
+        $greenApp  = Join-Path $GreenDir 'app'
+        $greenJar  = Join-Path $greenApp 'ConfigTool.jar'
+        $smokeDest = Join-Path $env:TEMP ('configtool-smoke-' + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Force -Path $smokeDest | Out-Null
+        $smokeArgs = @(
+            '--add-modules=javafx.controls,javafx.fxml',
+            '-cp', $greenJar,
+            'com.eouna.configtool.Launcher',
+            '--mode=none_gui', '--load_source=json', '--lang=go',
+            '--excel_path=./example', ('--dest_path=' + $smokeDest)
+        )
+        # 用 .NET Process 而不是 Start-Process: Windows PowerShell 5.1 下 Start-Process -PassThru
+        # 取不到已退出进程的 ExitCode(为空), 无法判断成败
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $slimJava
+        $psi.Arguments = (($smokeArgs | ForEach-Object { '"' + $_ + '"' }) -join ' ')
+        $psi.WorkingDirectory = $greenApp
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.CreateNoWindow = $true
+        $smoke = New-Object System.Diagnostics.Process
+        $smoke.StartInfo = $psi
+        $null = $smoke.Start()
+        # 异步读取输出, 避免子进程写满管道缓冲后阻塞
+        $smokeOutTask = $smoke.StandardOutput.ReadToEndAsync()
+        $smokeErrTask = $smoke.StandardError.ReadToEndAsync()
+        if (-not $smoke.WaitForExit(300000)) {
+            try { $smoke.Kill() } catch { }
+            throw '命令行(json数据源)生成超时(超过 300 秒)'
+        }
+        $smokeOut = $smokeOutTask.Result
+        $smokeErr = $smokeErrTask.Result
+        if ($smoke.ExitCode -ne 0) {
+            Write-Host '  --- 自检输出(末尾 40 行) ---' -ForegroundColor Yellow
+            (($smokeOut + "`n" + $smokeErr) -split "`r?`n" | Select-Object -Last 40) | ForEach-Object { Write-Host ('  ' + $_) }
+            throw ('命令行(json数据源)生成失败, exit=' + $smoke.ExitCode)
+        }
+        Remove-Directory $smokeDest
+        Write-Ok '命令行 json 数据源生成正常(精简运行库模块完整)'
+
         $greenExe = Join-Path $GreenDir 'ConfigTool.exe'
         $p1 = Start-Process -FilePath $greenExe -WorkingDirectory $env:TEMP -PassThru
         Start-Sleep -Seconds 20
