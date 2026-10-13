@@ -316,7 +316,7 @@ mvn -o -pl configtool-app -am package -Dexec.skip=true
 
 # 以非GUI方式运行(需要 JavaFX 模块)
 java --module-path <javafx-jars> --add-modules=javafx.controls,javafx.fxml \
-     -cp configtool-app/target/configtool-app-1.0.6.jar \
+     -cp configtool-app/target/configtool-app-1.0.7.jar \
      com.eouna.configtool.Launcher --mode=none_gui --excel_path=./example --dest_path=./out --lang=go
 ```
 
