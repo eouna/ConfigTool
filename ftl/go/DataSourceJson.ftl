@@ -134,9 +134,33 @@ func (d *jsonDataSource) ReadSheet(req SheetReadRequest) ([][]string, error) {
 	return rows, nil
 }
 
-// ReadConstantRows json数据源没有常量表(常量目前只在excel中维护)
+// ReadConstantRows 读取常量表(<常量表名>.json, 由工具按excel行列布局导出)
+//
+// 常量表在excel中单独维护, 导出json时会一并导出为 <常量表名>.json, 因此json数据源同样能读到常量;
+// 文件不存在时返回nil(视为没有常量表), 常量字段保持默认值。
 func (d *jsonDataSource) ReadConstantRows(req SheetReadRequest) ([][]string, error) {
-	return nil, nil
+	fullPath := filepath.Join(req.RootPath, req.SheetName+".json")
+	rawData, err := os.ReadFile(fullPath)
+	if err != nil {
+		return nil, nil
+	}
+	var rawRows []any
+	if err = json.Unmarshal(rawData, &rawRows); err != nil {
+		return nil, fmt.Errorf("解析常量表json失败: %s: %w", fullPath, err)
+	}
+	rows := make([][]string, 0, len(rawRows))
+	for _, rawRow := range rawRows {
+		cells, ok := rawRow.([]any)
+		if !ok {
+			continue
+		}
+		row := make([]string, 0, len(cells))
+		for _, cell := range cells {
+			row = append(row, scalarToString(cell))
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
 }
 
 // FileDigest 计算json文件的md5

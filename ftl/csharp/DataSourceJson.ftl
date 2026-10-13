@@ -64,6 +64,9 @@ namespace ConfigTool.Cfg
         private static readonly Regex MapInner =
             new Regex(@"^(.+?)\{(.)\}(.+)$", RegexOptions.Compiled);
 
+        /// <summary>常量表名(工具按excel行列布局导出为 &lt;常量表名&gt;.json)</summary>
+        private const string ConstantSheetName = "${constantSheetName}";
+
         public XLWorkbook OpenWorkbook(
             string rootPath,
             string fileName,
@@ -76,6 +79,8 @@ namespace ConfigTool.Cfg
             using JsonDocument document = ReadJson(rootPath, sheetName);
             var workbook = new XLWorkbook();
             var sheet = workbook.Worksheets.Add(sheetName);
+            // 常量表: 工具按excel行列布局导出为 <常量表名>.json, 这里还原成同名工作表供容器读取常量
+            AppendConstantSheet(workbook, rootPath);
             int colCount = fields?.Count ?? 0;
             int headRowCount = Math.Max(dataStartRow, Math.Max(nameRow, typeRow) + 1);
             for (int rowIndex = 0; rowIndex < headRowCount; rowIndex++)
@@ -123,6 +128,41 @@ namespace ConfigTool.Cfg
                 }
             }
             return workbook;
+        }
+
+        /// <summary>
+        /// 追加常量表工作表: 常量表由工具按excel行列布局导出为 &lt;常量表名&gt;.json(首行为表头),
+        /// 按同样的行列布局还原后, 容器即可复用excel下的常量解析逻辑。
+        /// </summary>
+        private static void AppendConstantSheet(XLWorkbook workbook, string rootPath)
+        {
+            string fullPath = Path.Combine(rootPath, ConstantSheetName + ".json");
+            if (!File.Exists(fullPath))
+            {
+                // 没有导出常量表: 不追加, 常量字段保持默认值
+                return;
+            }
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(fullPath));
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return;
+            }
+            var sheet = workbook.Worksheets.Add(ConstantSheetName);
+            int rowIndex = 1;
+            foreach (JsonElement rowValue in document.RootElement.EnumerateArray())
+            {
+                if (rowValue.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+                int colIndex = 1;
+                foreach (JsonElement cellValue in rowValue.EnumerateArray())
+                {
+                    sheet.Cell(rowIndex, colIndex).Value = ScalarToString(cellValue);
+                    colIndex++;
+                }
+                rowIndex++;
+            }
         }
 
         public string FileDigest(string rootPath, string fileName, string sheetName)

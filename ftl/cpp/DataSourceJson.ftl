@@ -361,8 +361,40 @@ class DataSource {
         return rows;
     }
 
-    /// json数据不包含常量表
-    bool ReadConstantRows(const SheetReadRequest&, Rows&) const { return false; }
+    /// 读取常量表(<常量表名>.json, 由工具按excel行列布局导出)
+    ///
+    /// 常量表在excel中单独维护, 导出json时会一并导出为 <常量表名>.json, 因此json数据源同样能读到常量;
+    /// 文件不存在时返回false(视为没有常量表), 常量字段保持默认值。
+    bool ReadConstantRows(const SheetReadRequest& request, Rows& rows) const {
+        if (request.constantSheetName.empty()) {
+            return false;
+        }
+        const std::string path = JoinPath(request.rootPath, request.constantSheetName + ".json");
+        std::ifstream probe(path, std::ios::binary);
+        if (!probe) {
+            return false;
+        }
+        probe.close();
+        const detail::JsonValue root = detail::JsonParser(ReadFile(path)).Parse();
+        if (root.type != detail::JsonType::Array) {
+            throw std::runtime_error("常量表json根节点不是数组: " + path);
+        }
+        Rows constantRows;
+        constantRows.reserve(root.array.size());
+        for (const detail::JsonValue& rowValue : root.array) {
+            if (rowValue.type != detail::JsonType::Array) {
+                continue;
+            }
+            Row row;
+            row.reserve(rowValue.array.size());
+            for (const detail::JsonValue& cell : rowValue.array) {
+                row.push_back(ScalarToString(cell));
+            }
+            constantRows.push_back(std::move(row));
+        }
+        rows = std::move(constantRows);
+        return true;
+    }
 
     /// json数据一张表对应一个文件
     bool SingleSource() const { return true; }

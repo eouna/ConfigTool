@@ -128,6 +128,9 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     Map<String, Object> dataSourceDataMap = new HashMap<>(2);
     dataSourceDataMap.put("dataSourcePackageName", getDataSourcePackageName());
     dataSourceDataMap.put("date", getGenerateDate());
+    dataSourceDataMap.put(
+        "constantSheetName",
+        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
     generateTemplate(
         dataSourceDataMap,
         getDataSourceTemplateName("DataSource"),

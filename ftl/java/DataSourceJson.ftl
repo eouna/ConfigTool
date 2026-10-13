@@ -7,6 +7,7 @@ package ${dataSourcePackageName};
 //
 // 依赖: gson(工具已内置, 生成工程需要引入 com.google.code.gson:gson)
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -81,6 +82,9 @@ class JsonConfigDataSource implements ConfigDataSource {
   /** 键值对内部: 键类型{分隔符}值类型 */
   private static final Pattern MAP_INNER = Pattern.compile("^(.+?)\\{(.)\\}(.+)$");
 
+  /** 常量表名(工具按excel行列布局导出为 <常量表名>.json) */
+  private static final String CONSTANT_SHEET_NAME = "${constantSheetName}";
+
   @Override
   public Workbook openWorkbook(
       String rootPath,
@@ -94,6 +98,8 @@ class JsonConfigDataSource implements ConfigDataSource {
     JsonObject rawData = readJson(rootPath, sheetName);
     XSSFWorkbook workbook = new XSSFWorkbook();
     Sheet sheet = workbook.createSheet(sheetName);
+    // 常量表: 工具按excel行列布局导出为 <常量表名>.json, 这里还原成同名工作薄供容器读取常量
+    appendConstantSheet(workbook, rootPath);
     int colCount = fields == null ? 0 : fields.size();
     int headRowCount = Math.max(dataStartRow, Math.max(nameRow, typeRow) + 1);
     for (int i = 0; i < headRowCount; i++) {
@@ -164,6 +170,53 @@ class JsonConfigDataSource implements ConfigDataSource {
   @Override
   public boolean singleSource() {
     return true;
+  }
+
+  /**
+   * 追加常量表工作薄。
+   *
+   * <p>常量表由工具按excel行列布局导出为 <常量表名>.json(首行为表头), 这里按同样的行列布局还原,
+   * 容器即可复用excel下的常量解析逻辑(json数据源下同样能读到常量)。
+   *
+   * @param workbook 内存工作薄
+   * @param rootPath json数据根目录
+   */
+  private void appendConstantSheet(XSSFWorkbook workbook, String rootPath) throws Exception {
+    File constantFile = new File(rootPath, CONSTANT_SHEET_NAME + ".json");
+    if (!constantFile.isFile()) {
+      // 没有导出常量表: 不追加, 常量字段保持默认值
+      return;
+    }
+    try (InputStreamReader reader =
+        new InputStreamReader(Files.newInputStream(constantFile.toPath()), StandardCharsets.UTF_8)) {
+      JsonElement element = JsonParser.parseReader(reader);
+      if (element == null || !element.isJsonArray()) {
+        return;
+      }
+      JsonArray rows = element.getAsJsonArray();
+      // 统一补齐到最大列数: 容器按下标读取单元格, 缺失的单元格补空串避免取到null
+      int maxCols = 0;
+      for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+        JsonElement rowElement = rows.get(rowIndex);
+        if (rowElement.isJsonArray()) {
+          maxCols = Math.max(maxCols, rowElement.getAsJsonArray().size());
+        }
+      }
+      Sheet constantSheet = workbook.createSheet(CONSTANT_SHEET_NAME);
+      for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+        JsonElement rowElement = rows.get(rowIndex);
+        if (!rowElement.isJsonArray()) {
+          continue;
+        }
+        Row row = constantSheet.createRow(rowIndex);
+        JsonArray cells = rowElement.getAsJsonArray();
+        for (int colIndex = 0; colIndex < maxCols; colIndex++) {
+          JsonElement cellValue = colIndex < cells.size() ? cells.get(colIndex) : null;
+          row.createCell(colIndex)
+              .setCellValue(cellValue == null || cellValue.isJsonNull() ? "" : cellValue.getAsString());
+        }
+      }
+    }
   }
 
   /** 读取 <表名>.json */

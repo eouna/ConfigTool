@@ -105,10 +105,33 @@ impl DataSource for JsonDataSource {
 
     fn read_constant_rows(
         &self,
-        _request: &SheetReadRequest<'_>,
+        request: &SheetReadRequest<'_>,
     ) -> Result<Option<SheetData>, String> {
-        // json数据不包含常量表, 常量字段保持默认值
-        Ok(None)
+        if request.constant_sheet_name.is_empty() {
+            return Ok(None);
+        }
+        // 常量表由工具按excel行列布局导出为 <常量表名>.json
+        let path = Path::new(request.root_path)
+            .join(format!("{}.json", request.constant_sheet_name));
+        if !path.is_file() {
+            // 没有导出常量表: 常量字段保持默认值
+            return Ok(None);
+        }
+        let content = fs::read_to_string(&path)
+            .map_err(|error| format!("读取常量表json失败 {}: {}", path.display(), error))?;
+        let root_value: Value = serde_json::from_str(&content)
+            .map_err(|error| format!("解析常量表json失败 {}: {}", path.display(), error))?;
+        let rows_value = root_value
+            .as_array()
+            .ok_or_else(|| format!("常量表json根节点不是数组: {}", path.display()))?;
+        let mut rows: Vec<Vec<String>> = Vec::with_capacity(rows_value.len());
+        for row_value in rows_value {
+            let Some(cells) = row_value.as_array() else {
+                continue;
+            };
+            rows.push(cells.iter().map(scalar_to_string).collect());
+        }
+        Ok(Some(SheetData { rows }))
     }
 
     fn is_single_source(&self) -> bool {
