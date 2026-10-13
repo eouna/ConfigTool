@@ -288,9 +288,9 @@ namespace ConfigTool.Cfg
                 var elementType = targetType.IsGenericType ? targetType.GetGenericArguments()[0] : typeof(object);
                 var list = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType));
                 var parts = text.Split(spec.Delimiter);
-                if (spec.Limit > 0 && parts.Length > spec.Limit)
+                if (spec.Limit > 0 && parts.Length != spec.Limit)
                 {
-                    throw new InvalidOperationException($"字段对应的数据数量: {parts.Length} 超过限制值: {spec.Limit}");
+                    throw new InvalidOperationException($"字段对应的数据数量: {parts.Length} 与限制值: {spec.Limit} 不一致");
                 }
                 bool isSet = type.StartsWith("set<", StringComparison.OrdinalIgnoreCase);
                 var seen = new HashSet<string>();
@@ -316,9 +316,9 @@ namespace ConfigTool.Cfg
                 var keyType = targetType.GetGenericArguments()[0];
                 var valueType = targetType.GetGenericArguments()[1];
                 var entries = text.Split(spec.EntryDelimiter);
-                if (spec.Limit > 0 && entries.Length > spec.Limit)
+                if (spec.Limit > 0 && entries.Length != spec.Limit)
                 {
-                    throw new InvalidOperationException($"字段对应的数据数量: {entries.Length} 超过限制值: {spec.Limit}");
+                    throw new InvalidOperationException($"字段对应的数据数量: {entries.Length} 与限制值: {spec.Limit} 不一致");
                 }
                 foreach (var entry in entries)
                 {

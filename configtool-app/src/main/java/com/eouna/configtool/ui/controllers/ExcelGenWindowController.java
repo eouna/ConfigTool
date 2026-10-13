@@ -217,6 +217,9 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 模板文件生成按钮锁 */
   private static final AtomicBoolean TEMPLATE_IN_PROGRESS = new AtomicBoolean(true);
 
+  /** 当前语言是否已完成预加载; 用于保持“删除主入口”按钮可见 */
+  private volatile boolean preloadSucceeded = false;
+
   /** excel选中列表 */
   private static final ObservableSet<String> EXCEL_SELECTED_LIST =
       FXCollections.synchronizedObservableSet(FXCollections.observableSet());
@@ -386,13 +389,21 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (isJsLangSelected()) {
       forceLoadSourceJson();
     }
+    preloadSucceeded = false;
     refreshLangOptionUsage();
+    if (currentStep == STEP_PRELOAD) {
+      refreshPreloadStep();
+    }
   }
 
   /** 语言加载选项单选变化 */
   @FXML
   protected void onLoadSourceChanged() {
+    preloadSucceeded = false;
     refreshLangOptionUsage();
+    if (currentStep == STEP_PRELOAD) {
+      refreshPreloadStep();
+    }
   }
 
   /**
@@ -659,6 +670,7 @@ public class ExcelGenWindowController extends BaseWindowController {
 
   /** 第二步预加载相关状态复位 */
   private void resetPreloadState() {
+    preloadSucceeded = false;
     if (preloadLangLabel != null) {
       preloadLangLabel.setText("当前语言: -");
     }
@@ -668,9 +680,26 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (preloadResultLabel != null) {
       preloadResultLabel.setText("");
     }
-    if (deleteMainEntryBtn != null) {
-      deleteMainEntryBtn.setVisible(false);
-      deleteMainEntryBtn.setManaged(false);
+    setDeleteMainEntryButtonVisible(false);
+  }
+
+  /** 设置“删除主入口”按钮显示状态, 显示时主动刷新第二步布局 */
+  private void setDeleteMainEntryButtonVisible(boolean visible) {
+    if (deleteMainEntryBtn == null) {
+      return;
+    }
+    deleteMainEntryBtn.setManaged(visible);
+    deleteMainEntryBtn.setVisible(visible);
+    if (visible && stepPreloadPane != null) {
+      stepPreloadPane.requestLayout();
+      Platform.runLater(
+          () -> {
+            if (preloadSucceeded) {
+              deleteMainEntryBtn.setManaged(true);
+              deleteMainEntryBtn.setVisible(true);
+              stepPreloadPane.requestLayout();
+            }
+          });
     }
   }
 
@@ -721,11 +750,8 @@ public class ExcelGenWindowController extends BaseWindowController {
       skipPreloadBtn.setManaged(true);
       skipPreloadBtn.setDisable(false);
     }
-    // 删除主入口按钮默认隐藏, 预加载成功后出现
-    if (deleteMainEntryBtn != null) {
-      deleteMainEntryBtn.setVisible(false);
-      deleteMainEntryBtn.setManaged(false);
-    }
+    // 删除主入口按钮默认隐藏, 预加载成功后保持显示
+    setDeleteMainEntryButtonVisible(preloadSucceeded);
     if (preloadResultLabel != null) {
       preloadResultLabel.setText(canPreload ? "可以执行预加载, 也可以直接跳过" : "暂无可用的预加载方式, 请点击「跳过」");
     }
@@ -836,16 +862,16 @@ public class ExcelGenWindowController extends BaseWindowController {
             Platform.runLater(
                 () -> {
                   if (preloadResultLabel != null) {
-                    preloadResultLabel.setText(result ? "预加载完成" : "预加载失败, 可查看日志");
+                    preloadResultLabel.setText(
+                        result ? "预加载完成, 可删除主入口或点击下一步" : "预加载失败, 可查看日志");
                   }
                   // 预加载成功后允许删除生成的主入口代码
-                  if (deleteMainEntryBtn != null) {
-                    deleteMainEntryBtn.setVisible(result);
-                    deleteMainEntryBtn.setManaged(result);
-                  }
+                  preloadSucceeded = result;
+                  setDeleteMainEntryButtonVisible(result);
                   // 预加载失败时停留在第二步, 必须由用户显式点击"跳过"才能进入上传步骤。
                   if (result) {
-                    goToUploadStep();
+                    // 保持第二步可见, 让删除主入口按钮能够显示; 用户删除后点击下一步继续。
+                    updateExcelProcessBtnUsage(EExcelUpdateState.LOAD_DATA);
                   }
                 });
           }
@@ -963,8 +989,8 @@ public class ExcelGenWindowController extends BaseWindowController {
     }
     textAreaLogger.success("已删除 {} 个 {} 主入口文件", deleted, langId);
     if (deleteMainEntryBtn != null) {
-      deleteMainEntryBtn.setVisible(false);
-      deleteMainEntryBtn.setManaged(false);
+      preloadSucceeded = false;
+      setDeleteMainEntryButtonVisible(false);
     }
     if (preloadResultLabel != null) {
       preloadResultLabel.setText("主入口代码已删除");
@@ -1359,6 +1385,8 @@ public class ExcelGenWindowController extends BaseWindowController {
                       currentProgress.setPrefWidth(percentageWidth);
                       currentProgressTips.setText("100%");
                       // 生成成功后进入第二步: 语言预加载
+                      preloadSucceeded = false;
+                      setDeleteMainEntryButtonVisible(false);
                       switchStep(STEP_PRELOAD);
                     } else {
                       currentProgress.getStyleClass().remove("progress-fill-danger");

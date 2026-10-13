@@ -52,6 +52,7 @@ export class BaseCfgContainer {
           // json中key为0的是枚举定义, 不是数据行
           continue;
         }
+        this.validateBeanFields(value);
         const bean = new this.beanClass(value);
         const id = bean.getId();
         map.set(id === undefined || id === null ? key : id, bean);
@@ -61,6 +62,53 @@ export class BaseCfgContainer {
     this.cfgBeans = Array.from(map.values());
     this.loaded = true;
     return this;
+  }
+
+  /** 按字段 rawType 校验 List/Set/Map 的数量限制 */
+  validateBeanFields(raw) {
+    if (!raw || typeof raw !== 'object') {
+      return;
+    }
+    for (const field of this.beanClass.FIELDS || []) {
+      if (Object.prototype.hasOwnProperty.call(raw, field.name)) {
+        this.validateFieldValue(field.rawType, raw[field.name], field.name);
+      }
+    }
+  }
+
+  /** 递归校验集合类型，限制值语义与 Java 保持一致: 数量必须严格等于限制值 */
+  validateFieldValue(rawType, value, fieldName) {
+    const raw = (rawType || '').trim();
+    const seqMatch = raw.match(/^(list|set)<(.*)>\{(.)(\d*)\}$/i);
+    if (seqMatch) {
+      if (!Array.isArray(value)) {
+        return;
+      }
+      this.checkSizeLimit(value.length, seqMatch[4], fieldName);
+      for (const item of value) {
+        this.validateFieldValue(seqMatch[2], item, fieldName);
+      }
+      return;
+    }
+
+    const mapMatch = raw.match(/^map<(.*?)\{(.)\}(.*)>\{(.)(\d*)\}$/i);
+    if (mapMatch && value && typeof value === 'object' && !Array.isArray(value)) {
+      const keys = Object.keys(value);
+      this.checkSizeLimit(keys.length, mapMatch[5], fieldName);
+      for (const key of keys) {
+        this.validateFieldValue(mapMatch[3], value[key], fieldName);
+      }
+    }
+  }
+
+  /** 校验集合数量限制 */
+  checkSizeLimit(actualSize, limitText, fieldName) {
+    const limit = Number(limitText || '0');
+    if (limit > 0 && actualSize !== limit) {
+      throw new Error(
+          this.sheetName + ' 字段 ' + fieldName + ' 对应的数据数量: ' + actualSize
+          + ' 与限制值: ' + limit + ' 不一致');
+    }
   }
 
   /**

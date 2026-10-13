@@ -57,7 +57,8 @@ more:
 1. For how to configure the data of each field type, see (Help -> Configuration Guide) in the tool, which has more detailed explanations and examples.
 2. The key of a map cannot be a non-primitive type or a boolean, otherwise an exception is thrown.
 3. List and map types support nested structures of unlimited depth (more than three levels is not recommended).
-4. List and map types support a length limit. It is configured after the last separator, in a form like ```{,10} the separator is , and the length is limited to 5 elements```.
+4. List and map types support an exact length limit. It is configured after the last separator, for example
+   ```{,5}``` means the separator is `,` and the element count must be exactly 5.
 
 ## 4. Validation Rules
 

@@ -427,7 +427,7 @@ func parseScalar(text string, targetType reflect.Type) (reflect.Value, error) {
 	return value, nil
 }
 
-// checkSizeLimit 检查元素数量是否超过限制
+// checkSizeLimit 检查元素数量是否与限制值严格一致
 func checkSizeLimit(size int, sizeLimit string) error {
 	if sizeLimit == "" {
 		return nil
@@ -436,8 +436,8 @@ func checkSizeLimit(size int, sizeLimit string) error {
 	if err != nil || limit <= 0 {
 		return nil
 	}
-	if size > limit {
-		return fmt.Errorf("字段对应的数据数量: %d 超过限制值: %d", size, limit)
+	if size != limit {
+		return fmt.Errorf("字段对应的数据数量: %d 与限制值: %d 不一致", size, limit)
 	}
 	return nil
 }

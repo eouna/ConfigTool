@@ -906,7 +906,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
           String[] listValSplit = fieldStr.split(replaceSplitDanglingMetaChar);
           if (delimiter.sizeLimit > 0 && listValSplit.length != delimiter.sizeLimit) {
             throw new ExcelDataParseException(
-                "", "字段对应的数据数量: " + listValSplit.length + " 超过限制值: " + delimiter.sizeLimit);
+                "", "字段对应的数据数量: " + listValSplit.length + " 与限制值: " + delimiter.sizeLimit + " 不一致");
           }
           for (String listVal : listValSplit) {
             if (isEmptyString(listVal)) {
@@ -979,7 +979,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
           String[] setValSplit = fieldStr.split(replaceSplitDanglingMetaChar);
           if (bracketMetadata.sizeLimit > 0 && setValSplit.length != bracketMetadata.sizeLimit) {
             throw new ExcelDataParseException(
-                "", "字段对应的数据数量: " + setValSplit.length + " 超过限制值: " + bracketMetadata.sizeLimit);
+                "", "字段对应的数据数量: " + setValSplit.length + " 与限制值: " + bracketMetadata.sizeLimit + " 不一致");
           }
           for (String setVal : setValSplit) {
             if (isEmptyString(setVal)) {
@@ -1079,7 +1079,7 @@ public abstract class BaseCfgContainer<T extends ${baseCfgBean}> {
           String[] mapArr = fieldStr.split(replaceSplitDanglingMetaChar);
           if (mapDelimiter.sizeLimit > 0 && mapArr.length != mapDelimiter.sizeLimit) {
             throw new ExcelDataParseException(
-                "", "字段对应的数据数量: " + mapArr.length + " 超过限制值: " + mapDelimiter.sizeLimit);
+                "", "字段对应的数据数量: " + mapArr.length + " 与限制值: " + mapDelimiter.sizeLimit + " 不一致");
           }
           for (String mapStr : mapArr) {
             if (isEmptyString(mapStr)) {

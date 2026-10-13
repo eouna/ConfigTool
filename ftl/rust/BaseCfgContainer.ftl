@@ -197,9 +197,9 @@ impl<T: CfgValue> CfgValue for Vec<T> {
             seq_spec(raw_type).ok_or_else(|| format!("列表类型描述错误: {}", raw_type))?;
         let is_set = raw_type.trim().to_lowercase().starts_with("set<");
         let parts: Vec<&str> = text.split(delimiter).collect();
-        if limit > 0 && parts.len() > limit {
+        if limit > 0 && parts.len() != limit {
             return Err(format!(
-                "字段对应的数据数量: {} 超过限制值: {}",
+                "字段对应的数据数量: {} 与限制值: {} 不一致",
                 parts.len(),
                 limit
             ));
@@ -225,9 +225,9 @@ impl<K: CfgValue + Eq + Hash, V: CfgValue> CfgValue for HashMap<K, V> {
         let (key_type, key_delimiter, value_type, entry_delimiter, limit) =
             map_spec(raw_type).ok_or_else(|| format!("map类型描述错误: {}", raw_type))?;
         let entries: Vec<&str> = text.split(entry_delimiter).collect();
-        if limit > 0 && entries.len() > limit {
+        if limit > 0 && entries.len() != limit {
             return Err(format!(
-                "字段对应的数据数量: {} 超过限制值: {}",
+                "字段对应的数据数量: {} 与限制值: {} 不一致",
                 entries.len(),
                 limit
             ));

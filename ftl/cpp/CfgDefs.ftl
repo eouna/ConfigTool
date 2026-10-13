@@ -324,9 +324,9 @@ struct CfgValue<std::vector<T>> {
     static std::vector<T> Parse(const std::string& rawType, const std::string& text) {
         SeqSpec spec = ParseSeqSpec(rawType);
         std::vector<std::string> parts = Split(text, spec.delimiter);
-        if (spec.limit > 0 && static_cast<int>(parts.size()) > spec.limit) {
-            throw std::runtime_error("字段对应的数据数量: " + std::to_string(parts.size()) + " 超过限制值: "
-                                     + std::to_string(spec.limit));
+        if (spec.limit > 0 && static_cast<int>(parts.size()) != spec.limit) {
+            throw std::runtime_error("字段对应的数据数量: " + std::to_string(parts.size()) + " 与限制值: "
+                                     + std::to_string(spec.limit) + " 不一致");
         }
         std::vector<T> result;
         for (const std::string& part : parts) {
@@ -345,9 +345,9 @@ struct CfgValue<std::unordered_map<K, V>> {
     static std::unordered_map<K, V> Parse(const std::string& rawType, const std::string& text) {
         MapSpec spec = ParseMapSpec(rawType);
         std::vector<std::string> entries = Split(text, spec.entryDelimiter);
-        if (spec.limit > 0 && static_cast<int>(entries.size()) > spec.limit) {
-            throw std::runtime_error("字段对应的数据数量: " + std::to_string(entries.size()) + " 超过限制值: "
-                                     + std::to_string(spec.limit));
+        if (spec.limit > 0 && static_cast<int>(entries.size()) != spec.limit) {
+            throw std::runtime_error("字段对应的数据数量: " + std::to_string(entries.size()) + " 与限制值: "
+                                     + std::to_string(spec.limit) + " 不一致");
         }
         std::unordered_map<K, V> result;
         for (const std::string& entry : entries) {
