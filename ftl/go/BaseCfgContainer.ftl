@@ -173,7 +173,7 @@ func (c *BaseCfgContainer[T]) LoadData(resourceRootPath string) error {
 		// 常量字段
 		if len(c.constantTargets) > 0 && c.ConstantSheetName != "" {
 			constReq := req
-			constReq.SheetName = c.ConstantSheetName
+			constReq.ConstSheetName = c.ConstantSheetName
 			constRows, constErr := c.dataSource.ReadConstantRows(constReq)
 			if constErr == nil && len(constRows) > 1 {
 				if err = c.loadConstantFields(constRows[1:]); err != nil {

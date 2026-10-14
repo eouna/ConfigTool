@@ -26,13 +26,20 @@ struct FieldMeta {
 struct SheetReadRequest {
     std::string rootPath;
     std::string fileName;
+    /// 表名: json数据源按 <表名>.json 读取
     std::string sheetName;
     std::vector<FieldMeta> fields;
     int nameRow = 0;
     int typeRow = 0;
     int dataStartRow = 0;
+    /// 常量工作薄名(excel数据源使用; json数据源的常量在 <表名>.json 的const段)
     std::string constantSheetName;
 };
+
+/// json内容: 常量段字段名
+constexpr char kConstFieldName[] = "const";
+/// json内容: 数据段字段名
+constexpr char kDataFieldName[] = "data";
 
 namespace detail {
 
@@ -312,10 +319,16 @@ class DataSource {
     Rows ReadSheet(const SheetReadRequest& request) const {
         const std::string path = JoinPath(request.rootPath, request.sheetName + ".json");
         const std::string content = ReadFile(path);
-        detail::JsonValue root = detail::JsonParser(content).Parse();
+        const detail::JsonValue root = detail::JsonParser(content).Parse();
         if (root.type != detail::JsonType::Object) {
             throw std::runtime_error("json根节点不是对象: " + path);
         }
+        const auto dataIterator = root.object.find(kDataFieldName);
+        if (dataIterator == root.object.end() || dataIterator->second.type != detail::JsonType::Object) {
+            throw std::runtime_error(
+                "json数据格式错误, 缺少data字段(应为 {const:[...], data:{...}}): " + path);
+        }
+        const detail::JsonValue& data = dataIterator->second;
 
         const std::size_t fieldCount = request.fields.size();
         const std::size_t headRowCount = static_cast<std::size_t>(
@@ -330,7 +343,7 @@ class DataSource {
         }
 
         std::vector<std::pair<std::string, const detail::JsonValue*>> entries;
-        for (const auto& item : root.object) {
+        for (const auto& item : data.object) {
             if (Trim(item.first) != "0" && item.second.type == detail::JsonType::Object) {
                 entries.emplace_back(item.first, &item.second);
             }
@@ -361,27 +374,30 @@ class DataSource {
         return rows;
     }
 
-    /// 读取常量表(<常量表名>.json, 由工具按excel行列布局导出)
+    /// 读取常量表(<表名>.json 的const段, 由工具按excel行列布局导出)
     ///
-    /// 常量表在excel中单独维护, 导出json时会一并导出为 <常量表名>.json, 因此json数据源同样能读到常量;
-    /// 文件不存在时返回false(视为没有常量表), 常量字段保持默认值。
+    /// 常量在excel中单独维护, 导出json时放进同一张表json的const段, 因此json数据源同样能读到常量;
+    /// 没有常量时返回false, 常量字段保持默认值。
     bool ReadConstantRows(const SheetReadRequest& request, Rows& rows) const {
-        if (request.constantSheetName.empty()) {
-            return false;
-        }
-        const std::string path = JoinPath(request.rootPath, request.constantSheetName + ".json");
+        const std::string path = JoinPath(request.rootPath, request.sheetName + ".json");
         std::ifstream probe(path, std::ios::binary);
         if (!probe) {
             return false;
         }
         probe.close();
         const detail::JsonValue root = detail::JsonParser(ReadFile(path)).Parse();
-        if (root.type != detail::JsonType::Array) {
-            throw std::runtime_error("常量表json根节点不是数组: " + path);
+        if (root.type != detail::JsonType::Object) {
+            throw std::runtime_error("json根节点不是对象: " + path);
         }
+        const auto constIterator = root.object.find(kConstFieldName);
+        if (constIterator == root.object.end() || constIterator->second.type != detail::JsonType::Array) {
+            // 没有常量: 常量字段保持默认值
+            return false;
+        }
+        const detail::JsonValue& constValue = constIterator->second;
         Rows constantRows;
-        constantRows.reserve(root.array.size());
-        for (const detail::JsonValue& rowValue : root.array) {
+        constantRows.reserve(constValue.array.size());
+        for (const detail::JsonValue& rowValue : constValue.array) {
             if (rowValue.type != detail::JsonType::Array) {
                 continue;
             }

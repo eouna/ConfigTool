@@ -11,6 +11,11 @@ use super::base_cfg_container::{
     date_format, java_date_to_chrono, map_spec, seq_spec, SheetData,
 };
 
+/// json内容: 常量段字段名
+const CONST_FIELD_NAME: &str = "const";
+/// json内容: 数据段字段名
+const DATA_FIELD_NAME: &str = "data";
+
 /// 字段元数据(字段名 + 配置表中的原始类型)
 #[derive(Debug, Clone)]
 pub struct FieldMeta {
@@ -52,9 +57,18 @@ impl DataSource for JsonDataSource {
             .map_err(|error| format!("读取json失败 {}: {}", path.display(), error))?;
         let root_value: Value = serde_json::from_str(&content)
             .map_err(|error| format!("解析json失败 {}: {}", path.display(), error))?;
-        let object = root_value
+        let sheet_object = root_value
             .as_object()
             .ok_or_else(|| format!("json根节点不是对象: {}", path.display()))?;
+        let data_value = sheet_object.get(DATA_FIELD_NAME).ok_or_else(|| {
+            format!(
+                "json数据格式错误, 缺少data字段(应为 {{const:[...], data:{{...}}}}): {}",
+                path.display()
+            )
+        })?;
+        let object = data_value
+            .as_object()
+            .ok_or_else(|| format!("json数据格式错误, data字段不是对象: {}", path.display()))?;
 
         let field_count = request.fields.len();
         let head_row_count = request
@@ -107,23 +121,19 @@ impl DataSource for JsonDataSource {
         &self,
         request: &SheetReadRequest<'_>,
     ) -> Result<Option<SheetData>, String> {
-        if request.constant_sheet_name.is_empty() {
-            return Ok(None);
-        }
-        // 常量表由工具按excel行列布局导出为 <常量表名>.json
-        let path = Path::new(request.root_path)
-            .join(format!("{}.json", request.constant_sheet_name));
-        if !path.is_file() {
-            // 没有导出常量表: 常量字段保持默认值
-            return Ok(None);
-        }
+        // 常量在该表json的const段(由工具按excel行列布局导出)
+        let path = Path::new(request.root_path).join(format!("{}.json", request.sheet_name));
         let content = fs::read_to_string(&path)
-            .map_err(|error| format!("读取常量表json失败 {}: {}", path.display(), error))?;
+            .map_err(|error| format!("读取json失败 {}: {}", path.display(), error))?;
         let root_value: Value = serde_json::from_str(&content)
-            .map_err(|error| format!("解析常量表json失败 {}: {}", path.display(), error))?;
-        let rows_value = root_value
-            .as_array()
-            .ok_or_else(|| format!("常量表json根节点不是数组: {}", path.display()))?;
+            .map_err(|error| format!("解析json失败 {}: {}", path.display(), error))?;
+        let Some(const_value) = root_value.get(CONST_FIELD_NAME) else {
+            // 没有常量: 常量字段保持默认值
+            return Ok(None);
+        };
+        let Some(rows_value) = const_value.as_array() else {
+            return Ok(None);
+        };
         let mut rows: Vec<Vec<String>> = Vec::with_capacity(rows_value.len());
         for row_value in rows_value {
             let Some(cells) = row_value.as_array() else {

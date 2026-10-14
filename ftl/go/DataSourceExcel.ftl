@@ -30,6 +30,8 @@ type SheetReadRequest struct {
 	FileName string
 	// 表名(工作薄名); json数据源按 <表名>.json 读取
 	SheetName string
+	// 常量表名: excel数据源据此读取常量工作薄; json数据源的常量在 <表名>.json 的const段
+	ConstSheetName string
 	// 字段元数据(按列顺序), json数据源据此还原表头
 	Fields []FieldMeta
 	// 表头行索引(与容器配置一致)
@@ -77,12 +79,15 @@ func (d *excelDataSource) ReadSheet(req SheetReadRequest) ([][]string, error) {
 
 // ReadConstantRows 读取常量工作薄
 func (d *excelDataSource) ReadConstantRows(req SheetReadRequest) ([][]string, error) {
+	if req.ConstSheetName == "" {
+		return nil, nil
+	}
 	workbook, err := excelize.OpenFile(filepath.Join(req.RootPath, req.FileName))
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = workbook.Close() }()
-	return workbook.GetRows(req.SheetName)
+	return workbook.GetRows(req.ConstSheetName)
 }
 
 // FileDigest 计算excel文件的md5

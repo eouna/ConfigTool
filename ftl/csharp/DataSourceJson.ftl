@@ -64,8 +64,14 @@ namespace ConfigTool.Cfg
         private static readonly Regex MapInner =
             new Regex(@"^(.+?)\{(.)\}(.+)$", RegexOptions.Compiled);
 
-        /// <summary>常量表名(工具按excel行列布局导出为 &lt;常量表名&gt;.json)</summary>
+        /// <summary>常量表名(常量工作表名, json的const段还原成同名工作表)</summary>
         private const string ConstantSheetName = "${constantSheetName}";
+
+        /// <summary>json内容: 常量段字段名</summary>
+        private const string ConstFieldName = "const";
+
+        /// <summary>json内容: 数据段字段名</summary>
+        private const string DataFieldName = "data";
 
         public XLWorkbook OpenWorkbook(
             string rootPath,
@@ -77,10 +83,12 @@ namespace ConfigTool.Cfg
             int dataStartRow)
         {
             using JsonDocument document = ReadJson(rootPath, sheetName);
+            JsonElement sheetJson = document.RootElement;
             var workbook = new XLWorkbook();
             var sheet = workbook.Worksheets.Add(sheetName);
-            // 常量表: 工具按excel行列布局导出为 <常量表名>.json, 这里还原成同名工作表供容器读取常量
-            AppendConstantSheet(workbook, rootPath);
+            // 常量表: 同一json的const段, 这里还原成同名工作表供容器读取常量
+            AppendConstantSheet(workbook, sheetJson);
+            JsonElement dataElement = GetDataElement(sheetJson, sheetName);
             int colCount = fields?.Count ?? 0;
             int headRowCount = Math.Max(dataStartRow, Math.Max(nameRow, typeRow) + 1);
             for (int rowIndex = 0; rowIndex < headRowCount; rowIndex++)
@@ -94,12 +102,12 @@ namespace ConfigTool.Cfg
                     sheet.Cell(rowIndex + 1, colIndex + 1).Value = headValue;
                 }
             }
-            if (document.RootElement.ValueKind != JsonValueKind.Object || fields == null)
+            if (dataElement.ValueKind != JsonValueKind.Object || fields == null)
             {
                 return workbook;
             }
 
-            List<JsonProperty> items = document.RootElement
+            List<JsonProperty> items = dataElement
                 .EnumerateObject()
                 .Where(item => item.Value.ValueKind == JsonValueKind.Object)
                 .Where(item => !string.Equals(item.Name.Trim(), "0", StringComparison.Ordinal))
@@ -131,25 +139,37 @@ namespace ConfigTool.Cfg
         }
 
         /// <summary>
-        /// 追加常量表工作表: 常量表由工具按excel行列布局导出为 &lt;常量表名&gt;.json(首行为表头),
+        /// 取整表json中的数据段(data)。
+        /// json结构: {"const": [[常量表行]], "data": {"&lt;id&gt;": {字段: 值}}}
+        /// </summary>
+        private static JsonElement GetDataElement(JsonElement sheetJson, string sheetName)
+        {
+            if (sheetJson.ValueKind != JsonValueKind.Object
+                || !sheetJson.TryGetProperty(DataFieldName, out JsonElement dataElement)
+                || dataElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidOperationException(
+                    "json数据格式错误, 缺少data字段(应为 {const:[...], data:{...}}): " + sheetName + ".json");
+            }
+            return dataElement;
+        }
+
+        /// <summary>
+        /// 追加常量表工作表: 常量表放在该表json的const段(按excel行列布局, 首行为表头),
         /// 按同样的行列布局还原后, 容器即可复用excel下的常量解析逻辑。
         /// </summary>
-        private static void AppendConstantSheet(XLWorkbook workbook, string rootPath)
+        private static void AppendConstantSheet(XLWorkbook workbook, JsonElement sheetJson)
         {
-            string fullPath = Path.Combine(rootPath, ConstantSheetName + ".json");
-            if (!File.Exists(fullPath))
+            if (sheetJson.ValueKind != JsonValueKind.Object
+                || !sheetJson.TryGetProperty(ConstFieldName, out JsonElement constElement)
+                || constElement.ValueKind != JsonValueKind.Array)
             {
-                // 没有导出常量表: 不追加, 常量字段保持默认值
-                return;
-            }
-            using JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(fullPath));
-            if (document.RootElement.ValueKind != JsonValueKind.Array)
-            {
+                // 没有常量: 不追加, 常量字段保持默认值
                 return;
             }
             var sheet = workbook.Worksheets.Add(ConstantSheetName);
             int rowIndex = 1;
-            foreach (JsonElement rowValue in document.RootElement.EnumerateArray())
+            foreach (JsonElement rowValue in constElement.EnumerateArray())
             {
                 if (rowValue.ValueKind != JsonValueKind.Array)
                 {

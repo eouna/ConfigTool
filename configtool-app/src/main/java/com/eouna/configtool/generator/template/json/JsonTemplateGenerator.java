@@ -50,16 +50,20 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
   private final Map<String, HashMap<Integer, Object>> jsonDataKeeper =
       new ConcurrentSkipListMap<>();
 
-  /**
-   * 常量表数据(常量名 -> 按excel列顺序排列的单元格文本)。
-   *
-   * <p>常量表原先只在excel中维护, json数据源没有常量来源; 这里按excel同样的行列布局收集,
-   * 生成时导出为 {@code <常量表名>.json}, 各语言json数据源据此还原常量表。
-   */
-  private final Map<String, List<String>> constantSheetRows = new LinkedHashMap<>();
+  /** json内容: 常量段字段名 */
+  private static final String JSON_FIELD_CONST = "const";
 
-  /** 常量表表头行(excel中的第0行), 导出时作为json的首行 */
-  private List<String> constantSheetTitleRow;
+  /** json内容: 数据段字段名 */
+  private static final String JSON_FIELD_DATA = "data";
+
+  /**
+   * 常量表数据(数据表名 -> 常量行, 首行为excel常量表的表头)。
+   *
+   * <p>常量表在excel中单独维护, json导出时按excel同样的行列布局放进该表json的 {@code const} 段,
+   * 各语言json数据源据此还原常量。
+   */
+  private final Map<String, List<List<String>>> constantSheetRowsBySheet =
+      new ConcurrentSkipListMap<>();
 
   /**
    * 单例
@@ -115,14 +119,13 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
     checkRepeatSheetName(sheet);
     // 开始解析单个文件
     loadSheetData(file, sheetBean, excelFileStructure);
-    // 收集常量表(用于导出 <常量表名>.json)
-    collectConstantSheetRows(workbook);
+    // 收集常量表(该表json的const段)
+    collectConstantSheetRows(workbook, sheet.getSheetName());
   }
 
   /** 重置常量表收集结果(每次生成前调用) */
   private synchronized void resetConstantSheetRows() {
-    constantSheetRows.clear();
-    constantSheetTitleRow = null;
+    constantSheetRowsBySheet.clear();
   }
 
   /**
@@ -133,8 +136,8 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
    *
    * @param workbook 当前excel工作薄
    */
-  private synchronized void collectConstantSheetRows(Workbook workbook) {
-    if (workbook == null) {
+  private synchronized void collectConstantSheetRows(Workbook workbook, String sheetName) {
+    if (workbook == null || StringUtils.isEmpty(sheetName)) {
       return;
     }
     String constantSheetName =
@@ -150,6 +153,8 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
         SystemConfigHolder.getInstance().getExcelConf().getConstantFieldRow().getFieldNameCol();
     DataFormatter dataFormatter = new DataFormatter();
     FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+    List<String> titleRow = null;
+    Map<String, List<String>> rowsByName = new LinkedHashMap<>();
     for (int rowIndex = 0; rowIndex <= constantSheet.getLastRowNum(); rowIndex++) {
       Row row = constantSheet.getRow(rowIndex);
       if (ExcelUtils.isBlankRow(row)) {
@@ -158,8 +163,8 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
       List<String> cellTexts = readRowCellTexts(row, dataFormatter, evaluator);
       // 第0行固定是表头, 与excel保持一致(容器解析常量时会跳过该行)
       if (rowIndex == 0) {
-        if (constantSheetTitleRow == null) {
-          constantSheetTitleRow = cellTexts;
+        if (titleRow == null) {
+          titleRow = cellTexts;
         }
         continue;
       }
@@ -167,8 +172,45 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
       if (fieldName.isEmpty()) {
         continue;
       }
-      constantSheetRows.put(fieldName, cellTexts);
+      rowsByName.put(fieldName, cellTexts);
     }
+    if (titleRow == null && rowsByName.isEmpty()) {
+      return;
+    }
+    List<List<String>> exportRows = new ArrayList<>(rowsByName.size() + 1);
+    exportRows.add(titleRow == null ? new ArrayList<>() : titleRow);
+    exportRows.addAll(rowsByName.values());
+    constantSheetRowsBySheet.put(sheetName, exportRows);
+  }
+
+  /** 取某张表的常量段(const): 按excel行列布局的字符串表, 没有常量时返回空数组 */
+  private List<List<String>> getConstantSheetRows(String sheetName) {
+    List<List<String>> rows;
+    synchronized (this) {
+      rows = constantSheetRowsBySheet.get(sheetName);
+    }
+    if (rows == null) {
+      return new ArrayList<>();
+    }
+    return new ArrayList<>(rows);
+  }
+
+  /**
+   * 组装单张表的json内容。
+   *
+   * <p>结构: {@code {"const": [[常量表行]], "data": {"<id>": {字段: 值}}}}。
+   * {@code const} 为该表所在excel文件里常量表的内容(字符串表, 首行为表头), 没有常量时为空数组;
+   * {@code data} 为excel里的配置数据(与旧版json内容一致)。
+   *
+   * @param sheetName 表名
+   * @param sheetData 配置数据(id -> 行数据)
+   * @return json内容
+   */
+  private Map<String, Object> buildSheetJsonData(String sheetName, Map<Integer, Object> sheetData) {
+    Map<String, Object> sheetJsonData = new LinkedHashMap<>(4);
+    sheetJsonData.put(JSON_FIELD_CONST, getConstantSheetRows(sheetName));
+    sheetJsonData.put(JSON_FIELD_DATA, sheetData);
+    return sheetJsonData;
   }
 
   /** 读取一整行的单元格文本(数字按excel显示格式, 避免出现多余的 .0) */
@@ -181,51 +223,6 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
       cellTexts.add(cell == null ? "" : dataFormatter.formatCellValue(cell, evaluator));
     }
     return cellTexts;
-  }
-
-  /**
-   * 导出常量表json(按excel行列布局, 首行为表头)。
-   *
-   * <p>没有配置常量时跳过, 不产生多余文件; 各语言json数据源按 {@code <常量表名>.json} 读取。
-   *
-   * @param textAreaLogger 日志
-   */
-  private void writeConstantSheetJson(TextAreaLogger textAreaLogger) {
-    List<List<String>> exportRows = new ArrayList<>();
-    synchronized (this) {
-      if (constantSheetRows.isEmpty()) {
-        textAreaLogger.info("未配置常量表, 跳过json常量导出");
-        return;
-      }
-      exportRows.add(
-          constantSheetTitleRow == null
-              ? new ArrayList<>()
-              : new ArrayList<>(constantSheetTitleRow));
-      exportRows.addAll(new ArrayList<>(constantSheetRows.values()));
-    }
-    AbstractTemplateHandler jsonTemplateHandler =
-        ETemplateGenerator.JSON_GENERATOR.getTemplateHandler();
-    String constantSheetName =
-        SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName();
-    File outJsonFile =
-        new File(
-            SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplateFileGenTargetDir()
-                + File.separator
-                + jsonTemplateHandler.getTemplateBindRelatedPath()
-                + File.separator
-                + constantSheetName
-                + jsonTemplateHandler.getFileIdentifier());
-    try {
-      String constantJsonStr = getGsonSerialize().toJson(exportRows);
-      FileUtils.writeStringToFile(outJsonFile, constantJsonStr, StandardCharsets.UTF_8);
-      textAreaLogger.info(
-          "生成json常量表结束, 常量数量: {}, 文件: {}",
-          exportRows.size() - 1,
-          outJsonFile.getName());
-    } catch (IOException ioException) {
-      textAreaLogger.error("导出json常量表错误");
-      LoggerUtils.getLogger().error("导出json常量表错误", ioException);
-    }
   }
 
   /**
@@ -412,8 +409,6 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
   @Override
   public void generatorAfter(
       TextAreaLogger textAreaLogger, Map<File, ExcelFileStructure> excelFileStructureMap) {
-    // 常量表也导出为json(<常量表名>.json), 供各语言的json数据源读取常量
-    writeConstantSheetJson(textAreaLogger);
     // 是否分为多个json文件
     if (SystemConfigHolder.getInstance().getJsonTemplateConf().isSplitMultiJson()) {
       splitMultiJsonFile(textAreaLogger);
@@ -435,8 +430,14 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
                 + File.separator
                 + "out.json");
     try {
+      // 合并模式: 每个表名对应 {const, data}
+      Map<String, Object> allSheetJsonData = new LinkedHashMap<>(jsonDataKeeper.size());
+      for (Entry<String, HashMap<Integer, Object>> entry : jsonDataKeeper.entrySet()) {
+        allSheetJsonData.put(
+            entry.getKey(), buildSheetJsonData(entry.getKey(), entry.getValue()));
+      }
       Gson gson = getGsonSerialize();
-      String luaDataJsonStr = gson.toJson(jsonDataKeeper);
+      String luaDataJsonStr = gson.toJson(allSheetJsonData);
       FileUtils.writeStringToFile(outJsonFile, luaDataJsonStr, StandardCharsets.UTF_8);
       textAreaLogger.info("生成json文件模板结束,文件大小: {}", MemUsageUtils.humanSizeOf(luaDataJsonStr));
     } catch (IOException ioException) {
@@ -462,7 +463,8 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
                     + sheetName
                     + jsonTemplateHandler.getFileIdentifier());
         Gson gson = getGsonSerialize();
-        String jsonDataJsonStr = gson.toJson(entry.getValue());
+        // 每张表: {const: [常量行], data: {id: {字段: 值}}}
+        String jsonDataJsonStr = gson.toJson(buildSheetJsonData(sheetName, entry.getValue()));
         FileUtils.writeStringToFile(outJsonFile, jsonDataJsonStr, StandardCharsets.UTF_8);
       }
       textAreaLogger.info("生成json文件模板结束");

@@ -140,8 +140,8 @@
 常量与数据源的关系:
 
 - 选择 `excel` 数据源: 生成的代码在运行时读取 excel 里的该工作薄;
-- 选择 `json` 数据源: 工具会把常量表一并导出为 `<导出目录>/json/<常量表名>.json`(首行为表头, 单元格文本与 excel 一致),
-  java / go / csharp / rust / cpp 的 json 数据源都会从该文件还原常量, 不再依赖 excel;
+- 选择 `json` 数据源: 常量会随该表的 json 一起导出到 `const` 段(按 excel 行列布局, 首行为表头, 单元格文本与 excel 一致),
+  java / go / csharp / rust / cpp 的 json 数据源都会从 `const` 还原常量, 不再依赖 excel;
 - `js` / `lua`: 常量在生成代码时就写入 `constants_*` 模块, 与选择哪种数据源无关.
 
 ## 7. 数据范围: 这个字段给谁用
@@ -279,7 +279,7 @@ out/
 ├── java/       # java bean / container / manager 等
 ├── go/         # go bean / container / manager 等
 ├── js/         # javascript 读取代码(数据源为 json)
-└── json/       # 每张表对应的 json 数据 + 常量表(有常量时导出为 <常量表名>.json)
+└── json/       # 每张表对应的 json 数据(结构: { const: [常量行], data: { id: {字段: 值} } })
 ```
 
 说明:
@@ -297,7 +297,7 @@ out/
 | 数据源     | 说明                                           |
 |---------|----------------------------------------------|
 | `excel` | 生成的代码直接读 xlsx(需要 xlsx 解析库, 如 java 的 POI)     |
-| `json`  | 生成的代码读取 `<导出目录>/json/<表名>.json`; 选择 json 数据源时工具会自动追加 json 导出 |
+| `json`  | 生成的代码读取 `<导出目录>/json/<表名>.json`(结构 `{ const: [...], data: {...} }`); 选择 json 数据源时工具会自动追加 json 导出 |
 
 > 选择 `json` 数据源时, 生成的主入口会将默认数据目录写成 `<导出目录>/json`, 因此可以直接运行主入口完成预加载,
 > 也可以由预加载流程显式传入同一目录。
@@ -310,8 +310,9 @@ out/
 2. 列表/集合会**按类型里的分隔符重新拼回字符串**再解析（`List<int>{,}` → `100,101,102`；`Set<int>{,}` 同理），因此集合的"
    顺序"不保证与原 excel 一致。
 3. 时间类型按类型里写的格式还原（`Date<yyyy-MM-dd HH:mm>` → `2023-12-14 19:01`）。
-4. 常量表会随 json 一起导出为 `<导出目录>/json/<常量表名>.json`(按 excel 行列布局的字符串二维数组), java / go / csharp / rust / cpp 的
-   json 数据源都会读取它; 未配置常量表时不会产生该文件(`js` / `lua` 的常量写在生成代码里)。
+4. 每张表的 json 分为两段: `const`(该表所在 excel 文件里常量表的行, 按 excel 行列布局的字符串二维数组, 首行为表头)与
+   `data`(excel 里的配置数据, 与旧版 json 内容一致)。java / go / csharp / rust / cpp 的 json 数据源会分别读取这两段;
+   没有常量时 `const` 为空数组(`js` / `lua` 的常量写在生成代码里)。
 
 ## 四、源码方式运行(开发)
 

@@ -5,7 +5,9 @@ package ${packageName}
 // 读取工具导出的 <表名>.json, 并还原成与excel一致的"字符串表格",
 // 这样容器里的类型解析(list/set/map/date/enum...)可以完全复用, 不需要为json单独写一套解析。
 //
-// 数据格式: { "<id>": { "字段名": 值, ... }, ... }  (key为"0"的是枚举定义, 不是数据行)
+// 数据格式: { "const": [[常量表行]], "data": { "<id>": { "字段名": 值, ... } } }
+//   const -> 该表的常量(excel里的常量工作薄, 首行为表头, 单元格文本与excel一致)
+//   data  -> excel里的配置数据(key为"0"的是枚举定义, 不是数据行)
 
 import (
 	"crypto/md5"
@@ -34,6 +36,8 @@ type SheetReadRequest struct {
 	FileName string
 	// 表名(工作薄名); json数据源按 <表名>.json 读取
 	SheetName string
+	// 常量表名: excel数据源据此读取常量工作薄; json数据源的常量在 <表名>.json 的const段
+	ConstSheetName string
 	// 字段元数据(按列顺序), json数据源据此还原表头
 	Fields []FieldMeta
 	// 表头行索引(与容器配置一致)
@@ -62,6 +66,12 @@ func NewDataSource() DataSource {
 	return &jsonDataSource{}
 }
 
+// json内容: 常量段/数据段字段名
+const (
+	jsonFieldConst = "const"
+	jsonFieldData  = "data"
+)
+
 // jsonDataSource 基于标准库 encoding/json 的json数据源
 type jsonDataSource struct{}
 
@@ -72,9 +82,17 @@ func (d *jsonDataSource) ReadSheet(req SheetReadRequest) ([][]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var rawMap map[string]any
-	if err = json.Unmarshal(rawData, &rawMap); err != nil {
+	var sheetJson map[string]any
+	if err = json.Unmarshal(rawData, &sheetJson); err != nil {
 		return nil, fmt.Errorf("解析json失败: %s: %w", fullPath, err)
+	}
+	dataValue, exists := sheetJson[jsonFieldData]
+	if !exists {
+		return nil, fmt.Errorf("json数据格式错误, 缺少data字段(应为 {const:[...], data:{...}}): %s", fullPath)
+	}
+	rawMap, ok := dataValue.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("json数据格式错误, data字段不是对象: %s", fullPath)
 	}
 
 	colCount := len(req.Fields)
@@ -134,19 +152,27 @@ func (d *jsonDataSource) ReadSheet(req SheetReadRequest) ([][]string, error) {
 	return rows, nil
 }
 
-// ReadConstantRows 读取常量表(<常量表名>.json, 由工具按excel行列布局导出)
+// ReadConstantRows 读取常量表(<表名>.json 的 const 段, 由工具按excel行列布局导出)
 //
-// 常量表在excel中单独维护, 导出json时会一并导出为 <常量表名>.json, 因此json数据源同样能读到常量;
-// 文件不存在时返回nil(视为没有常量表), 常量字段保持默认值。
+// 常量在excel中单独维护, 导出json时放进同一张表json的const段, 因此json数据源同样能读到常量;
+// 没有常量时返回nil, 常量字段保持默认值。
 func (d *jsonDataSource) ReadConstantRows(req SheetReadRequest) ([][]string, error) {
 	fullPath := filepath.Join(req.RootPath, req.SheetName+".json")
 	rawData, err := os.ReadFile(fullPath)
 	if err != nil {
 		return nil, nil
 	}
-	var rawRows []any
-	if err = json.Unmarshal(rawData, &rawRows); err != nil {
-		return nil, fmt.Errorf("解析常量表json失败: %s: %w", fullPath, err)
+	var sheetJson map[string]any
+	if err = json.Unmarshal(rawData, &sheetJson); err != nil {
+		return nil, fmt.Errorf("解析json失败: %s: %w", fullPath, err)
+	}
+	constValue, exists := sheetJson[jsonFieldConst]
+	if !exists {
+		return nil, nil
+	}
+	rawRows, ok := constValue.([]any)
+	if !ok {
+		return nil, nil
 	}
 	rows := make([][]string, 0, len(rawRows))
 	for _, rawRow := range rawRows {

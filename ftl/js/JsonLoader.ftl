@@ -33,11 +33,11 @@ export class JsonLoader {
    * @returns {Promise<object>} { 主键: { 字段: 值 } }
    */
   async loadSheet(sheetName) {
-    if (SPLIT_MULTI_JSON) {
-      return await this.load(sheetName + '.json');
-    }
-    const all = await this.load('out.json');
-    return (all && all[sheetName]) || {};
+    /** 工具导出的每张表json结构: { const: [常量行], data: { 主键: { 字段: 值 } } } */
+    const sheetJson = SPLIT_MULTI_JSON
+      ? await this.load(sheetName + '.json')
+      : ((await this.load('out.json')) || {})[sheetName];
+    return (sheetJson && sheetJson.data) || {};
   }
 }
 
