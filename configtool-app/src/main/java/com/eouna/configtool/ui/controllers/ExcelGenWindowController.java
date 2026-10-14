@@ -220,6 +220,18 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 当前语言是否已完成预加载; 用于保持“删除主入口”按钮可见 */
   private volatile boolean preloadSucceeded = false;
 
+  /** 第一步(生成模板)在当前选择下是否已完成; 完成前「下一步」置灰, 完成后点击「下一步」不重复生成 */
+  private volatile boolean generationCompleted = false;
+
+  /** 第一步(生成模板)是否正在执行; 执行期间禁止切换步骤 */
+  private volatile boolean generationRunning = false;
+
+  /** 第二步(预加载)是否已完成(预加载成功或用户已跳过); 完成前「下一步」置灰 */
+  private volatile boolean preloadDone = false;
+
+  /** 第二步(预加载)是否正在执行; 执行期间预加载/跳过按钮全部置灰 */
+  private volatile boolean preloadRunning = false;
+
   /** excel选中列表 */
   private static final ObservableSet<String> EXCEL_SELECTED_LIST =
       FXCollections.synchronizedObservableSet(FXCollections.observableSet());
@@ -317,6 +329,8 @@ public class ExcelGenWindowController extends BaseWindowController {
         .getExcelConf()
         .getPath()
         .setExcelConfigLoadPath(excelConfigPathField.getText());
+    // excel目录变化: 生成结果作废
+    invalidateGeneratedResult();
   }
 
   @FXML
@@ -329,6 +343,8 @@ public class ExcelGenWindowController extends BaseWindowController {
         .getExcelConf()
         .getPath()
         .setTemplateFileGenTargetDir(templateGenTargetPathField.getText());
+    // 生成目录变化: 原生成结果与预加载结果作废
+    invalidateGeneratedResult();
   }
 
   @FXML
@@ -341,6 +357,8 @@ public class ExcelGenWindowController extends BaseWindowController {
         .getExcelConf()
         .getPath()
         .setTemplatePath(templatePathField.getText());
+    // 模板目录变化: 生成结果作废
+    invalidateGeneratedResult();
   }
 
   @FXML
@@ -389,7 +407,8 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (isJsLangSelected()) {
       forceLoadSourceJson();
     }
-    preloadSucceeded = false;
+    // 语言变化: 第一步/第二步的操作结果作废, 「下一步」重新置灰
+    invalidateGeneratedResult();
     refreshLangOptionUsage();
     if (currentStep == STEP_PRELOAD) {
       refreshPreloadStep();
@@ -399,7 +418,8 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 语言加载选项单选变化 */
   @FXML
   protected void onLoadSourceChanged() {
-    preloadSucceeded = false;
+    // 数据读取方式变化: 第一步/第二步的操作结果作废, 「下一步」重新置灰
+    invalidateGeneratedResult();
     refreshLangOptionUsage();
     if (currentStep == STEP_PRELOAD) {
       refreshPreloadStep();
@@ -505,15 +525,31 @@ public class ExcelGenWindowController extends BaseWindowController {
     switchStep(currentStep - 1);
   }
 
-  /** 下一步: 各步骤的主操作(第一步=生成; 第二步=跳过预加载) */
+  /**
+   * 下一步: 仅用于步骤切换。
+   *
+   * <p>当前步骤的操作完成后「下一步」才可用; 若操作已完成(例如从第二步点「上一步」再点「下一步」),
+   * 直接跳到下一步, 不会重复执行上一步的操作。
+   */
   @FXML
   protected void onNextStepClick() {
+    if (isStepOperationRunning()) {
+      return;
+    }
     switch (currentStep) {
       case STEP_GENERATE:
-        generateTemplateFiles();
+        if (generationCompleted) {
+          switchStep(STEP_PRELOAD);
+        } else {
+          textAreaLogger.info("请先点击「生成模板」完成第一步");
+        }
         break;
       case STEP_PRELOAD:
-        goToUploadStep();
+        if (preloadDone) {
+          goToUploadStep();
+        } else {
+          textAreaLogger.info("请先点击「预加载」或「跳过」完成第二步");
+        }
         break;
       default:
         break;
@@ -549,12 +585,8 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (stepHintLabel != null) {
       stepHintLabel.setText(getStepHint(currentStep));
     }
-    if (prevStepBtn != null) {
-      prevStepBtn.setDisable(currentStep <= STEP_GENERATE);
-    }
-    if (nextStepBtn != null) {
-      nextStepBtn.setDisable(currentStep >= STEP_UPLOAD);
-    }
+    // 当前步骤的操作未完成/正在执行时「下一步」置灰
+    refreshStepNavButtons();
     if (currentStep == STEP_PRELOAD) {
       refreshPreloadStep();
     }
@@ -566,6 +598,59 @@ public class ExcelGenWindowController extends BaseWindowController {
             currentStepScroll.setVvalue(0);
           }
         });
+  }
+
+  /**
+   * 刷新底部导航按钮状态。
+   *
+   * <p>规则: 当前步骤的操作正在执行时禁止切换步骤; 当前步骤的操作未完成时「下一步」置灰。
+   */
+  private void refreshStepNavButtons() {
+    // 生成回调可能来自工作线程, 统一回到UI线程刷新按钮
+    if (!Platform.isFxApplicationThread()) {
+      Platform.runLater(this::refreshStepNavButtons);
+      return;
+    }
+    boolean running = isStepOperationRunning();
+    if (prevStepBtn != null) {
+      prevStepBtn.setDisable(running || currentStep <= STEP_GENERATE);
+    }
+    if (nextStepBtn != null) {
+      nextStepBtn.setDisable(running || !isCurrentStepFinished());
+    }
+  }
+
+  /** 当前步骤的操作是否正在执行 */
+  private boolean isStepOperationRunning() {
+    if (currentStep == STEP_GENERATE) {
+      return generationRunning;
+    }
+    if (currentStep == STEP_PRELOAD) {
+      return preloadRunning;
+    }
+    return false;
+  }
+
+  /** 当前步骤的操作是否已完成(完成后才允许进入下一步) */
+  private boolean isCurrentStepFinished() {
+    switch (currentStep) {
+      case STEP_GENERATE:
+        return generationCompleted;
+      case STEP_PRELOAD:
+        return preloadDone;
+      default:
+        // 第三步是最后一步, 没有下一步
+        return false;
+    }
+  }
+
+  /**
+   * 生成相关的选择发生变化时调用: 第一步/第二步的操作结果作废, 「下一步」重新置灰。
+   */
+  private void invalidateGeneratedResult() {
+    generationCompleted = false;
+    resetPreloadState();
+    refreshStepNavButtons();
   }
 
   /** 当前步骤对应的滚动容器 */
@@ -603,11 +688,11 @@ public class ExcelGenWindowController extends BaseWindowController {
   private String getStepHint(int step) {
     switch (step) {
       case STEP_PRELOAD:
-        return "选择「预加载」或「跳过」";
+        return "点击「预加载」或「跳过」, 完成后可进入下一步";
       case STEP_UPLOAD:
         return "勾选服务器后点击「同步配置表」";
       default:
-        return "选择语言后点击「下一步」生成";
+        return "选择语言后点击「生成模板」, 生成完成后可进入下一步";
     }
   }
 
@@ -634,8 +719,9 @@ public class ExcelGenWindowController extends BaseWindowController {
     // 5. excel勾选与进度复位
     cleanExcelSelectedData();
     resetPercentageData();
-    // 6. 流程状态复位
+    // 6. 流程状态复位(第一步/第二步的操作结果一并复位)
     this.excelUpdateState = EExcelUpdateState.NONE;
+    generationCompleted = false;
     // 7. 重新加载excel列表
     reloadExcelList();
     // 8. 刷新界面
@@ -671,6 +757,8 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 第二步预加载相关状态复位 */
   private void resetPreloadState() {
     preloadSucceeded = false;
+    preloadDone = false;
+    preloadRunning = false;
     if (preloadLangLabel != null) {
       preloadLangLabel.setText("当前语言: -");
     }
@@ -740,20 +828,53 @@ public class ExcelGenWindowController extends BaseWindowController {
       }
     }
     boolean canPreload = envAvailable && supportsPreload(generator);
+    // 预加载执行期间「预加载」「跳过」都置灰, 执行完成后再亮起
+    refreshPreloadButtons(canPreload);
+    // 删除主入口按钮默认隐藏, 预加载成功后保持显示
+    setDeleteMainEntryButtonVisible(preloadSucceeded);
+    if (preloadResultLabel != null) {
+      if (preloadSucceeded) {
+        preloadResultLabel.setText("预加载完成, 可删除主入口或点击下一步");
+      } else if (preloadDone) {
+        preloadResultLabel.setText("已跳过预加载, 可点击下一步继续");
+      } else {
+        preloadResultLabel.setText(
+            canPreload ? "可以执行预加载, 也可以直接跳过" : "暂无可用的预加载方式, 请点击「跳过」");
+      }
+    }
+  }
+
+  /**
+   * 刷新第二步按钮的可用状态。
+   *
+   * <p>预加载执行期间「预加载」「跳过」置灰, 操作完成后重新亮起。
+   */
+  private void refreshPreloadButtons() {
+    refreshPreloadButtons(isPreloadAvailable());
+  }
+
+  /** 是否可以执行预加载(运行环境可用且该语言支持预加载) */
+  private boolean isPreloadAvailable() {
+    TemplateEnvResult envResult =
+        templateEnvContext == null ? null : templateEnvContext.get(getSelectedLangId());
+    boolean envAvailable = envResult != null && envResult.isAvailable();
+    return envAvailable && supportsPreload(getSelectedLangGenerator());
+  }
+
+  /** 按预加载可用性与执行状态刷新第二步按钮 */
+  private void refreshPreloadButtons(boolean canPreload) {
     if (preloadBtn != null) {
       preloadBtn.setVisible(canPreload);
       preloadBtn.setManaged(canPreload);
-      preloadBtn.setDisable(!canPreload);
+      preloadBtn.setDisable(!canPreload || preloadRunning);
     }
     if (skipPreloadBtn != null) {
       skipPreloadBtn.setVisible(true);
       skipPreloadBtn.setManaged(true);
-      skipPreloadBtn.setDisable(false);
+      skipPreloadBtn.setDisable(preloadRunning);
     }
-    // 删除主入口按钮默认隐藏, 预加载成功后保持显示
-    setDeleteMainEntryButtonVisible(preloadSucceeded);
-    if (preloadResultLabel != null) {
-      preloadResultLabel.setText(canPreload ? "可以执行预加载, 也可以直接跳过" : "暂无可用的预加载方式, 请点击「跳过」");
+    if (deleteMainEntryBtn != null) {
+      deleteMainEntryBtn.setDisable(preloadRunning);
     }
   }
 
@@ -779,13 +900,20 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 预加载: 执行当前语言生成的主入口, 读取当前选择的数据源 */
   @FXML
   protected void onPreloadClick() {
+    // 预加载执行中不允许重复触发
+    if (preloadRunning) {
+      return;
+    }
     String langId = getSelectedLangId();
     if (!TemplateMainEntrySupport.isPreloadSupported(langId)) {
+      // 无需预加载: 第二步视为已完成, 由用户点击「下一步」继续
+      preloadDone = true;
       if (preloadResultLabel != null) {
-        preloadResultLabel.setText("该语言暂无可运行的主入口, 已跳过");
+        preloadResultLabel.setText("该语言无需预加载, 可直接点击下一步");
       }
-      textAreaLogger.info("{} 无需运行环境, 直接跳过预加载", langId);
-      goToUploadStep();
+      textAreaLogger.info("{} 无需运行环境, 无需预加载", langId);
+      refreshPreloadButtons();
+      refreshStepNavButtons();
       return;
     }
     // 没有主入口说明还没生成, 先提示
@@ -805,9 +933,13 @@ public class ExcelGenWindowController extends BaseWindowController {
     preloadByMainEntry(langId, outputDir);
   }
 
-  /** 跳过预加载 */
+  /** 跳过预加载(第二步视为已完成, 之后从第一步进入可直接点「下一步」) */
   @FXML
   protected void onSkipPreloadClick() {
+    if (preloadRunning) {
+      return;
+    }
+    preloadDone = true;
     goToUploadStep();
   }
 
@@ -850,6 +982,8 @@ public class ExcelGenWindowController extends BaseWindowController {
     }
     textAreaLogger.info("开始预加载 {} , 数据源: {}", langId, dataPath);
     textAreaLogger.info("执行: {}", plan.toDisplayString());
+    // 预加载开始: 第二步的「预加载」「跳过」都置灰, 并禁止切换步骤
+    startPreloadRunning();
     DefaultFuture.runAsync(
         () -> {
           boolean success = false;
@@ -861,21 +995,33 @@ public class ExcelGenWindowController extends BaseWindowController {
             boolean result = success;
             Platform.runLater(
                 () -> {
-                  if (preloadResultLabel != null) {
-                    preloadResultLabel.setText(
-                        result ? "预加载完成, 可删除主入口或点击下一步" : "预加载失败, 可查看日志");
-                  }
-                  // 预加载成功后允许删除生成的主入口代码
+                  // 预加载结束: 按钮重新亮起(「下一步」是否可用取决于预加载结果)
+                  preloadRunning = false;
+                  preloadDone = result;
                   preloadSucceeded = result;
                   setDeleteMainEntryButtonVisible(result);
-                  // 预加载失败时停留在第二步, 必须由用户显式点击"跳过"才能进入上传步骤。
+                  refreshPreloadButtons();
+                  refreshStepNavButtons();
+                  if (preloadResultLabel != null) {
+                    preloadResultLabel.setText(
+                        result ? "预加载完成, 可删除主入口或点击下一步" : "预加载失败, 可查看日志或点击「跳过」");
+                  }
                   if (result) {
-                    // 保持第二步可见, 让删除主入口按钮能够显示; 用户删除后点击下一步继续。
                     updateExcelProcessBtnUsage(EExcelUpdateState.LOAD_DATA);
                   }
                 });
           }
         });
+  }
+
+  /** 进入预加载执行状态: 预加载/跳过按钮置灰, 禁止切换步骤 */
+  private void startPreloadRunning() {
+    preloadRunning = true;
+    refreshPreloadButtons();
+    refreshStepNavButtons();
+    if (preloadResultLabel != null) {
+      preloadResultLabel.setText("预加载中, 请稍候...");
+    }
   }
 
   /** 依次执行计划中的命令, 输出写入日志 */
@@ -1096,6 +1242,8 @@ public class ExcelGenWindowController extends BaseWindowController {
       textAreaLogger.info(desc + " 新值: " + text);
       int changedVal = Integer.parseInt(text);
       consumer.accept(changedVal);
+      // 表头行列配置变化会影响生成结果, 第一步/第二步需要重新执行
+      invalidateGeneratedResult();
     }
   }
 
@@ -1160,9 +1308,13 @@ public class ExcelGenWindowController extends BaseWindowController {
           }
         });
     super.onMounted(args);
-    // 列表变化时直接将状态置为NONE
+    // 列表变化时直接将状态置为NONE, 并作废已完成的生成结果
     EXCEL_SELECTED_LIST.addListener(
-        (SetChangeListener<String>) change -> updateExcelProcessBtnUsage(EExcelUpdateState.NONE));
+        (SetChangeListener<String>)
+            change -> {
+              updateExcelProcessBtnUsage(EExcelUpdateState.NONE);
+              invalidateGeneratedResult();
+            });
   }
 
   @Override
@@ -1384,13 +1536,16 @@ public class ExcelGenWindowController extends BaseWindowController {
                       updateExcelProcessBtnUsage(EExcelUpdateState.GEN_TEMPLATE);
                       currentProgress.setPrefWidth(percentageWidth);
                       currentProgressTips.setText("100%");
-                      // 生成成功后进入第二步: 语言预加载
-                      preloadSucceeded = false;
-                      setDeleteMainEntryButtonVisible(false);
+                      // 第一步操作完成: 再次点击「下一步」直接进入第二步, 不重复生成
+                      generationCompleted = true;
+                      // 生成结果已更新, 第二步需要重新执行一次(预加载/跳过)
+                      resetPreloadState();
                       switchStep(STEP_PRELOAD);
                     } else {
+                      generationCompleted = false;
                       currentProgress.getStyleClass().remove("progress-fill-danger");
                       currentProgress.getStyleClass().add("progress-fill-danger");
+                      refreshStepNavButtons();
                     }
                   });
             });
@@ -1404,17 +1559,14 @@ public class ExcelGenWindowController extends BaseWindowController {
   }
 
   private void toggleTemplateGenBtn(boolean isClose) {
+    generationRunning = isClose;
     // 生成期间只锁步骤内容区, 底部固定操作栏(清除日志/刷新)仍可用
     if (stepPaneContainer != null) {
       stepPaneContainer.setDisable(isClose);
     }
-    if (prevStepBtn != null) {
-      prevStepBtn.setDisable(isClose || currentStep <= STEP_GENERATE);
-    }
-    if (nextStepBtn != null) {
-      nextStepBtn.setDisable(isClose || currentStep >= STEP_UPLOAD);
-    }
     excelShowListContainer.setDisable(isClose);
+    // 生成期间「上一步」「下一步」置灰
+    refreshStepNavButtons();
   }
 
   private void initServerSelector() {
