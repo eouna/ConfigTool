@@ -20,6 +20,8 @@ import com.eouna.configtool.generator.DefaultFuture;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
 import com.eouna.configtool.generator.TemplateMainEntrySupport;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
+import com.eouna.configtool.update.VersionCheckResult;
+import com.eouna.configtool.update.VersionChecker;
 import com.eouna.configtool.utils.*;
 import com.eouna.configtool.utils.hotreload.HotClassLoaderUtils;
 import com.eouna.configtool.utils.hotreload.HotClassLoaderUtils.MethodArgDataTuple;
@@ -34,6 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -52,8 +55,11 @@ import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
@@ -74,6 +80,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextFlow;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -119,6 +126,7 @@ public class ExcelGenWindowController extends BaseWindowController {
   @FXML private Button deleteMainEntryBtn;
   @FXML private Button prevStepBtn;
   @FXML private Button nextStepBtn;
+  @FXML private MenuItem checkUpdateMenuItem;
   @FXML private RadioMenuItem neumorphismThemeMenuItem;
   @FXML private RadioMenuItem lightThemeMenuItem;
   @FXML private RadioMenuItem grandBudapestThemeMenuItem;
@@ -238,6 +246,12 @@ public class ExcelGenWindowController extends BaseWindowController {
 
   /** 当前进度计数器,用于界面底部进度显示 */
   private static final AtomicInteger CURRENT_PROGRESS_COUNTER = new AtomicInteger();
+
+  /** 版本检查服务(github 静默检查/手动检查) */
+  @AutoInject private VersionChecker versionChecker;
+
+  /** 是否正在手动检查更新 */
+  private volatile boolean versionChecking = false;
 
   /** 当前步骤 */
   private int currentStep = STEP_GENERATE;
@@ -528,8 +542,7 @@ public class ExcelGenWindowController extends BaseWindowController {
   /**
    * 下一步: 仅用于步骤切换。
    *
-   * <p>当前步骤的操作完成后「下一步」才可用; 若操作已完成(例如从第二步点「上一步」再点「下一步」),
-   * 直接跳到下一步, 不会重复执行上一步的操作。
+   * <p>当前步骤的操作完成后「下一步」才可用; 若操作已完成(例如从第二步点「上一步」再点「下一步」), 直接跳到下一步, 不会重复执行上一步的操作。
    */
   @FXML
   protected void onNextStepClick() {
@@ -644,9 +657,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     }
   }
 
-  /**
-   * 生成相关的选择发生变化时调用: 第一步/第二步的操作结果作废, 「下一步」重新置灰。
-   */
+  /** 生成相关的选择发生变化时调用: 第一步/第二步的操作结果作废, 「下一步」重新置灰。 */
   private void invalidateGeneratedResult() {
     generationCompleted = false;
     resetPreloadState();
@@ -838,8 +849,7 @@ public class ExcelGenWindowController extends BaseWindowController {
       } else if (preloadDone) {
         preloadResultLabel.setText("已跳过预加载, 可点击下一步继续");
       } else {
-        preloadResultLabel.setText(
-            canPreload ? "可以执行预加载, 也可以直接跳过" : "暂无可用的预加载方式, 请点击「跳过」");
+        preloadResultLabel.setText(canPreload ? "可以执行预加载, 也可以直接跳过" : "暂无可用的预加载方式, 请点击「跳过」");
       }
     }
   }
@@ -1075,11 +1085,7 @@ public class ExcelGenWindowController extends BaseWindowController {
       return processBuilder.start();
     } catch (IOException e) {
       // 可执行文件缺失等启动失败时转成可读提示, 避免直接抛出CreateProcess原始错误
-      throw new IllegalStateException(
-          "启动命令失败: "
-              + command.get(0)
-              + ", 请确认对应工具链已安装并加入PATH",
-          e);
+      throw new IllegalStateException("启动命令失败: " + command.get(0) + ", 请确认对应工具链已安装并加入PATH", e);
     }
   }
 
@@ -1315,6 +1321,8 @@ public class ExcelGenWindowController extends BaseWindowController {
               updateExcelProcessBtnUsage(EExcelUpdateState.NONE);
               invalidateGeneratedResult();
             });
+    // 启动后静默检查一次版本(不阻塞界面, 超时则下次启动再检查)
+    startSilentVersionCheck();
   }
 
   @Override
@@ -1805,6 +1813,177 @@ public class ExcelGenWindowController extends BaseWindowController {
     preloadBtn.setDisable(this.excelUpdateState.checkDisable(EExcelUpdateState.LOAD_DATA));
     syncConfBtn.setDisable(this.excelUpdateState.checkDisable(EExcelUpdateState.SYNC_DATA));
   }
+
+  // region============================== 版本检查 ==============================
+
+  /**
+   * 启动后的静默版本检查。
+   *
+   * <p>在后台线程访问github(10s超时), 不阻塞界面; 有新版本时弹窗提示, 超时/失败只记日志, 本次不再重试, 下次启动再检查。每个进程只执行一次。
+   */
+  private void startSilentVersionCheck() {
+    if (versionChecker == null || !versionChecker.markSilentCheckStarted()) {
+      return;
+    }
+    Thread checkThread =
+        new Thread(
+            () -> {
+              VersionCheckResult result = versionChecker.checkLatest();
+              if (!result.isSuccess()) {
+                LoggerUtils.getLogger()
+                    .info("静默检查更新失败({}), 本次跳过, 下次启动再检查", result.getErrorDescription());
+                return;
+              }
+              // 用户已点击"跳过本次"的版本不再弹窗提示
+              if (!result.isNewVersionFound()
+                  || versionChecker.isSkipped(result.getLatestVersion())) {
+                return;
+              }
+              Platform.runLater(() -> showUpdateDialog(result, true));
+            },
+            "configtool-version-check");
+    checkThread.setDaemon(true);
+    checkThread.start();
+  }
+
+  /** 菜单「检查更新」: 手动检查, 无论是否有跳过记录都会给出提示 */
+  @FXML
+  protected void onCheckUpdateClick() {
+    if (versionChecker == null) {
+      return;
+    }
+    if (versionChecking) {
+      if (textAreaLogger != null) {
+        textAreaLogger.info("正在检查更新, 请稍候...");
+      }
+      return;
+    }
+    versionChecking = true;
+    if (checkUpdateMenuItem != null) {
+      checkUpdateMenuItem.setDisable(true);
+    }
+    if (textAreaLogger != null) {
+      textAreaLogger.info("开始检查更新: {}", DefaultEnvConfigConstant.GITHUB_LATEST_RELEASE_API);
+    }
+    Thread checkThread =
+        new Thread(
+            () -> {
+              VersionCheckResult result = versionChecker.checkLatest();
+              Platform.runLater(
+                  () -> {
+                    versionChecking = false;
+                    if (checkUpdateMenuItem != null) {
+                      checkUpdateMenuItem.setDisable(false);
+                    }
+                    handleManualCheckResult(result);
+                  });
+            },
+            "configtool-version-check-manual");
+    checkThread.setDaemon(true);
+    checkThread.start();
+  }
+
+  /** 处理手动检查结果: 有新版本弹更新提示, 已是最新/失败给出提示 */
+  private void handleManualCheckResult(VersionCheckResult result) {
+    if (result == null) {
+      return;
+    }
+    if (!result.isSuccess()) {
+      if (textAreaLogger != null) {
+        textAreaLogger.error("检查更新失败: {}", result.getErrorDescription());
+      }
+      showInfoDialog("检查更新失败", "检查更新失败: " + result.getErrorDescription());
+      return;
+    }
+    if (textAreaLogger != null) {
+      textAreaLogger.info(
+          "检查更新完成, 当前版本: {}, 最新版本: {}", result.getCurrentVersion(), result.getLatestVersion());
+    }
+    if (result.isNewVersionFound()) {
+      // 手动检查时即使用户之前点过"跳过本次"也再次提示(用户主动点击)
+      showUpdateDialog(result, false);
+    } else {
+      showInfoDialog("检查更新", "当前已是最新版本: " + result.getCurrentVersion());
+    }
+  }
+
+  /**
+   * 弹出新版本提示弹窗。
+   *
+   * <p>「更新」跳转github release页面, 「跳过本次」记录该版本(之后静默检查不再提示)。
+   *
+   * @param result 版本检查结果
+   * @param silent 是否为静默检查触发(仅用于日志区分)
+   */
+  private void showUpdateDialog(VersionCheckResult result, boolean silent) {
+    if (textAreaLogger != null) {
+      textAreaLogger.info(
+          "{}发现新版本: {} (当前版本: {})",
+          silent ? "启动静默检查" : "手动检查",
+          result.getLatestVersion(),
+          result.getCurrentVersion());
+    }
+    Alert alert = new Alert(AlertType.INFORMATION);
+    alert.setTitle("发现新版本");
+    alert.setHeaderText(
+        "发现新版本 " + result.getLatestVersion() + " (当前版本 " + result.getCurrentVersion() + ")");
+    alert.setContentText("是否前往 GitHub 查看该版本的更新内容?");
+    ButtonType updateButton = new ButtonType("更新", ButtonBar.ButtonData.OK_DONE);
+    ButtonType skipButton = new ButtonType("跳过本次", ButtonBar.ButtonData.CANCEL_CLOSE);
+    alert.getButtonTypes().setAll(updateButton, skipButton);
+    if (getStage() != null) {
+      alert.initOwner(getStage());
+    }
+    alert.initModality(Modality.APPLICATION_MODAL);
+    Optional<ButtonType> choice = alert.showAndWait();
+    if (!choice.isPresent()) {
+      return;
+    }
+    if (choice.get() == updateButton) {
+      openReleasePage(result.getReleaseUrl());
+    } else if (choice.get() == skipButton) {
+      versionChecker.skipVersion(result.getLatestVersion());
+      if (textAreaLogger != null) {
+        textAreaLogger.info("已跳过版本 {} 的更新提示, 后续静默检查不再提示该版本", result.getLatestVersion());
+      }
+    }
+  }
+
+  /** 打开github release页面(点击更新) */
+  private void openReleasePage(String releaseUrl) {
+    String target =
+        StringUtils.isEmpty(releaseUrl) ? DefaultEnvConfigConstant.GITHUB_RELEASE_PAGE : releaseUrl;
+    try {
+      if (NodeUtils.hostServices != null) {
+        NodeUtils.hostServices.showDocument(target);
+      } else {
+        java.awt.Desktop.getDesktop().browse(new java.net.URI(target));
+      }
+      if (textAreaLogger != null) {
+        textAreaLogger.info("已打开版本下载页面: {}", target);
+      }
+    } catch (Exception e) {
+      if (textAreaLogger != null) {
+        textAreaLogger.error("打开版本下载页面失败: " + target, e);
+      }
+      ToolsLoggerUtils.showErrorDialog("打开版本下载页面失败", e);
+    }
+  }
+
+  /** 提示弹窗 */
+  private void showInfoDialog(String title, String content) {
+    Alert alert = new Alert(AlertType.INFORMATION);
+    alert.setTitle(title);
+    alert.setHeaderText(null);
+    alert.setContentText(content);
+    if (getStage() != null) {
+      alert.initOwner(getStage());
+    }
+    alert.initModality(Modality.APPLICATION_MODAL);
+    alert.showAndWait();
+  }
+
+  // endregion============================== 版本检查 ==============================
 
   public ScrollPane getLogShowScrollPane() {
     return logShowScrollPane;

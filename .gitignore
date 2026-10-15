@@ -40,6 +40,7 @@ build/
 
 out
 config/ConfigTool.*
+config/VersionSkipConf.txt
 dependency-reduced-pom.xml
 gentemppath
 log
@@ -53,3 +54,4 @@ config/icon
 
 ### jlink runtime (packaging artifact)
 jre-slim/
+/tmp/

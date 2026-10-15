@@ -34,10 +34,11 @@ $GreenArchive = Join-Path $DistDir $GreenArchiveName
 $ExeName   = 'ConfigTool-Portable-v' + $Version + '-x64.exe'
 # 注意: java.sql 必须包含(Gson 序列化 json 数据源、POI、SQLite 缓存都会用到 java.sql.*),
 # 遗漏时 json 数据源生成会在 Gson 初始化处抛 NoClassDefFoundError: java/sql/Time
+# jdk.crypto.ec 必须包含: 版本检查/联网走HTTPS时没有EC加密支持会直接 SSLHandshakeException(handshake_failure)
 $RuntimeModules = @(
     'java.base','java.compiler','java.datatransfer','java.xml','java.prefs','java.desktop',
     'java.logging','java.management','java.naming','java.security.jgss','java.security.sasl',
-    'java.xml.crypto','java.sql','jdk.unsupported','javafx.base','javafx.graphics','javafx.controls','javafx.fxml'
+    'java.xml.crypto','java.sql','jdk.unsupported','jdk.crypto.ec','javafx.base','javafx.graphics','javafx.controls','javafx.fxml'
 ) -join ','
 $AppJavaOptions = @(
     '-Duser.dir=$APPDIR',

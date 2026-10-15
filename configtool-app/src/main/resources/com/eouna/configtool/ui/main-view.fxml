@@ -41,6 +41,14 @@
                     </MenuItem>
                 </items>
                 <items>
+                    <MenuItem fx:id="checkUpdateMenuItem" mnemonicParsing="false" text="检查更新"
+                              onAction="#onCheckUpdateClick">
+                        <graphic>
+                            <FontIcon iconLiteral="fa-refresh" iconSize="14"/>
+                        </graphic>
+                    </MenuItem>
+                </items>
+                <items>
                     <MenuItem mnemonicParsing="false" text="关于"
                               onAction="#onAboutClick"/>
                 </items>
