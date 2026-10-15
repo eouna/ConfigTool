@@ -1,7 +1,8 @@
+exportConf:
+  # 导出模式: client=客户端导出(数据范围行标记为server的字段不导出); server=服务端导出(标记为client的字段不导出)
+  exportMode: client
 javaTemplateConf:
   packageName: genpackage
-  dataRangeServerSkipStr: client
-  dataRangeClientSkipStr: server
   dataManagerClassName: GameDataManager
   dataManagerLoadDataCaller: loadAllData
   baseBeanIdName: id
@@ -45,6 +46,10 @@ excelConf:
     templateFileGenTargetDir: gentemppath/genpackage
     templatePath: ftl
   dataConstantSheetName: constant
+  # 数据范围行中标识服务端字段的名字(可自定义), 服务端导出时跳过该名字的字段
+  dataRangeServerSkipStr: client
+  # 数据范围行中标识客户端字段的名字(可自定义), 客户端导出时跳过该名字的字段
+  dataRangeClientSkipStr: server
 cache:
   sqliteConfig:
     enable: false

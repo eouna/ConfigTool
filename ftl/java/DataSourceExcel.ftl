@@ -5,7 +5,7 @@ package ${dataSourcePackageName};
 // 约定: 每种语言把"数据源读取"独立成一个类, 并通过两个模板提供两种实现
 //   DataSourceExcel.ftl -> 读取excel
 //   DataSourceJson.ftl  -> 读取json
-// 界面「语言加载选项」/命令行 --load_source 选择哪个, 生成时就使用哪个模板。
+// 界面「数据加载选项」/命令行 --load_source 选择哪个, 生成时就使用哪个模板。
 
 import java.io.File;
 import java.io.InputStream;

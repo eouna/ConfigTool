@@ -288,8 +288,8 @@ public class JsTemplateGenerator extends AbstractTemplateGenerator {
     int descRow = SystemConfigHolder.getInstance().getExcelConf().getFieldRows().getFieldDescRow();
     int typeRow = SystemConfigHolder.getInstance().getExcelConf().getFieldRows().getFieldTypeRow();
     int nameRow = SystemConfigHolder.getInstance().getExcelConf().getFieldRows().getFieldNameRow();
-    // json导出的是客户端数据, 因此服务端专用字段不参与
-    String clientSkipStr = getJavaTemplateConf().getDataRangeClientSkipStr();
+    // 按当前「导出选项」过滤字段: 客户端导出跳过 server 字段, 服务端导出跳过 client 字段
+    String clientSkipStr = SystemConfigHolder.getInstance().getExportSkipStr();
 
     // 父节点没有工作薄, 字段由子表合并而来
     Collection<File> excelFileList =

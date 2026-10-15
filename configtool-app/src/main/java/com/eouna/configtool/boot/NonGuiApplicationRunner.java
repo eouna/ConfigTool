@@ -1,6 +1,7 @@
 package com.eouna.configtool.boot;
 
 import com.eouna.configtool.configholder.ConfigDataBean.ExcelGenPathConf;
+import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.core.annotaion.AutoInject;
 import com.eouna.configtool.core.boot.env.CommandLineAndArgs;
@@ -65,6 +66,9 @@ public class NonGuiApplicationRunner {
   /** 数据读取方式参数名(excel/json), 默认excel */
   public static final String ARG_LOAD_SOURCE = "load_source";
 
+  /** 导出模式参数名(client/server), 默认读取配置文件 */
+  public static final String ARG_EXPORT_MODE = "export_mode";
+
   /** 是否导出主入口代码(true/false), 默认true */
   public static final String ARG_EXPORT_MAIN = "export_main";
 
@@ -99,6 +103,10 @@ public class NonGuiApplicationRunner {
           "  --lang=<语言列表>     导出语言, 逗号分隔, 不设置默认java",
           "                        可选: java / json / go / rust / csharp / lua / cpp",
           "                        例: --lang=java,go",
+          "  --load_source=<方式>  数据加载选项: excel(默认) / json",
+          "  --export_mode=<模式>  导出选项: client(客户端导出, 默认) / server(服务端导出)",
+          "                        决定数据范围行中哪些字段不导出(跳过字段名见 ToolConfig.yaml 的 excelConf)",
+          "                        不设置时读取 ToolConfig.yaml 的 exportConf.exportMode",
           "",
           "其它:",
           "  --help, --usage, -h   打印本用法说明并退出",
@@ -138,13 +146,36 @@ public class NonGuiApplicationRunner {
       String targetDir = applyTargetDir(arguments);
       // 3. 导出语言, 不设置默认java; 非GUI固定追加json
       Set<ETemplateGenerator> generators = resolveGenerators(arguments);
-      // 数据读取方式(excel/json), 与界面「语言加载选项」等价
+      // 数据读取方式(excel/json), 与界面「数据加载选项」等价
       String loadSource = getOption(arguments, ARG_LOAD_SOURCE);
       if (StringUtils.isNotBlank(loadSource)) {
         DataLoadSourceHolder.getInstance().setLoadSource(loadSource);
       }
       LoggerUtils.getLogger()
           .info("数据读取方式: {}", DataLoadSourceHolder.getInstance().getLoadSource());
+      // 导出模式(client/server), 与界面「导出选项」等价; 不设置时用配置文件里的值
+      String exportMode = getOption(arguments, ARG_EXPORT_MODE);
+      if (StringUtils.isNotBlank(exportMode)) {
+        String modeValue = exportMode.trim();
+        if (!DefaultEnvConfigConstant.EXPORT_MODE_CLIENT.equalsIgnoreCase(modeValue)
+            && !DefaultEnvConfigConstant.EXPORT_MODE_SERVER.equalsIgnoreCase(modeValue)) {
+          LoggerUtils.getLogger().error("--export_mode 取值错误: {}, 只支持 client / server", modeValue);
+          System.err.println("--export_mode 取值错误: " + modeValue + ", 只支持 client / server");
+          return 1;
+        }
+        systemConfigHolder
+            .getExportConf()
+            .setExportMode(
+                DefaultEnvConfigConstant.EXPORT_MODE_SERVER.equalsIgnoreCase(modeValue)
+                    ? DefaultEnvConfigConstant.EXPORT_MODE_SERVER
+                    : DefaultEnvConfigConstant.EXPORT_MODE_CLIENT);
+      }
+      LoggerUtils.getLogger()
+          .info(
+              "导出模式: {}({}导出, 跳过数据范围行为 {} 的字段)",
+              systemConfigHolder.getExportConf().getExportMode(),
+              systemConfigHolder.isServerExport() ? "服务端" : "客户端",
+              systemConfigHolder.getExportSkipStr());
       // 是否导出主入口代码(默认导出)
       String exportMain = getOption(arguments, ARG_EXPORT_MAIN);
       if (StringUtils.isNotBlank(exportMain)) {

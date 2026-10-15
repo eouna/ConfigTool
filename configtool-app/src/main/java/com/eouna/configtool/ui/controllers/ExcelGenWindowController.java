@@ -147,7 +147,7 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 语言模板选择组(单选) */
   @FXML ToggleGroup templateLangGroup;
 
-  /** 语言加载选项选择组(单选: excel / json) */
+  /** 数据加载选项选择组(单选: excel / json) */
   @FXML ToggleGroup loadSourceGroup;
 
   /** 加载选项: excel */
@@ -159,8 +159,14 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** js语言对应的单选框(只有加载选项为json时才可用) */
   @FXML RadioButton langJsRadio;
 
-  /** 加载选项提示 */
-  @FXML Label loadSourceTipLabel;
+  /** 导出选项选择组(单选: client / server) */
+  @FXML ToggleGroup exportModeGroup;
+
+  /** 导出选项: 客户端 */
+  @FXML RadioButton exportModeClientRadio;
+
+  /** 导出选项: 服务端 */
+  @FXML RadioButton exportModeServerRadio;
 
   /** 步骤内容容器(三步界面在此切换) */
   @FXML StackPane stepPaneContainer;
@@ -221,6 +227,7 @@ public class ExcelGenWindowController extends BaseWindowController {
 
   /** 加载选项: json */
   private static final String LOAD_SOURCE_JSON = "json";
+
 
   /** 模板文件生成按钮锁 */
   private static final AtomicBoolean TEMPLATE_IN_PROGRESS = new AtomicBoolean(true);
@@ -429,7 +436,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     }
   }
 
-  /** 语言加载选项单选变化 */
+  /** 数据加载选项单选变化 */
   @FXML
   protected void onLoadSourceChanged() {
     // 数据读取方式变化: 第一步/第二步的操作结果作废, 「下一步」重新置灰
@@ -457,14 +464,41 @@ public class ExcelGenWindowController extends BaseWindowController {
     if (loadSourceExcelRadio != null) {
       loadSourceExcelRadio.setDisable(jsLang);
     }
-    if (loadSourceTipLabel != null) {
-      if (jsLang) {
-        loadSourceTipLabel.setText("js 的数据源为 json");
-      } else if (LOAD_SOURCE_JSON.equalsIgnoreCase(getSelectedLoadSource())) {
-        loadSourceTipLabel.setText("选择 json 数据源时会同时导出 json 数据文件");
-      } else {
-        loadSourceTipLabel.setText("");
-      }
+  }
+
+  /** 导出选项(客户端/服务端)单选变化: 更新配置并作废已生成结果 */
+  @FXML
+  protected void onExportModeChanged() {
+    boolean serverExport = isServerExportSelected();
+    // 写入 ToolConfig.yaml 的 exportConf.exportMode(配置bean的setter会自动持久化)
+    SystemConfigHolder.getInstance().switchExportMode(serverExport);
+    // 导出模式决定哪些字段会导出, 影响生成结果: 第一步/第二步需要重新执行
+    invalidateGeneratedResult();
+    if (textAreaLogger != null) {
+      textAreaLogger.info(
+          "导出选项已切换为: {}导出, {} 中 exportConf.exportMode={}",
+          serverExport ? "服务端" : "客户端",
+          DefaultEnvConfigConstant.SYSTEM_CONFIG_NAME,
+          SystemConfigHolder.getInstance().getExportConf().getExportMode());
+    }
+  }
+
+  /** 当前导出选项是否为服务端 */
+  private boolean isServerExportSelected() {
+    if (exportModeGroup == null || exportModeGroup.getSelectedToggle() == null) {
+      // 未初始化时以配置文件为准
+      return SystemConfigHolder.getInstance().isServerExport();
+    }
+    // 直接比较选中的单选框, 避免在代码里写死导出模式取值
+    return exportModeGroup.getSelectedToggle() == exportModeServerRadio;
+  }
+
+  /** 按配置文件中的导出模式初始化导出选项(不触发更新配置) */
+  private void syncExportModeFromConfig() {
+    boolean serverExport = SystemConfigHolder.getInstance().isServerExport();
+    RadioButton target = serverExport ? exportModeServerRadio : exportModeClientRadio;
+    if (target != null) {
+      target.setSelected(true);
     }
   }
 
@@ -715,13 +749,13 @@ public class ExcelGenWindowController extends BaseWindowController {
   /**
    * 刷新: 重置所有选择并回到第一步。
    *
-   * <p>重置内容: 步骤回到第一步、语言模板与语言加载选项恢复默认(java + excel)、服务器勾选、excel勾选、 第二步预加载状态与进度条。
+   * <p>重置内容: 步骤回到第一步、语言模板与数据加载选项恢复默认(java + excel)、服务器勾选、excel勾选、 第二步预加载状态与进度条。
    */
   @FXML
   protected void onRefreshClick() {
     // 1. 回到第一步
     currentStep = STEP_GENERATE;
-    // 2. 语言模板 + 语言加载选项恢复默认
+    // 2. 语言模板 + 数据加载选项恢复默认
     resetLanguageAndLoadSource();
     // 3. 第二步预加载状态复位
     resetPreloadState();
@@ -742,7 +776,7 @@ public class ExcelGenWindowController extends BaseWindowController {
     }
   }
 
-  /** 语言模板与语言加载选项恢复默认(java + excel) */
+  /** 语言模板与数据加载选项恢复默认(java + excel) */
   private void resetLanguageAndLoadSource() {
     if (templateLangGroup != null) {
       for (Toggle toggle : templateLangGroup.getToggles()) {
@@ -894,7 +928,7 @@ public class ExcelGenWindowController extends BaseWindowController {
   }
 
   /**
-   * 本次预加载要读取的数据路径(与"语言加载选项"一致)
+   * 本次预加载要读取的数据路径(与"数据加载选项"一致)
    *
    * @return excel目录 或 json数据目录
    */
@@ -1301,6 +1335,8 @@ public class ExcelGenWindowController extends BaseWindowController {
     initConfigField();
     // 初始化语言/加载选项的联动约束(默认: java + excel)
     refreshLangOptionUsage();
+    // 按配置文件中的导出模式初始化导出选项(客户端/服务端)
+    syncExportModeFromConfig();
     // 刷新excel列表
     reloadExcelList();
     // 添加服务器选择列表数据

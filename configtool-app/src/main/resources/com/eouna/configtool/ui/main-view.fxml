@@ -12,6 +12,7 @@
         <ToggleGroup fx:id="themeToggleGroup"/>
         <ToggleGroup fx:id="templateLangGroup"/>
         <ToggleGroup fx:id="loadSourceGroup"/>
+        <ToggleGroup fx:id="exportModeGroup"/>
     </fx:define>
     <MenuBar>
         <menus>
@@ -290,23 +291,41 @@
                             </FlowPane>
                         </VBox>
 
-                        <!-- 语言加载选项(独立区域 + 背景色, 与生成区域分开) -->
-                        <VBox styleClass="option-block" spacing="6.0" style="-fx-padding: 10 12 10 12;">
-                            <Label styleClass="option-block-title" text="语言加载选项(单选)"/>
-                            <HBox alignment="CENTER_LEFT" spacing="16.0">
-                                <RadioButton fx:id="loadSourceExcelRadio" mnemonicParsing="false"
-                                             text="excel" userData="excel" toggleGroup="$loadSourceGroup"
-                                             selected="true" onAction="#onLoadSourceChanged"/>
-                                <RadioButton fx:id="loadSourceJsonRadio" mnemonicParsing="false"
-                                             text="json" userData="json" toggleGroup="$loadSourceGroup"
-                                             onAction="#onLoadSourceChanged"/>
-                                <Label fx:id="loadSourceTipLabel" text="">
-                                    <font>
-                                        <Font size="11.0"/>
-                                    </font>
-                                </Label>
-                            </HBox>
-                        </VBox>
+                        <!-- 数据加载选项 + 导出选项(同一排两个小模块, 各自独立区域 + 背景色) -->
+                        <HBox alignment="TOP_LEFT" spacing="10.0">
+                            <!-- 数据加载选项(excel / json) -->
+                            <VBox styleClass="option-block" spacing="6.0"
+                                  style="-fx-padding: 10 12 10 12;" HBox.hgrow="ALWAYS"
+                                  maxWidth="1.7976931348623157E308">
+                                <Label styleClass="option-block-title" text="数据加载选项(单选)"/>
+                                <HBox alignment="CENTER_LEFT" spacing="16.0">
+                                    <RadioButton fx:id="loadSourceExcelRadio" mnemonicParsing="false"
+                                                 text="excel" userData="excel"
+                                                 toggleGroup="$loadSourceGroup"
+                                                 selected="true" onAction="#onLoadSourceChanged"/>
+                                    <RadioButton fx:id="loadSourceJsonRadio" mnemonicParsing="false"
+                                                 text="json" userData="json"
+                                                 toggleGroup="$loadSourceGroup"
+                                                 onAction="#onLoadSourceChanged"/>
+                                </HBox>
+                            </VBox>
+                            <!-- 导出选项(客户端 / 服务端) -->
+                            <VBox styleClass="option-block" spacing="6.0"
+                                  style="-fx-padding: 10 12 10 12;" HBox.hgrow="ALWAYS"
+                                  maxWidth="1.7976931348623157E308">
+                                <Label styleClass="option-block-title" text="导出选项(单选)"/>
+                                <HBox alignment="CENTER_LEFT" spacing="16.0">
+                                    <RadioButton fx:id="exportModeClientRadio" mnemonicParsing="false"
+                                                 text="客户端" userData="client"
+                                                 toggleGroup="$exportModeGroup"
+                                                 selected="true" onAction="#onExportModeChanged"/>
+                                    <RadioButton fx:id="exportModeServerRadio" mnemonicParsing="false"
+                                                 text="服务端" userData="server"
+                                                 toggleGroup="$exportModeGroup"
+                                                 onAction="#onExportModeChanged"/>
+                                </HBox>
+                            </VBox>
+                        </HBox>
 
                         <!-- 模板生成区域(与加载选项分开) -->
                         <HBox alignment="CENTER" VBox.vgrow="ALWAYS" style="-fx-padding: 0 0 6 0;">

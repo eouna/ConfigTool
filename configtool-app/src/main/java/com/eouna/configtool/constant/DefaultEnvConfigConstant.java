@@ -17,6 +17,14 @@ public interface DefaultEnvConfigConstant {
   String COM_NAME = "eouna";
 
   // endregion============================== 软件信息 ==============================
+  // region============================== 导出模式 =============================
+  /** 导出模式: 客户端导出(不导出数据范围行为"服务端跳过字段名"的字段) */
+  String EXPORT_MODE_CLIENT = "client";
+  /** 导出模式: 服务端导出(不导出数据范围行为"客户端跳过字段名"的字段) */
+  String EXPORT_MODE_SERVER = "server";
+  /** 默认导出模式 */
+  String DEFAULT_EXPORT_MODE = EXPORT_MODE_CLIENT;
+  // endregion============================== 导出模式 ==============================
   // region============================== 版本检查(github) =============================
   /** 版本检查: github 仓库(owner/repo) */
   String GITHUB_REPO = "eouna/ConfigTool";
@@ -36,10 +44,11 @@ public interface DefaultEnvConfigConstant {
 
   // endregion============================== 版本检查 ==============================
   /** 系统配置名 */
-  String SYSTEM_CONFIG_NAME = "ExcelConfig.yaml";
+  String SYSTEM_CONFIG_NAME = "ToolConfig.yaml";
 
   /** 系统配置路径 */
   String SYSTEM_CONFIG_PATH = "./config/" + SYSTEM_CONFIG_NAME;
+
 
   /** excel路径绑定的本地模块配置 */
   String LOCAL_LOAD_EXCEL_DIR_CONFIG_PATH = "./config/ExcelDirBindServerModuleConfLocal.txt";

@@ -95,7 +95,8 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
           SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
       containerDataMap.put("dataStartRow", ExcelTemplateGenUtils.getConfigFieldMaxRow() + 1);
       containerDataMap.put("idName", getJavaTemplateConf().getBaseBeanIdName());
-      containerDataMap.put("skipStr", getJavaTemplateConf().getDataRangeServerSkipStr());
+      // 运行期跳过的列与当前「导出选项」(客户端/服务端导出)保持一致
+      containerDataMap.put("skipStr", SystemConfigHolder.getInstance().getExportSkipStr());
       generateTemplate(
           containerDataMap,
           "BaseCfgContainer.ftl",
@@ -106,7 +107,7 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
               + File.separator
               + "base_cfg_container.rs");
 
-      // 数据源读取独立成一个文件: 由「语言加载选项」/--load_source 选择 excel / json 模板
+      // 数据源读取独立成一个文件: 由「数据加载选项」/--load_source 选择 excel / json 模板
       Map<String, Object> dataSourceDataMap = new HashMap<>(2);
       generateTemplate(
           dataSourceDataMap,
@@ -171,9 +172,10 @@ public class RustTemplateGenerator extends AbstractTemplateGenerator {
   private ExcelDataStruct loadDataStruct(File file, Sheet sheet) {
     ExcelDataStruct dataStruct = new ExcelDataStruct(file.getName(), sheet.getSheetName());
     String idName = getJavaTemplateConf().getBaseBeanIdName();
+    // 按当前「导出选项」过滤字段: 客户端导出跳过 server 字段, 服务端导出跳过 client 字段
     Set<Integer> skipColList =
         ExcelTemplateGenUtils.getSkipCellList(
-            sheet, getJavaTemplateConf().getDataRangeServerSkipStr());
+            sheet, SystemConfigHolder.getInstance().getExportSkipStr());
     Set<ExcelFieldInfo> excelFields =
         ExcelTemplateGenUtils.getExcelFields(file, sheet, skipColList);
     if (excelFields == null) {

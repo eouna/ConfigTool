@@ -296,8 +296,8 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
     }
     for (Cell cell : dataFieldRangeRow) {
       String cellValue = ExcelUtils.getCellValue(cell);
-      String clientSkipStr =
-          SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeClientSkipStr();
+      // 按当前「导出选项」过滤字段: 客户端导出跳过 server 字段, 服务端导出跳过 client 字段
+      String clientSkipStr = SystemConfigHolder.getInstance().getExportSkipStr();
       if (!StringUtils.isEmpty(cellValue) && clientSkipStr.equalsIgnoreCase(cellValue)) {
         skipCellList.add(cell.getColumnIndex());
       }

@@ -120,7 +120,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
         throw new IOException("不能创建文件夹: " + baseBeanOutputFileDir);
       }
     }
-    // 数据源读取独立成一个类: 由「语言加载选项」/--load_source 选择 excel / json 模板
+    // 数据源读取独立成一个类: 由「数据加载选项」/--load_source 选择 excel / json 模板
     File dataSourceOutputDir = new File(basePath + "data");
     if (!dataSourceOutputDir.exists() && !dataSourceOutputDir.mkdirs()) {
       throw new IOException("不能创建文件夹: " + dataSourceOutputDir);
@@ -157,9 +157,8 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     dataMap.put("dataSourcePackageName", getDataSourcePackageName());
     dataMap.put(
         "idName", SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
-    dataMap.put(
-        "skipStr",
-        SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr());
+    // 运行期跳过的列与当前「导出选项」(客户端/服务端导出)保持一致
+    dataMap.put("skipStr", SystemConfigHolder.getInstance().getExportSkipStr());
     generateTemplate(
         dataMap,
         DefaultEnvConfigConstant.BASE_CFG_BEAN_CONTAINER_TEMPLATE_NAME,
@@ -365,8 +364,8 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
     String idNameStr = SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName();
     // 移除子类id字段
     sameFieldNameFilter.put(idNameStr, Integer.class.getName());
-    String skipStr =
-        SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr();
+    // 按当前「导出选项」过滤字段: 客户端导出跳过 server 字段, 服务端导出跳过 client 字段
+    String skipStr = SystemConfigHolder.getInstance().getExportSkipStr();
     Set<Integer> skipColList = ExcelTemplateGenUtils.getSkipCellList(sheet, skipStr);
     // 虚拟父表没有实际sheet(单sheet==null), 即使只有一个子文件也必须从子文件合并字段和枚举。
     if (childExcelFileList.size() > 1 || sheet == null) {

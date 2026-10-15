@@ -118,7 +118,8 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
           SystemConfigHolder.getInstance().getExcelConf().getDataConstantSheetName());
       baseDataMap.put("dataStartRow", ExcelTemplateGenUtils.getConfigFieldMaxRow() + 1);
       baseDataMap.put("idName", getJavaTemplateConf().getBaseBeanIdName());
-      baseDataMap.put("skipStr", getJavaTemplateConf().getDataRangeServerSkipStr());
+      // 运行期跳过的列与当前「导出选项」(客户端/服务端导出)保持一致
+      baseDataMap.put("skipStr", SystemConfigHolder.getInstance().getExportSkipStr());
       baseDataMap.put("date", getGenerateDate());
       generateTemplate(
           baseDataMap,
@@ -177,7 +178,8 @@ public class CppTemplateGenerator extends AbstractTemplateGenerator {
     int typeRow = 1;
     int nameRow = 2;
     int lastCol = sheet.getRow(nameRow) == null ? 0 : sheet.getRow(nameRow).getLastCellNum();
-    String skipStr = getJavaTemplateConf().getDataRangeServerSkipStr();
+    // 按当前「导出选项」过滤字段: 客户端导出跳过 server 字段, 服务端导出跳过 client 字段
+    String skipStr = SystemConfigHolder.getInstance().getExportSkipStr();
     Set<Integer> skipCols = ExcelTemplateGenUtils.getSkipCellList(sheet, skipStr);
 
     List<Map<String, Object>> fields = new ArrayList<>();

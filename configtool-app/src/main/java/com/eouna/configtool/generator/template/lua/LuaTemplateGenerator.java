@@ -4,6 +4,7 @@ import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
 import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.logger.TextAreaLogger;
+import com.eouna.configtool.generator.ExcelTemplateGenUtils;
 import com.eouna.configtool.generator.base.ExcelFileStructure;
 import com.eouna.configtool.generator.bean.ExcelSheetBean;
 import com.eouna.configtool.generator.exceptions.ExcelParseException;
@@ -100,9 +101,18 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
     int lastCol = sheet.getRow(nameRow) == null ? 0 : sheet.getRow(nameRow).getLastCellNum();
 
     String idName = getJavaTemplateConf().getBaseBeanIdName();
+    // 按当前「导出选项」过滤字段: 客户端导出跳过 server 字段, 服务端导出跳过 client 字段
+    Set<Integer> skipColList =
+        ExcelTemplateGenUtils.getSkipCellList(
+            sheet, SystemConfigHolder.getInstance().getExportSkipStr());
     List<Map<String, String>> fields = new ArrayList<>();
     List<String> rawTypes = new ArrayList<>();
+    // 字段对应的excel列下标(跳过列后字段下标与列下标不再一致)
+    List<Integer> fieldColumns = new ArrayList<>();
     for (int col = 0; col < lastCol; col++) {
+      if (skipColList.contains(col)) {
+        continue;
+      }
       String name = cellText(sheet, nameRow, col);
       String rawType = cellText(sheet, typeRow, col);
       String desc = cellText(sheet, descRow, col);
@@ -116,6 +126,7 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
       field.put("desc", desc);
       fields.add(field);
       rawTypes.add(rawType);
+      fieldColumns.add(col);
     }
     if (fields.isEmpty()) {
       throw new ExcelParseException("Lua配置表没有可用字段: " + sheet.getSheetName());
@@ -128,7 +139,7 @@ public class LuaTemplateGenerator extends AbstractTemplateGenerator {
       Object idValue = null;
       for (int i = 0; i < fields.size(); i++) {
         Map<String, String> field = fields.get(i);
-        String text = cellText(sheet, rowIndex, i);
+        String text = cellText(sheet, rowIndex, fieldColumns.get(i));
         if (text.isEmpty()) {
           continue;
         }

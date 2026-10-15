@@ -3,6 +3,7 @@ package com.eouna.configtool.configholder;
 import com.eouna.configtool.configholder.ConfigDataBean.CacheConfig;
 import com.eouna.configtool.configholder.ConfigDataBean.CommonTemplateConf;
 import com.eouna.configtool.configholder.ConfigDataBean.ExcelConf;
+import com.eouna.configtool.configholder.ConfigDataBean.ExportConf;
 import com.eouna.configtool.configholder.ConfigDataBean.JavaTemplateConf;
 import com.eouna.configtool.configholder.ConfigDataBean.JsonTemplateConf;
 import com.eouna.configtool.configholder.ConfigDataBean.ServerLoadExcelDirConfBean;
@@ -16,6 +17,7 @@ import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +39,12 @@ import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.NodeTuple;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
+import org.yaml.snakeyaml.nodes.Tag;
 import org.yaml.snakeyaml.representer.Representer;
 
 /**
@@ -54,6 +62,11 @@ public class SystemConfigHolder {
   @ConfigAutowired
   @ConfigSettingControl(desc = "excel生成相关")
   private ExcelConf excelConf;
+
+  /** 导出模式配置(客户端导出/服务端导出) */
+  @ConfigAutowired(aliasName = "exportConf")
+  @ConfigSettingControl(desc = "导出模式(客户端/服务端)")
+  private ExportConf exportConf;
 
   /** java模板配置 */
   @ConfigAutowired
@@ -102,9 +115,8 @@ public class SystemConfigHolder {
           IllegalAccessException,
           InstantiationException,
           InvocationTargetException {
-    SystemConfigHolder systemConfigHolder = getInstance();
     // 解析配置文件
-    parseEnvConfig(systemConfigHolder);
+    parseEnvConfig(this);
     // 加载excel路径绑定的本地模块信息
     String localConfigPath =
         FileUtils.getRelatedPathOfRoot(DefaultEnvConfigConstant.LOCAL_LOAD_EXCEL_DIR_CONFIG_PATH);
@@ -117,62 +129,184 @@ public class SystemConfigHolder {
     if (!configPersistEnabled) {
       return;
     }
-    DumperOptions dumperOptions = new DumperOptions();
-    dumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-    dumperOptions.setProcessComments(true);
-    dumperOptions.setAllowUnicode(true);
-    dumperOptions.setMaxSimpleKeyLength(1024);
-    LoaderOptions loaderOptions = new LoaderOptions();
-    loaderOptions.setProcessComments(true);
+    DumperOptions dumperOptions = createDumperOptions();
+    LoaderOptions loaderOptions = createLoaderOptions();
     Yaml yaml =
         new Yaml(
             new SafeConstructor(loaderOptions),
             new Representer(dumperOptions),
             dumperOptions,
             loaderOptions);
-    // 固定使用UTF-8写入, 否则在中文Windows(GBK)下写出后下次启动会因编码不一致解析失败
-    Writer writer =
-        new OutputStreamWriter(new FileOutputStream(getSystemConfigPath()), StandardCharsets.UTF_8);
-    SystemConfigHolder systemConfigHolder = getInstance();
-    Map<String, Object> objectMap = new HashMap<>(8);
-    List<Field> fields =
-        FieldUtils.getFieldsListWithAnnotation(
-            systemConfigHolder.getClass(), ConfigAutowired.class);
-    fields.sort(Comparator.comparing(Field::getName).reversed());
+    String configPath = getSystemConfigPath();
+    // 1. 以"节点树"读取原配置: 保留原有注释、键顺序与缩进结构
+    MappingNode rootNode = loadConfigNode(yaml, configPath);
+    // 2. 把内存中的配置写回节点树(复用原有节点, 因此注释不会被冲掉)
+    List<Field> fields = FieldUtils.getFieldsListWithAnnotation(getClass(), ConfigAutowired.class);
     for (Field field : fields) {
       field.setAccessible(true);
-      saveFieldAllData(field, systemConfigHolder, objectMap);
+      mergeFieldToNode(rootNode, field, this);
     }
-    if (!objectMap.isEmpty()) {
-      yaml.dump(objectMap, writer);
+    // 3. 写盘; 固定使用UTF-8, 否则在中文Windows(GBK)下写出后下次启动会因编码不一致解析失败
+    try (Writer writer =
+        new OutputStreamWriter(new FileOutputStream(configPath), StandardCharsets.UTF_8)) {
+      yaml.serialize(rootNode, writer);
     }
   }
 
+
+  /** 创建yaml输出选项(保留注释) */
+  private static DumperOptions createDumperOptions() {
+    DumperOptions dumperOptions = new DumperOptions();
+    dumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+    dumperOptions.setProcessComments(true);
+    dumperOptions.setAllowUnicode(true);
+    dumperOptions.setMaxSimpleKeyLength(1024);
+    dumperOptions.setIndent(2);
+    return dumperOptions;
+  }
+
+  /** 创建yaml读取选项(保留注释) */
+  private static LoaderOptions createLoaderOptions() {
+    LoaderOptions loaderOptions = new LoaderOptions();
+    loaderOptions.setProcessComments(true);
+    return loaderOptions;
+  }
+
+  /** 读取原配置文件的yaml节点树(文件不存在时返回空的映射节点) */
+  private static MappingNode loadConfigNode(Yaml yaml, String configPath) throws IOException {
+    File configFile = new File(configPath);
+    if (configFile.isFile() && configFile.length() > 0) {
+      try (Reader reader =
+          new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)) {
+        Node node = yaml.compose(reader);
+        if (node instanceof MappingNode) {
+          return (MappingNode) node;
+        }
+      }
+    }
+    return new MappingNode(Tag.MAP, new ArrayList<>(), DumperOptions.FlowStyle.BLOCK);
+  }
+
   /**
-   * 存储所有数据
+   * 把字段值合并进配置节点树。
    *
-   * @param field 字段
-   * @param fieldInstance 字段对应的对象实例
-   * @param objectMap 数据Map
+   * <p>复用原有节点(只在必要时新建), 因此节点上的注释得以保留。
+   *
+   * @param parentNode 父映射节点
+   * @param field 配置字段
+   * @param instance 字段所属实例
    * @throws IllegalAccessException 非法访问异常
    */
-  public void saveFieldAllData(Field field, Object fieldInstance, Map<String, Object> objectMap)
+  private void mergeFieldToNode(MappingNode parentNode, Field field, Object instance)
       throws IllegalAccessException {
-    Object fieldData = field.get(fieldInstance);
+    field.setAccessible(true);
+    Object fieldData = field.get(instance);
     String fieldAliasName = getConfigFieldAliasName(field);
     String fieldName = StringUtils.isEmpty(fieldAliasName) ? field.getName() : fieldAliasName;
-    Class<?> fieldClass = field.getType();
-    if (fieldClass.getAnnotation(CfgDataBean.class) != null) {
-      Map<String, Object> dataMap = new LinkedHashMap<>(8);
-      objectMap.put(fieldName, dataMap);
-      List<Field> fields = FieldUtils.getAllFieldsList(fieldClass);
-      for (Field subField : fields) {
-        subField.setAccessible(true);
-        saveFieldAllData(subField, fieldData, dataMap);
+    Node existingValueNode = findChildValueNode(parentNode, fieldName);
+    Node valueNode = buildValueNode(field.getType(), fieldData, existingValueNode);
+    setChildValueNode(parentNode, fieldName, valueNode);
+  }
+
+  /** 根据字段类型与当前值构建节点(尽量复用原有节点以保留注释) */
+  private Node buildValueNode(Class<?> fieldClass, Object fieldData, Node existingNode) {
+    if (List.class.isAssignableFrom(fieldClass)) {
+      SequenceNode sequenceNode =
+          existingNode instanceof SequenceNode
+              ? (SequenceNode) existingNode
+              : new SequenceNode(Tag.SEQ, new ArrayList<>(), DumperOptions.FlowStyle.BLOCK);
+      List<Node> elementNodes = new ArrayList<>();
+      if (fieldData instanceof List<?>) {
+        List<?> itemList = (List<?>) fieldData;
+        List<Node> oldElementNodes = sequenceNode.getValue();
+        for (int index = 0; index < itemList.size(); index++) {
+          Object item = itemList.get(index);
+          Node oldElementNode = index < oldElementNodes.size() ? oldElementNodes.get(index) : null;
+          elementNodes.add(
+              buildValueNode(
+                  item == null ? Object.class : item.getClass(), item, oldElementNode));
+        }
       }
-    } else {
-      objectMap.put(fieldName, fieldData);
+      sequenceNode.getValue().clear();
+      sequenceNode.getValue().addAll(elementNodes);
+      return sequenceNode;
     }
+    if (fieldClass.getAnnotation(CfgDataBean.class) != null && fieldData != null) {
+      MappingNode mappingNode =
+          existingNode instanceof MappingNode
+              ? (MappingNode) existingNode
+              : new MappingNode(Tag.MAP, new ArrayList<>(), DumperOptions.FlowStyle.BLOCK);
+      for (Field subField : getConfigurableFields(fieldClass)) {
+        try {
+          mergeFieldToNode(mappingNode, subField, fieldData);
+        } catch (IllegalAccessException e) {
+          LoggerUtils.getLogger().error("写回配置字段失败: {}", subField.getName(), e);
+        }
+      }
+      return mappingNode;
+    }
+    return buildScalarNode(fieldData, existingNode);
+  }
+
+  /** 构建标量节点, 并把原节点的注释复制过来 */
+  private static Node buildScalarNode(Object fieldData, Node existingNode) {
+    DumperOptions.ScalarStyle scalarStyle = DumperOptions.ScalarStyle.PLAIN;
+    ScalarNode scalarNode;
+    if (fieldData == null) {
+      scalarNode = new ScalarNode(Tag.NULL, "null", null, null, scalarStyle);
+    } else if (fieldData instanceof Boolean) {
+      scalarNode = new ScalarNode(Tag.BOOL, String.valueOf(fieldData), null, null, scalarStyle);
+    } else if (fieldData instanceof Float || fieldData instanceof Double) {
+      scalarNode = new ScalarNode(Tag.FLOAT, String.valueOf(fieldData), null, null, scalarStyle);
+    } else if (fieldData instanceof Number) {
+      scalarNode = new ScalarNode(Tag.INT, String.valueOf(fieldData), null, null, scalarStyle);
+    } else {
+      scalarNode = new ScalarNode(Tag.STR, String.valueOf(fieldData), null, null, scalarStyle);
+    }
+    if (existingNode != null) {
+      // 注释挂在节点上: 值节点是新建的, 需要把原注释搬过来
+      scalarNode.setBlockComments(existingNode.getBlockComments());
+      scalarNode.setInLineComments(existingNode.getInLineComments());
+      scalarNode.setEndComments(existingNode.getEndComments());
+    }
+    return scalarNode;
+  }
+
+  /** 查找映射节点中指定key对应的值节点(忽略大小写) */
+  private static Node findChildValueNode(MappingNode mappingNode, String keyName) {
+    NodeTuple tuple = findChildTuple(mappingNode, keyName);
+    return tuple == null ? null : tuple.getValueNode();
+  }
+
+  /** 查找映射节点中指定key的键值对(忽略大小写) */
+  private static NodeTuple findChildTuple(MappingNode mappingNode, String keyName) {
+    for (NodeTuple tuple : mappingNode.getValue()) {
+      Node keyNode = tuple.getKeyNode();
+      if (keyNode instanceof ScalarNode
+          && ((ScalarNode) keyNode).getValue().equalsIgnoreCase(keyName)) {
+        return tuple;
+      }
+    }
+    return null;
+  }
+
+  /** 设置映射节点中指定key的值节点(保留原key节点, 使键上的注释不丢失) */
+  private static void setChildValueNode(MappingNode mappingNode, String keyName, Node valueNode) {
+    List<NodeTuple> tuples = mappingNode.getValue();
+    for (int index = 0; index < tuples.size(); index++) {
+      NodeTuple tuple = tuples.get(index);
+      Node keyNode = tuple.getKeyNode();
+      if (keyNode instanceof ScalarNode
+          && ((ScalarNode) keyNode).getValue().equalsIgnoreCase(keyName)) {
+        tuples.set(index, new NodeTuple(keyNode, valueNode));
+        return;
+      }
+    }
+    ScalarNode keyNode =
+        new ScalarNode(Tag.STR, keyName, null, null, DumperOptions.ScalarStyle.PLAIN);
+    // key节点上的注释取同级已有节点样式, 保证新增字段的注释观感一致
+    keyNode.setBlockComments(null);
+    tuples.add(new NodeTuple(keyNode, valueNode));
   }
 
   /**
@@ -238,7 +372,7 @@ public class SystemConfigHolder {
         // 组装路径
         fieldPath = (fieldPath.isEmpty() ? "" : fieldPath + ".") + fieldClass.getSimpleName();
         field.set(fieldInstance, newFiledObj);
-        List<Field> newFiledObjFields = FieldUtils.getAllFieldsList(fieldClass);
+        List<Field> newFiledObjFields = getConfigurableFields(fieldClass);
         if (fieldIsList) {
           for (Object confDatum : ((List<?>) confData)) {
             Object newListFiledObj = getClasNewObject(fieldClass);
@@ -270,6 +404,25 @@ public class SystemConfigHolder {
           "配置表: " + DefaultEnvConfigConstant.SYSTEM_CONFIG_NAME + " 中缺少配置字段: " + fieldName);
     }
   }
+
+  /**
+   * 获取配置类中需要读写配置文件的字段。
+   *
+   * <p>静态字段(如导出模式的取值常量)属于代码常量, 不参与配置文件的读写。
+   *
+   * @param fieldClass 配置类
+   * @return 可配置字段
+   */
+  private static List<Field> getConfigurableFields(Class<?> fieldClass) {
+    List<Field> fields = new ArrayList<>();
+    for (Field field : FieldUtils.getAllFieldsList(fieldClass)) {
+      if (!Modifier.isStatic(field.getModifiers())) {
+        fields.add(field);
+      }
+    }
+    return fields;
+  }
+
 
   /**
    * 查找配置数据中与字段名匹配的key
@@ -405,6 +558,45 @@ public class SystemConfigHolder {
     return excelConf;
   }
 
+  public ExportConf getExportConf() {
+    return exportConf;
+  }
+
+  /**
+   * 当前导出模式是否为服务端导出。
+   *
+   * @return true=服务端导出, false=客户端导出
+   */
+  public boolean isServerExport() {
+    return exportConf != null && exportConf.isServerExport();
+  }
+
+  /**
+   * 切换导出模式并持久化到配置文件。
+   *
+   * @param serverExport true=服务端导出, false=客户端导出
+   */
+  public void switchExportMode(boolean serverExport) {
+    exportConf.setExportMode(
+        serverExport
+            ? DefaultEnvConfigConstant.EXPORT_MODE_SERVER
+            : DefaultEnvConfigConstant.EXPORT_MODE_CLIENT);
+  }
+
+  /**
+   * 当前导出模式对应的"数据范围跳过字符串"。
+   *
+   * <p>客户端导出时跳过数据范围行标记为 {@code server} 的字段; 服务端导出时跳过标记为 {@code client} 的字段。
+   * 所有语言模板(生成期过滤字段 + 运行期跳过列)统一使用该值。
+   *
+   * @return 需要跳过的数据范围标识
+   */
+  public String getExportSkipStr() {
+    return isServerExport()
+        ? excelConf.getDataRangeServerSkipStr()
+        : excelConf.getDataRangeClientSkipStr();
+  }
+
   public JavaTemplateConf getJavaTemplateConf() {
     return javaTemplateConf;
   }
@@ -467,7 +659,7 @@ public class SystemConfigHolder {
         Field field = instance.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.get(instance);
-      } catch (NoSuchFieldException | IllegalAccessException e) {
+      } catch (NoSuchFieldException | IllegalAccessException  e) {
         LoggerUtils.getLogger().error("不存在字段: " + fieldName + " 当前的配置字段路径: " + fieldPath);
       }
     }

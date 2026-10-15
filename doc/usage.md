@@ -154,7 +154,20 @@
 | `client` | 仅客户端使用(服务端代码里不生成这个字段)   |
 | `server` | 仅服务端使用(客户端 json 数据里不导出) |
 
-> 这两个关键字(`client` / `server`)可以在设置界面里改.
+> 这两个关键字可以在设置界面或 `ToolConfig.yaml` 里改:
+> `excelConf.dataRangeClientSkipStr`(客户端字段名, 客户端导出时跳过该名字的字段)、
+> `excelConf.dataRangeServerSkipStr`(服务端字段名, 服务端导出时跳过该名字的字段).
+
+导出时按界面「导出选项」、命令行 `--export_mode=client|server` 或 `ToolConfig.yaml` 的 `exportConf.exportMode` 决定哪些字段进入生成结果:
+
+| 导出选项 | 效果                                              |
+|------|-------------------------------------------------|
+| 客户端  | 数据范围行为 `dataRangeClientSkipStr`(默认 `server`)的字段**不导出** |
+| 服务端  | 数据范围行为 `dataRangeServerSkipStr`(默认 `client`)的字段**不导出** |
+
+> 例: `example.xlsx` 中 `byteExample` 标记为 `client`、`floatExample` 标记为 `server`:
+> 客户端导出只生成 `byteExample`, 服务端导出只生成 `floatExample`.
+> 把这两个名字改成自定义值后, 生成期过滤与生成代码运行期都按新名字比较(不会写死).
 
 ## 8. 留空的格子会怎样
 
@@ -202,8 +215,10 @@
 2. 在界面上选择 excel 目录与模板导出目录.
 3. 勾选需要导出的语言(可多选): `java` / `json` / `go` / `rust` / `csharp` / `lua` / `cpp` / `js`(勾选 js 或数据源选择
    json 时会自动带上 json).
-4. 点击生成, 生成结果与日志显示在主界面日志区.
-5. 菜单「帮助 → 检查更新」可手动检查版本; 启动时也会静默检查一次(见 [六、版本检查](#六版本检查)).
+4. 第一步右下角有**数据加载选项**(`excel` / `json`)与**导出选项**(`客户端` / `服务端`)两个小模块:
+   前者决定生成的代码读 excel 还是 json; 后者决定导出哪些字段(见 [7. 数据范围](#7-数据范围-这个字段给谁用)).
+5. 点击生成, 生成结果与日志显示在主界面日志区.
+6. 菜单「帮助 → 检查更新」可手动检查版本; 启动时也会静默检查一次(见 [六、版本检查](#六版本检查)).
 
 ---
 
@@ -226,6 +241,8 @@ ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=g
 | `--excel_path=<路径>`         | 否  | excel 目录或单个 excel 文件, **支持相对路径**(相对当前工作目录) | 读取系统配置中的 excel 路径 |
 | `--dest_path=<路径>`          | 否  | 模板导出目录, **支持相对路径**(相对当前工作目录)               | 读取系统配置中的导出路径      |
 | `--lang=<语言列表>`             | 否  | 导出语言, 多个语言用英文逗号分隔                          | `java`            |
+| `--load_source=<方式>`        | 否  | 数据加载选项: `excel` / `json`                     | `excel`           |
+| `--export_mode=<模式>`        | 否  | 导出选项: `client`(客户端导出) / `server`(服务端导出)    | 读取配置文件中的导出模式      |
 | `--help` / `--usage` / `-h` | 否  | 打印用法说明并退出                                  | -                 |
 
 `--lang` 可选值: `java` / `json` / `go` / `rust` / `csharp` / `lua` / `cpp` / `js`.
@@ -251,6 +268,12 @@ ConfigTool.exe --mode=none_gui --excel_path=./example/example.xlsx --dest_path=.
 
 # 5. 使用绝对路径
 ConfigTool.exe --mode=none_gui --excel_path=D:\config\excel --dest_path=D:\config\out --lang=lua
+
+# 6. 服务端导出(不导出数据范围行为 client 的字段)
+ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=go --export_mode=server
+
+# 7. json 数据加载 + 客户端导出
+ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=java --load_source=json --export_mode=client
 ```
 
 ### 2.4 非GUI模式约定
@@ -291,9 +314,9 @@ out/
 
 ---
 
-## 三之二、数据读取方式(excel / json)与限制
+## 三之二、数据加载选项(excel / json)与导出选项(client / server)
 
-界面「语言加载选项」或命令行 `--load_source=excel|json` 决定生成代码读取哪种数据：
+界面「数据加载选项」或命令行 `--load_source=excel|json` 决定生成代码读取哪种数据：
 
 | 数据源     | 说明                                                                                               |
 |---------|--------------------------------------------------------------------------------------------------|
@@ -302,6 +325,16 @@ out/
 
 > 选择 `json` 数据源时, 生成的主入口会将默认数据目录写成 `<导出目录>/json`, 因此可以直接运行主入口完成预加载,
 > 也可以由预加载流程显式传入同一目录。
+
+界面「导出选项」或 `ToolConfig.yaml` 的 `exportConf.exportMode` 决定导出哪些字段(支持全部语言模板):
+
+| 取值       | 含义                                                          |
+|----------|-------------------------------------------------------------|
+| `client` | 客户端导出(默认): 数据范围行为 `server` 的字段不导出(不生成字段/不写入json数据)        |
+| `server` | 服务端导出: 数据范围行为 `client` 的字段不导出                              |
+
+> 该字段与界面「导出选项」双向关联: 界面上切换会写回 `ToolConfig.yaml`, 配置文件改动会在下次启动时反映到界面;
+> 导出模式变化后需要重新生成模板(第一步)与预加载(第二步).
 
 **json 数据源的已知限制**（重要）：
 
@@ -339,6 +372,42 @@ java --module-path <javafx-jars> --add-modules=javafx.controls,javafx.fxml \
     - `com.eouna.configtool.env.TemplateEnvContext`(各语言模板运行环境的检测结果, 内存缓存)
     - `com.eouna.configtool.env.TemplateEnvChecker`(环境检测实现)
     - `com.eouna.configtool.configholder.SystemConfigHolder`(系统配置, 同样由容器管理)
+
+### 配置回存与AspectJ织入
+
+界面改配置后会自动回存 `ToolConfig.yaml`, 由切面 `ConfigDataUpdateAspect`(配置bean的setter)完成:
+
+| 运行方式 | 织入方式 |
+|------|--------------------------------------------------------------|
+| `mvn package` / 发布包 | 构建期用 ajc 织入(`jcabi-maven-plugin`), 启动时检测到已织入就不再额外处理 |
+| IDEA / 纯 javac 编译运行 | 启动时 `Launcher` 自动把 `templatelib/aspectjweaver-*.jar` 作为 agent 挂到当前JVM(attach子进程), 无需改IDEA运行配置 |
+
+> 找不到 `aspectjweaver` jar 或 attach 失败时只提示日志, 程序照常启动(仅"改配置自动回存"失效).
+> 打包用的精简运行库需要 `jdk.attach`(attach子进程)与 `java.instrument`(目标JVM支持动态加载agent), `package.ps1` 已包含.
+
+---
+
+## 四之二、配置文件(ToolConfig.yaml)
+
+系统配置为 `config/ToolConfig.yaml`(旧版本名为 `ExcelConfig.yaml`, **不再兼容旧文件名**, 请直接使用新名字),
+主要包含: `excelConf`(字段行列/路径/常量工作薄名/数据范围跳过字段名)、`javaTemplateConf`(包名/数据管理类名)、
+`exportConf`(导出模式: 客户端/服务端)、`jsonTemplateConf`、`commonTemplateConf`、`syncConfig`、`cache` 等.
+
+```yaml
+excelConf:
+  # 数据范围行中标识服务端字段的名字(可自定义), 服务端导出时跳过该名字的字段
+  dataRangeServerSkipStr: client
+  # 数据范围行中标识客户端字段的名字(可自定义), 客户端导出时跳过该名字的字段
+  dataRangeClientSkipStr: server
+
+exportConf:
+  # client=客户端导出(跳过 dataRangeClientSkipStr 标记的字段); server=服务端导出(跳过 dataRangeServerSkipStr 标记的字段)
+  exportMode: client
+```
+
+> 两个"跳过字段名"都可在设置界面或该配置文件里改成任意名字(例如 `c` / `s`, 或中文),
+> 生成期过滤与生成代码运行期的跳过判断都按该名字比较, 不写死在代码里.
+
 
 ---
 

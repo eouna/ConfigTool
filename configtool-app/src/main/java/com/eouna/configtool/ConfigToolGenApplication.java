@@ -1,5 +1,6 @@
 package com.eouna.configtool;
 
+import com.eouna.configtool.boot.AspectjWeaverBootstrap;
 import com.eouna.configtool.boot.ConfigToolAppEntrance;
 import com.eouna.configtool.core.FxApplicationLoader;
 import com.eouna.configtool.core.annotaion.FxApplication;
@@ -60,6 +61,8 @@ public class ConfigToolGenApplication extends Application {
   }
 
   public static void main(String[] args) throws Exception {
+    // 兼容直接以本类作为主类启动(mvn javafx:run / IDEA 指定本类): 同样先确保织入器已装载
+    AspectjWeaverBootstrap.ensureAspectjWeaverLoaded();
     FileUtils.genServerPid();
     ConfigToolGenApplication.launch(args);
   }

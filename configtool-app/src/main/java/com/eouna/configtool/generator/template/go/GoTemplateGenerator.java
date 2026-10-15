@@ -124,7 +124,7 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
             + DefaultEnvConfigConstant.BASE_BEAN_TEMPLATE_CLASS_NAME
             + ETemplateGenerator.GO_GENERATOR.getTemplateHandler().getFileIdentifier();
 
-    // 数据源读取独立成一个类: 由「语言加载选项」选择 excel / json 模板
+    // 数据源读取独立成一个类: 由「数据加载选项」选择 excel / json 模板
     File containerOutputDir = new File(basePath + DefaultEnvConfigConstant.CONTAINER_PATH);
     if (!containerOutputDir.exists()) {
       if (!containerOutputDir.mkdirs()) {
@@ -175,9 +175,8 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
     dataMap.put("baseCfgBean", DefaultEnvConfigConstant.BASE_BEAN_TEMPLATE_CLASS_NAME);
     dataMap.put(
         "idName", SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName());
-    dataMap.put(
-        "skipStr",
-        SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr());
+    // 运行期跳过的列与当前「导出选项」(客户端/服务端导出)保持一致
+    dataMap.put("skipStr", SystemConfigHolder.getInstance().getExportSkipStr());
     generateTemplate(
         dataMap,
         DefaultEnvConfigConstant.BASE_CFG_BEAN_CONTAINER_TEMPLATE_NAME,
@@ -405,8 +404,8 @@ public class GoTemplateGenerator extends AbstractTemplateGenerator {
     String idNameStr = SystemConfigHolder.getInstance().getJavaTemplateConf().getBaseBeanIdName();
     // 移除子类id字段
     sameFieldNameFilter.put(idNameStr, Integer.class.getName());
-    String skipStr =
-        SystemConfigHolder.getInstance().getJavaTemplateConf().getDataRangeServerSkipStr();
+    // 按当前「导出选项」过滤字段: 客户端导出跳过 server 字段, 服务端导出跳过 client 字段
+    String skipStr = SystemConfigHolder.getInstance().getExportSkipStr();
     Set<Integer> skipColList = ExcelTemplateGenUtils.getSkipCellList(sheet, skipStr);
     if (childExcelFileList.size() > 1) {
       // 加载子excel信息

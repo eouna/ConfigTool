@@ -3,6 +3,7 @@ package com.eouna.configtool.configholder;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.utils.FileUtils;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextArea;
@@ -30,6 +31,14 @@ public class ConfigDataBean {
 
     @ConfigSettingControl(desc = "常量配置工作薄名", bindComponent = TextField.class)
     private String dataConstantSheetName;
+
+    /** excel数据范围行中标识服务端字段的值, 服务端导出时跳过该值的字段(名字可自定义) */
+    @ConfigSettingControl(desc = "服务端跳过字段名", bindComponent = TextField.class)
+    private String dataRangeServerSkipStr;
+
+    /** excel数据范围行中标识客户端字段的值, 客户端导出时跳过该值的字段(名字可自定义) */
+    @ConfigSettingControl(desc = "客户端跳过字段名", bindComponent = TextField.class)
+    private String dataRangeClientSkipStr;
 
     public ExcelFieldConf getFieldRows() {
       return fieldRows;
@@ -61,6 +70,22 @@ public class ConfigDataBean {
 
     public void setDataConstantSheetName(String dataConstantSheetName) {
       this.dataConstantSheetName = dataConstantSheetName;
+    }
+
+    public String getDataRangeServerSkipStr() {
+      return dataRangeServerSkipStr;
+    }
+
+    public void setDataRangeServerSkipStr(String dataRangeServerSkipStr) {
+      this.dataRangeServerSkipStr = dataRangeServerSkipStr;
+    }
+
+    public String getDataRangeClientSkipStr() {
+      return dataRangeClientSkipStr;
+    }
+
+    public void setDataRangeClientSkipStr(String dataRangeClientSkipStr) {
+      this.dataRangeClientSkipStr = dataRangeClientSkipStr;
     }
   }
 
@@ -207,20 +232,39 @@ public class ConfigDataBean {
     }
   }
 
+  /**
+   * 导出模式配置。
+   *
+   * <p>标识当前是客户端导出模式还是服务端导出模式, 与界面「导出选项」联动;
+   * 导出时按该模式跳过数据范围行中另一个模式专用的字段(支持所有语言模板)。
+   */
+  @CfgDataBean
+  public static class ExportConf {
+
+    /** 导出模式: client=客户端导出, server=服务端导出(取值见 DefaultEnvConfigConstant) */
+    @ConfigSettingControl(desc = "导出模式(client/server)", bindComponent = TextField.class)
+    private String exportMode = DefaultEnvConfigConstant.DEFAULT_EXPORT_MODE;
+
+    public String getExportMode() {
+      return exportMode;
+    }
+
+    public void setExportMode(String exportMode) {
+      this.exportMode = exportMode;
+    }
+
+    /** 当前是否为服务端导出模式(与配置的导出模式取值比较) */
+    public boolean isServerExport() {
+      return DefaultEnvConfigConstant.EXPORT_MODE_SERVER.equalsIgnoreCase(exportMode);
+    }
+  }
+
   /** java模板配置 */
   @CfgDataBean
   public static class JavaTemplateConf {
     /** java程序中生成后的基础包名 */
     @ConfigSettingControl(desc = "包名", bindComponent = TextField.class)
     private String packageName;
-
-    /** excel中用于标识服务端数据范围跳过字段 可用于跳过列,忽略数据列 */
-    @ConfigSettingControl(desc = "数据范围跳过字段", bindComponent = TextField.class)
-    private String dataRangeServerSkipStr;
-
-    /** excel中用于标识客户端数据范围跳过字段 可用于跳过列,忽略数据列 */
-    @ConfigSettingControl(desc = "数据范围跳过字段", bindComponent = TextField.class)
-    private String dataRangeClientSkipStr;
 
     /** 生成模板的数据管理类名 */
     @ConfigSettingControl(desc = "数据管理类名", bindComponent = TextField.class)
@@ -244,22 +288,6 @@ public class ConfigDataBean {
 
     public void setPackageName(String packageName) {
       this.packageName = packageName;
-    }
-
-    public String getDataRangeServerSkipStr() {
-      return dataRangeServerSkipStr;
-    }
-
-    public void setDataRangeServerSkipStr(String dataRangeServerSkipStr) {
-      this.dataRangeServerSkipStr = dataRangeServerSkipStr;
-    }
-
-    public String getDataRangeClientSkipStr() {
-      return dataRangeClientSkipStr;
-    }
-
-    public void setDataRangeClientSkipStr(String dataRangeClientSkipStr) {
-      this.dataRangeClientSkipStr = dataRangeClientSkipStr;
     }
 
     public String getDataManagerClassName() {

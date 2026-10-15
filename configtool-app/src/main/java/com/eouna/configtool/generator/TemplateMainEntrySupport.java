@@ -26,7 +26,7 @@ import java.util.stream.Stream;
  *
  * <ul>
  *   <li>主入口文件在导出目录中的相对路径(用于删除主入口代码)
- *   <li>运行主入口的工作目录与命令(数据读取路径由调用方按"语言加载选项"传入)
+ *   <li>运行主入口的工作目录与命令(数据读取路径由调用方按"数据加载选项"传入)
  * </ul>
  *
  * @author CCL
@@ -123,7 +123,7 @@ public final class TemplateMainEntrySupport {
    *
    * @param langId 语言标识
    * @param outputDir 模板导出目录
-   * @param dataPath 本次要读取的数据路径(由"语言加载选项"决定: excel目录 或 json目录)
+   * @param dataPath 本次要读取的数据路径(由"数据加载选项"决定: excel目录 或 json目录)
    * @param envResult 该语言的运行环境检测结果, 可为null
    * @return 执行计划, 不支持或缺少工具链时返回null
    */
