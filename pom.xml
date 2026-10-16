@@ -22,6 +22,7 @@
         <openjfx.version>17.0.2</openjfx.version>
         <poi.version>5.4.0</poi.version>
         <aspectj.version>1.9.24</aspectj.version>
+        <aspectj.skip>false</aspectj.skip>
         <lombok.version>1.18.36</lombok.version>
     </properties>
 

@@ -178,7 +178,8 @@
         </dependency>
         <!--注意: 不声明 aspectjweaver 依赖。aspectjrt(org.aspectj.runtime) 与 aspectjweaver(org.aspectj.weaver)
             都包含 org.aspectj.lang 包, 同时在模块路径上会触发 split package 编译错误
-            "module ... reads package org.aspectj.lang from both ..."; 织入所需的 weaver 由 jcabi-maven-plugin 自带。-->
+            "module ... reads package org.aspectj.lang from both ...";
+            织入所需的 ajc/weaver 由 aspectj-maven-plugin 自带(见下方 build/plugins 配置)。-->
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-model</artifactId>
@@ -424,36 +425,49 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--AOP 织入-->
+            <!--
+                AspectJ织入: 使用官方维护的aspectj-maven-plugin(替代已停止维护的jcabi-maven-plugin),
+                forceAjcCompile=true 保证每次构建都用ajc重新编译并织入, 避免IDEA(javac)编译出的未织入class被复用;
+                同时IDEA的Maven集成会识别该插件, 直接用Ajc编译该模块, 因此IDEA里编译运行也能正常织入。
+            -->
             <plugin>
-                <groupId>com.jcabi</groupId>
-                <artifactId>jcabi-maven-plugin</artifactId>
-                <version>0.17.0</version>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>aspectj-maven-plugin</artifactId>
+                <version>1.16.1</version>
+                <configuration>
+                    <complianceLevel>${java.version}</complianceLevel>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <forceAjcCompile>true</forceAjcCompile>
+                    <skip>${aspectj.skip}</skip>
+                    <!--
+                        源文件由 maven-compiler-plugin 正常编译(支持JPMS模块), 这里只让ajc编译切面,
+                        然后把切面织入已编译的产物(target/classes), 等价于原先jcabi的"编译后织入"流程。
+                    -->
+                    <sources>
+                        <source>
+                            <basedir>${project.basedir}</basedir>
+                            <includes>
+                                <include>src/main/java/com/eouna/configtool/configholder/ConfigDataUpdateAspect.java</include>
+                            </includes>
+                        </source>
+                    </sources>
+                    <weaveDirectories>
+                        <weaveDirectory>${project.build.outputDirectory}</weaveDirectory>
+                    </weaveDirectories>
+                </configuration>
                 <executions>
                     <execution>
-                        <goals>
-                            <goal>ajc</goal>
-                        </goals>
-                    </execution>
-                    <execution>
                         <id>ajc-compile</id>
-                        <phase>process-classes</phase>
-                        <configuration>
-                            <aspectsDirectories>
-                                <directory>src/main/java/com/eouna/configtool/configholder</directory>
-                            </aspectsDirectories>
-                        </configuration>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
                     </execution>
                 </executions>
                 <dependencies>
                     <dependency>
                         <groupId>org.aspectj</groupId>
                         <artifactId>aspectjtools</artifactId>
-                        <version>${aspectj.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.aspectj</groupId>
-                        <artifactId>aspectjweaver</artifactId>
                         <version>${aspectj.version}</version>
                     </dependency>
                 </dependencies>

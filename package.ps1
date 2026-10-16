@@ -35,12 +35,11 @@ $ExeName   = 'ConfigTool-Portable-v' + $Version + '-x64.exe'
 # 注意: java.sql 必须包含(Gson 序列化 json 数据源、POI、SQLite 缓存都会用到 java.sql.*),
 # 遗漏时 json 数据源生成会在 Gson 初始化处抛 NoClassDefFoundError: java/sql/Time
 # jdk.crypto.ec 必须包含: 版本检查/联网走HTTPS时没有EC加密支持会直接 SSLHandshakeException(handshake_failure)
-# jdk.attach 必须包含: 自动启用AspectJ织入时需要用attach子进程把aspectjweaver挂到当前JVM(否则IDEA等纯javac运行环境下配置回存不生效)
-# java.instrument 必须包含: 目标JVM要支持动态加载agent(loadAgent)才允许被attach挂载织入器
+# java.instrument 必须包含: 用于支持以 -javaagent 方式做载入期织入(平时用构建期织入, 无需agent)
 $RuntimeModules = @(
     'java.base','java.compiler','java.datatransfer','java.xml','java.prefs','java.desktop',
     'java.logging','java.management','java.naming','java.security.jgss','java.security.sasl',
-    'java.xml.crypto','java.sql','jdk.unsupported','jdk.crypto.ec','jdk.attach','java.instrument','javafx.base','javafx.graphics','javafx.controls','javafx.fxml'
+    'java.xml.crypto','java.sql','jdk.unsupported','jdk.crypto.ec','java.instrument','javafx.base','javafx.graphics','javafx.controls','javafx.fxml'
 ) -join ','
 $AppJavaOptions = @(
     '-Duser.dir=$APPDIR',

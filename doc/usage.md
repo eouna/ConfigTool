@@ -375,15 +375,16 @@ java --module-path <javafx-jars> --add-modules=javafx.controls,javafx.fxml \
 
 ### 配置回存与AspectJ织入
 
-界面改配置后会自动回存 `ToolConfig.yaml`, 由切面 `ConfigDataUpdateAspect`(配置bean的setter)完成:
+界面改配置后会自动回存 `ToolConfig.yaml`, 由切面 `ConfigDataUpdateAspect`(配置bean的setter)完成。
+织入统一用官方维护的 `aspectj-maven-plugin`(1.16.1)做**构建期织入**, 运行期不需要agent:
 
 | 运行方式 | 织入方式 |
 |------|--------------------------------------------------------------|
-| `mvn package` / 发布包 | 构建期用 ajc 织入(`jcabi-maven-plugin`), 启动时检测到已织入就不再额外处理 |
-| IDEA / 纯 javac 编译运行 | 启动时 `Launcher` 自动把 `templatelib/aspectjweaver-*.jar` 作为 agent 挂到当前JVM(attach子进程), 无需改IDEA运行配置 |
+| `mvn compile` / `mvn package` / 发布包 | 插件在 `compile` 阶段用ajc织入; `forceAjcCompile=true` 保证即使 `target/classes` 里是IDEA(javac)编译出的未织入class, 也会被重新织入 |
+| IDEA 里运行 | IDEA的Maven集成会识别 `aspectj-maven-plugin`, 该模块直接用Ajc编译(自动织入); 若某个IDEA版本未生效, 可给运行配置加 `-javaagent:templatelib/aspectjweaver-1.9.24.jar`(载入期织入), 或在 Settings → Build, Execution, Deployment → Compiler → Java Compiler 里选择 `Ajc` |
 
-> 找不到 `aspectjweaver` jar 或 attach 失败时只提示日志, 程序照常启动(仅"改配置自动回存"失效).
-> 打包用的精简运行库需要 `jdk.attach`(attach子进程)与 `java.instrument`(目标JVM支持动态加载agent), `package.ps1` 已包含.
+> 排查时可加 `-Daspectj.skip=true` 临时跳过织入(仅用于对照; 跳过时配置变更不会自动回存).
+> 打包用的精简运行库保留 `java.instrument`, 以便需要时用 `-javaagent` 做载入期织入; 发布包默认走构建期织入, 不需要agent.
 
 ---
 
