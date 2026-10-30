@@ -85,9 +85,9 @@ export class BaseCfgContainer<T extends CfgBean> {
       if (!Array.isArray(value)) {
         return;
       }
-      this.checkSizeLimit(value.length, sequenceMatch[4], fieldName);
+      this.checkSizeLimit(value.length, sequenceMatch[4] ?? "", fieldName);
       for (const item of value) {
-        this.validateFieldValue(sequenceMatch[2], item, fieldName);
+        this.validateFieldValue(sequenceMatch[2] ?? "", item, fieldName);
       }
       return;
     }
@@ -95,9 +95,9 @@ export class BaseCfgContainer<T extends CfgBean> {
     const mapMatch = raw.match(/^map<(.*?)\{(.)\}(.*)>\{(.)(\d*)\}$/i);
     if (mapMatch && isJsonRecord(value)) {
       const values = Object.values(value);
-      this.checkSizeLimit(values.length, mapMatch[5], fieldName);
+      this.checkSizeLimit(values.length, mapMatch[5] ?? "", fieldName);
       for (const mapValue of values) {
-        this.validateFieldValue(mapMatch[3], mapValue, fieldName);
+        this.validateFieldValue(mapMatch[3] ?? "", mapValue, fieldName);
       }
     }
   }

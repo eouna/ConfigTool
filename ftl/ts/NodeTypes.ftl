@@ -22,4 +22,5 @@ declare module "node:url" {
 
 declare const process: {
   readonly argv: string[];
+  readonly env: Record<string, string | undefined>;
 };
