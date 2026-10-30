@@ -184,11 +184,15 @@ public class FileUtils {
    */
   public static File getOrCreateDir(String dirPath) throws FileSystemException {
     File basePathFile = new File(dirPath);
-    if (!(basePathFile.exists())) {
-      if (!basePathFile.mkdirs()) {
-        throw new FileSystemException("文件夹创建失败 path: " + dirPath);
-      }
-    } else if (!basePathFile.isDirectory()) {
+    try {
+      // createDirectories 是幂等操作, 也能正确处理目录在并发场景下刚被其他线程创建的情况
+      Files.createDirectories(basePathFile.toPath());
+    } catch (IOException e) {
+      FileSystemException exception = new FileSystemException("文件夹创建失败 path: " + dirPath);
+      exception.initCause(e);
+      throw exception;
+    }
+    if (!basePathFile.isDirectory()) {
       throw new FileSystemException("文件路径是一个文件非文件夹 path: " + dirPath);
     }
     return basePathFile;
@@ -294,7 +298,9 @@ public class FileUtils {
   public static void genServerPid() throws Exception {
     // 保存进程Id
     String pid = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
-    try (FileWriter writer = new FileWriter("server.pid")) {
+    // jpackage 会把 user.dir 固定到应用目录; 显式拼接可避免从不可写目录启动时写 cwd 失败
+    File pidFile = new File(System.getProperty("user.dir"), "server.pid");
+    try (FileWriter writer = new FileWriter(pidFile)) {
       writer.write(pid);
       writer.flush();
     }

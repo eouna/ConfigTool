@@ -92,11 +92,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
 
     // 生成bean模板
     File baseBeanOutputFileDir = new File(basePath + DefaultEnvConfigConstant.CFG_BEAN_PATH);
-    if (!baseBeanOutputFileDir.exists()) {
-      if (!baseBeanOutputFileDir.mkdirs()) {
-        throw new IOException("不能创建文件夹: " + baseBeanOutputFileDir);
-      }
-    }
+    FileUtils.getOrCreateDir(baseBeanOutputFileDir.getPath());
     // 获取输路径
     String baseBeanOutputFilePath =
         baseBeanOutputFileDir.getPath()
@@ -115,16 +111,10 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
 
     // 生成bean容器模板
     File baseContainerOutputFileDir = new File(basePath + DefaultEnvConfigConstant.CONTAINER_PATH);
-    if (!baseContainerOutputFileDir.exists()) {
-      if (!baseContainerOutputFileDir.mkdirs()) {
-        throw new IOException("不能创建文件夹: " + baseBeanOutputFileDir);
-      }
-    }
+    FileUtils.getOrCreateDir(baseContainerOutputFileDir.getPath());
     // 数据源读取独立成一个类: 由「数据加载选项」/--load_source 选择 excel / json 模板
     File dataSourceOutputDir = new File(basePath + "data");
-    if (!dataSourceOutputDir.exists() && !dataSourceOutputDir.mkdirs()) {
-      throw new IOException("不能创建文件夹: " + dataSourceOutputDir);
-    }
+    FileUtils.getOrCreateDir(dataSourceOutputDir.getPath());
     Map<String, Object> dataSourceDataMap = new HashMap<>(2);
     dataSourceDataMap.put("dataSourcePackageName", getDataSourcePackageName());
     dataSourceDataMap.put("date", getGenerateDate());
@@ -497,11 +487,7 @@ public class JavaTemplateGenerator extends AbstractTemplateGenerator {
             + File.separator
             + DefaultEnvConfigConstant.CONTAINER_PATH;
     File basePathFile = new File(containerBasePath);
-    if (!(basePathFile.exists())) {
-      if (!basePathFile.mkdirs()) {
-        throw new FileSystemException("文件夹创建失败 path: " + containerBasePath);
-      }
-    }
+    FileUtils.getOrCreateDir(basePathFile.getPath());
     // 获取输路径
     String outputFilePath = getBeanCfgContainerPath(sheetBean);
 

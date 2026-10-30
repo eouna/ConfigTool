@@ -1,7 +1,7 @@
 ﻿#requires -version 5.1
 # ConfigTool 一键打包: 绿色免解包目录版 + 单文件 exe
 # 用法: powershell -ExecutionPolicy Bypass -File package.ps1 [-HttpProxy http://127.0.0.1:10808] [-Version 覆盖版本] [-SkipSmokeTest] [-KeepBuild]
-# 说明: JDK(含jpackage/jlink)缺失时自动下载 Temurin 17; Maven 缺失时用工程自带 mvnw; 压缩/打包用 Windows 内置 tar+IExpress, 无需第三方工具
+# 说明: JDK(含jpackage/jlink)缺失时自动下载 Temurin 17; Maven 缺失时用工程自带 mvnw; 压缩用 Windows 内置 tar, 单文件启动器用 .NET Framework csc 编译
 # 版本默认读取 pom.xml 的 project.version; 绿色版和单文件版按 ConfigTool-Windows/Portable-v<version>-x64 命名
 param(
     [string]$HttpProxy = 'http://127.0.0.1:10808',
@@ -105,16 +105,22 @@ $env:Path = (Join-Path $JavaHome 'bin') + ';' + $env:Path
 $jpackage = Join-Path $JavaHome 'bin\jpackage.exe'
 $jlink    = Join-Path $JavaHome 'bin\jlink.exe'
 Write-Ok ('JDK: ' + $JavaHome)
+$cscCandidates = @(
+    (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
+    (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')
+)
+$csc = $cscCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $csc) { throw '缺少 .NET Framework 4.x C# 编译器(csc.exe), 无法生成单文件启动器' }
 $mvn = (Get-Command mvn -ErrorAction SilentlyContinue).Source
 if (-not $mvn) {
     $mvn = Join-Path $Root 'mvnw.cmd'
     if (-not (Test-Path $mvn)) { throw '未找到 mvn, 且工程无 mvnw, 请先安装 Maven' }
 }
 Write-Ok ('Maven: ' + $mvn)
-foreach ($t in @('tar.exe','iexpress.exe')) {
+foreach ($t in @('tar.exe')) {
     if (-not (Get-Command $t -ErrorAction SilentlyContinue)) { throw ('缺少 Windows 内置工具: ' + $t) }
 }
-Write-Ok 'Windows 内置 tar / iexpress 可用(无需第三方压缩打包工具)'
+Write-Ok ('Windows 内置 tar 可用; 单文件编译器: ' + $csc)
 
 # ---------------- 2. fat jar ----------------
 Write-Step '2/6 构建 fat jar (过滤 JavaFX; POI 传递依赖必须保留以满足 JPMS)'
@@ -199,61 +205,162 @@ try {
     }
 } finally { Pop-Location }
 Write-Ok ('payload zip: ' + [math]::Round((Get-Item $payloadZip).Length / 1MB, 1) + ' MB')
-# 首次运行解压到 %LOCALAPPDATA%\ConfigTool, 之后直接启动; 用 Windows 内置 tar 解压(比 Expand-Archive 快很多)
-$extractLines = @(
-    '@echo off',
-    'setlocal',
-    'set "TARGET=%LOCALAPPDATA%\ConfigTool"',
-    'set "APP=%TARGET%\ConfigTool.exe"',
-    'if exist "%APP%" goto run',
-    'if not exist "%TARGET%" mkdir "%TARGET%"',
-    'tar -xf "%~dp0ConfigTool.zip" -C "%TARGET%"',
-    ':run',
-    'start "" "%APP%"'
-)
-[System.IO.File]::WriteAllLines((Join-Path $sfxDir 'extract.cmd'), $extractLines, (New-Object System.Text.UTF8Encoding($false)))
 New-Item -ItemType Directory -Force -Path $SingleDir | Out-Null
 $exePath = Join-Path $SingleDir $ExeName
 Remove-File $exePath
-# 注意: IExpress 的 [Strings] FILEi 必须写相对路径, 用绝对路径会静默失败(生成空包)
-$sed = @"
-[Version]
-Class=IEXPRESS
-SEDVersion=3
-[Options]
-PackagePurpose=InstallApp
-ShowInstallProgramWindow=0
-HideExtractAnimation=1
-UseLongFileName=1
-InsideCompressed=0
-CAB_FixedSize=0
-CAB_ResvCodeSigning=0
-RebootMode=N
-InstallPrompt=
-DisplayLicense=
-FinishMessage=
-TargetName=$exePath
-FriendlyName=ConfigTool
-AppLaunched=extract.cmd
-PostInstallCmd=<None>
-AdminQuietInstCmd=
-UserQuietInstCmd=
-SourceFiles=SourceFiles
-[Strings]
-FILE0=ConfigTool.zip
-FILE1=extract.cmd
-[SourceFiles]
-SourceFiles0=$sfxDir\
-[SourceFiles0]
-%FILE0%=
-%FILE1%=
+# 使用 .NET 自解压启动器替代 IExpress。IExpress 在解压当前约 144 MB payload 时会持续占满
+# 单核且不释放文件, v1.0.10/v1.0.11 均可在空目录复现。
+$extractorSource = @"
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Reflection;
+using System.Threading;
+using System.Windows.Forms;
+
+internal static class ConfigToolLauncher
+{
+    private const string Version = "$Version";
+    private const string PayloadResource = "ConfigTool.Payload.zip";
+    private static readonly string MutexName = @"Local\ConfigTool-Portable-" + Version;
+
+    [STAThread]
+    private static int Main()
+    {
+        try
+        {
+            using (Mutex mutex = new Mutex(false, MutexName))
+            {
+                bool acquired = false;
+                try
+                {
+                    try
+                    {
+                        acquired = mutex.WaitOne(TimeSpan.FromMinutes(5), false);
+                    }
+                    catch (AbandonedMutexException)
+                    {
+                        acquired = true;
+                    }
+
+                    if (!acquired)
+                    {
+                        throw new TimeoutException("Timed out waiting for another ConfigTool instance to finish extracting.");
+                    }
+
+                    string localAppData = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+                    if (string.IsNullOrEmpty(localAppData))
+                    {
+                        localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    }
+                    string targetDir = Path.Combine(localAppData, "ConfigTool", "v" + Version);
+                    string appPath = Path.Combine(targetDir, "ConfigTool.exe");
+                    string completeMarker = Path.Combine(targetDir, ".payload-complete");
+                    if (!File.Exists(completeMarker))
+                    {
+                        Directory.CreateDirectory(targetDir);
+                        ExtractPayload(targetDir);
+                        File.WriteAllText(completeMarker, Version);
+                    }
+                    if (!File.Exists(appPath))
+                    {
+                        throw new FileNotFoundException("ConfigTool.exe was not found after extraction.", appPath);
+                    }
+
+                    ProcessStartInfo startInfo = new ProcessStartInfo(appPath);
+                    startInfo.WorkingDirectory = targetDir;
+                    // 直接 CreateProcess, 避免 ShellExecute 对刚解包 exe 弹出安全警告
+                    startInfo.UseShellExecute = false;
+                    startInfo.CreateNoWindow = true;
+                    Process.Start(startInfo);
+                    return 0;
+                }
+                finally
+                {
+                    if (acquired)
+                    {
+                        mutex.ReleaseMutex();
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "ConfigTool failed to start.\r\n\r\n" + ex,
+                "ConfigTool",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return 1;
+        }
+    }
+
+    private static void ExtractPayload(string targetDir)
+    {
+        string root = Path.GetFullPath(targetDir);
+        string rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        using (Stream payload = Assembly.GetExecutingAssembly().GetManifestResourceStream(PayloadResource))
+        {
+            if (payload == null)
+            {
+                throw new InvalidOperationException("Embedded payload was not found.");
+            }
+
+            using (ZipArchive archive = new ZipArchive(payload, ZipArchiveMode.Read))
+            {
+                foreach (ZipArchiveEntry entry in archive.Entries)
+                {
+                    string relativePath = entry.FullName.Replace('/', Path.DirectorySeparatorChar);
+                    string destination = Path.GetFullPath(Path.Combine(root, relativePath));
+                    if (!destination.Equals(root, StringComparison.OrdinalIgnoreCase)
+                        && !destination.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException("Payload contains an invalid path: " + entry.FullName);
+                    }
+
+                    if (string.IsNullOrEmpty(entry.Name))
+                    {
+                        Directory.CreateDirectory(destination);
+                        continue;
+                    }
+
+                    string parent = Path.GetDirectoryName(destination);
+                    if (!string.IsNullOrEmpty(parent))
+                    {
+                        Directory.CreateDirectory(parent);
+                    }
+                    using (Stream input = entry.Open())
+                    using (FileStream output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        input.CopyTo(output);
+                    }
+                }
+            }
+        }
+    }
+}
 "@
-$sedPath = Join-Path $BuildDir 'portable.sed'
-[System.IO.File]::WriteAllText($sedPath, $sed, (New-Object System.Text.UTF8Encoding($false)))
-$ie = Start-Process -FilePath 'iexpress.exe' -ArgumentList @('/N','/Q',$sedPath) -PassThru -NoNewWindow
-if (-not $ie.WaitForExit(1800000)) { try { $ie.Kill() } catch { }; throw 'IExpress 超时' }
-$ie.Refresh()
-if (-not (Test-Path $exePath)) { throw 'IExpress 打包失败(未生成 exe)' }
+$extractorSourcePath = Join-Path $sfxDir 'ConfigToolLauncher.cs'
+[System.IO.File]::WriteAllText($extractorSourcePath, $extractorSource, (New-Object System.Text.UTF8Encoding($false)))
+$resourceArg = '/resource:' + $payloadZip + ',ConfigTool.Payload.zip'
+$cscArgs = @(
+    '/nologo','/codepage:65001','/target:winexe','/platform:anycpu','/optimize+',
+    ('/out:' + $exePath),
+    $resourceArg,
+    '/reference:System.dll',
+    '/reference:System.Core.dll',
+    '/reference:System.IO.Compression.dll',
+    '/reference:System.IO.Compression.FileSystem.dll',
+    '/reference:System.Windows.Forms.dll'
+)
+if (Test-Path -LiteralPath $icon) { $cscArgs += ('/win32icon:' + $icon) }
+$cscArgs += $extractorSourcePath
+& $csc @cscArgs
+Assert-Exit '编译单文件启动器'
+if (-not (Test-Path -LiteralPath $exePath)) { throw '单文件启动器编译失败(未生成 exe)' }
 Write-Ok ('单文件版: ' + $exePath + '  (' + [math]::Round((Get-Item $exePath).Length / 1MB, 1) + ' MB)')
 
 # ---------------- 6. 冒烟测试 ----------------
@@ -269,7 +376,9 @@ if (-not $SkipSmokeTest) {
         $slimJava  = Join-Path $GreenDir 'runtime\bin\java.exe'
         $greenApp  = Join-Path $GreenDir 'app'
         $greenJar  = Join-Path $greenApp 'ConfigTool.jar'
-        $smokeDest = Join-Path $env:TEMP ('configtool-smoke-' + [Guid]::NewGuid().ToString('N'))
+        # 构建目录可写且不是 8.3 短路径。受限终端/安全软件可能禁止 Java 子进程写 AppData,
+        # 因此冒烟测试不依赖 LOCALAPPDATA。
+        $smokeDest = Join-Path $BuildDir ('smoke-' + [Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force -Path $smokeDest | Out-Null
         $smokeArgs = @(
             '--add-modules=javafx.controls,javafx.fxml',
@@ -314,11 +423,20 @@ if (-not $SkipSmokeTest) {
         if ($p1.HasExited) { throw ('绿色版启动失败, exit=' + $p1.ExitCode) }
         Write-Ok '绿色版启动正常(无需安装 Java)'
         Stop-App 'ConfigTool'
-        Remove-Directory (Join-Path $env:LOCALAPPDATA 'ConfigTool')
-        $null = Start-Process -FilePath $exePath -PassThru
+        # 启动器支持通过 LOCALAPPDATA 指定隔离目录, 冒烟测试同样不写真实用户 AppData。
+        $portableLocalAppData = Join-Path $BuildDir 'portable-localappdata'
+        $portableTarget = Join-Path $portableLocalAppData ('ConfigTool\v' + $Version)
+        Remove-Directory $portableTarget
+        $savedLocalAppData = $env:LOCALAPPDATA
+        try {
+            $env:LOCALAPPDATA = $portableLocalAppData
+            $null = Start-Process -FilePath $exePath -PassThru
+        } finally {
+            $env:LOCALAPPDATA = $savedLocalAppData
+        }
         $started = $false
         for ($i = 0; $i -lt 60; $i++) {
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 2
             if (Get-Process -Name 'ConfigTool' -ErrorAction SilentlyContinue) { $started = $true; break }
         }
         if (-not $started) { throw '单文件版启动失败' }
