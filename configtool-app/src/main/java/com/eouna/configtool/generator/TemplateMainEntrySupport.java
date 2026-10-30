@@ -5,6 +5,7 @@ import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.env.TemplateEnvResult;
 import com.eouna.configtool.utils.FileUtils;
+import com.eouna.configtool.utils.ProcessCommandUtils;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,8 +22,7 @@ import java.util.stream.Stream;
 /**
  * 各语言模板"主入口"的支持信息。
  *
- * <p>每种语言都有独立的主函数模板(DebugMain.ftl / Main.ftl), 生成后可直接运行; 第二步的预加载就是
- * 执行这些主入口来校验配置数据。本类负责:
+ * <p>每种语言都有独立的主函数模板(DebugMain.ftl / Main.ftl), 生成后可直接运行; 第二步的预加载就是 执行这些主入口来校验配置数据。本类负责:
  *
  * <ul>
  *   <li>主入口文件在导出目录中的相对路径(用于删除主入口代码)
@@ -68,6 +68,9 @@ public final class TemplateMainEntrySupport {
     // js: js/debug/main.js
     RUN_DIRS.put("js", "js");
     MAIN_ENTRY_PATHS.put("js", Collections.singletonList("js/debug/main.js"));
+    // ts: ts/src/debug/main.ts, 编译后运行 ts/dist/debug/main.js
+    RUN_DIRS.put("ts", "ts");
+    MAIN_ENTRY_PATHS.put("ts", Collections.singletonList("ts/src/debug/main.ts"));
   }
 
   private TemplateMainEntrySupport() {}
@@ -188,6 +191,15 @@ public final class TemplateMainEntrySupport {
       case "js":
         commands.add(Arrays.asList("node", "debug/main.js", dataPath));
         break;
+      case "ts":
+        {
+          List<List<String>> tsCommands = createTypeScriptCommands(workDir, dataPath, envResult);
+          if (tsCommands == null) {
+            return null;
+          }
+          commands.addAll(tsCommands);
+          break;
+        }
       case "cpp":
         {
           List<List<String>> cppCommands = createCppCommands(workDir, dataPath, envResult);
@@ -200,14 +212,64 @@ public final class TemplateMainEntrySupport {
       default:
         return null;
     }
-    return new PreloadPlan(workDir, commands);
+    return new PreloadPlan(
+        workDir, commands.stream().map(ProcessCommandUtils::prepare).collect(Collectors.toList()));
+  }
+
+  /** 构建 TypeScript 的安装/编译与运行命令 */
+  private static List<List<String>> createTypeScriptCommands(
+      File workDir, String dataPath, TemplateEnvResult envResult) {
+    boolean useNpm = usesNpmForTypeScript(envResult);
+    String tool = resolveTypeScriptTool(useNpm, envResult);
+    if (tool == null) {
+      LoggerUtils.getLogger().warn("未找到可用的 TypeScript 或 npm, 无法预加载");
+      return null;
+    }
+    List<List<String>> commands = new ArrayList<>(3);
+    if (useNpm) {
+      commands.add(Arrays.asList(tool, "install", "--no-audit", "--no-fund"));
+      commands.add(Arrays.asList(tool, "run", "build"));
+    } else {
+      commands.add(Arrays.asList(tool, "-p", "."));
+    }
+    commands.add(Arrays.asList("node", "dist/debug/main.js", dataPath));
+    return commands;
+  }
+
+  /** 环境检测是否退回到了 npm */
+  private static boolean usesNpmForTypeScript(TemplateEnvResult envResult) {
+    if (envResult == null) {
+      return false;
+    }
+    String command = envResult.getCommand();
+    if (command != null && command.trim().toLowerCase(Locale.ROOT).startsWith("npm")) {
+      return true;
+    }
+    String executable = envResult.getExecutablePath();
+    if (executable == null || executable.isBlank() || "-".equals(executable)) {
+      return false;
+    }
+    String fileName = new File(executable).getName().toLowerCase(Locale.ROOT);
+    return fileName.startsWith("npm");
+  }
+
+  /** 获取实际可执行的 tsc/npm 路径 */
+  private static String resolveTypeScriptTool(boolean useNpm, TemplateEnvResult envResult) {
+    if (envResult != null) {
+      String executable = envResult.getExecutablePath();
+      if (executable != null && !executable.isBlank() && !"-".equals(executable)) {
+        return executable;
+      }
+    }
+    String toolName = useNpm ? "npm" : "tsc";
+    String found = findInPath(toolName);
+    return found == null ? toolName : found;
   }
 
   /**
    * 构建C++的编译与运行命令
    *
-   * <p>不同工具链的参数风格不同: g++/clang++ 用 POSIX 风格, MSVC(cl) 用 / 开头的选项,
-   * 且 MSVC 必须先加载 vcvars 环境否则找不到标准库头文件。
+   * <p>不同工具链的参数风格不同: g++/clang++ 用 POSIX 风格, MSVC(cl) 用 / 开头的选项, 且 MSVC 必须先加载 vcvars 环境否则找不到标准库头文件。
    *
    * @param workDir cpp工程目录
    * @param dataPath 预加载数据路径
@@ -260,8 +322,7 @@ public final class TemplateMainEntrySupport {
       commands.add(compile);
     }
     // 直接按绝对路径启动编译产物, 避免依赖工作目录与不同平台的相对路径解析
-    commands.add(
-        Arrays.asList(new File(workDir, executableName).getAbsolutePath(), dataPath));
+    commands.add(Arrays.asList(new File(workDir, executableName).getAbsolutePath(), dataPath));
     return commands;
   }
 
@@ -349,9 +410,15 @@ public final class TemplateMainEntrySupport {
         return candidate.getAbsolutePath();
       }
       if (isWindows()) {
-        File exeCandidate = new File(dir, name + ".exe");
-        if (exeCandidate.isFile()) {
-          return exeCandidate.getAbsolutePath();
+        String pathExt = System.getenv("PATHEXT");
+        if (pathExt == null || pathExt.isEmpty()) {
+          pathExt = ".COM;.EXE;.BAT;.CMD";
+        }
+        for (String ext : pathExt.split(";")) {
+          File extCandidate = new File(dir, name + ext.toLowerCase(Locale.ROOT));
+          if (extCandidate.isFile()) {
+            return extCandidate.getAbsolutePath();
+          }
         }
       }
     }
@@ -387,7 +454,8 @@ public final class TemplateMainEntrySupport {
     Set<String> entries = new LinkedHashSet<>();
     String runtimeClasspath = System.getProperty("java.class.path");
     if (runtimeClasspath != null && !runtimeClasspath.isBlank()) {
-      for (String entry : runtimeClasspath.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
+      for (String entry :
+          runtimeClasspath.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
         if (!entry.isBlank()) {
           entries.add(entry);
         }
@@ -395,13 +463,12 @@ public final class TemplateMainEntrySupport {
     }
 
     File libDir =
-        new File(FileUtils.getRootDir(), DefaultEnvConfigConstant.DIR_JAVA_LIB_HOT_RELOAD_DEPEND_ON);
+        new File(
+            FileUtils.getRootDir(), DefaultEnvConfigConstant.DIR_JAVA_LIB_HOT_RELOAD_DEPEND_ON);
     File[] jarFiles =
-        libDir.listFiles(
-            (dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".jar"));
+        libDir.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".jar"));
     if (jarFiles != null && jarFiles.length > 0) {
-      Arrays.sort(
-          jarFiles, (left, right) -> left.getName().compareToIgnoreCase(right.getName()));
+      Arrays.sort(jarFiles, (left, right) -> left.getName().compareToIgnoreCase(right.getName()));
       for (File jarFile : jarFiles) {
         entries.add(jarFile.getAbsolutePath());
       }
@@ -447,7 +514,9 @@ public final class TemplateMainEntrySupport {
 
     /** 命令的可读形式, 用于日志 */
     public String toDisplayString() {
-      return commands.stream().map(cmd -> String.join(" ", cmd)).collect(Collectors.joining(" && "));
+      return commands.stream()
+          .map(cmd -> String.join(" ", cmd))
+          .collect(Collectors.joining(" && "));
     }
   }
 }

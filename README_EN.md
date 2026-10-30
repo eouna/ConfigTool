@@ -28,14 +28,20 @@ format and data while generating.
 | Lua      | `lua`          |                                                                                        |
 | C++      | `cpp`          | Supports both Excel and JSON data sources, with runnable preload entry points          |
 | JS       | `js`           | JavaScript reader code; loads the JSON data exported by the tool                       |
+| TS       | `ts`           | TypeScript reader code; loads exported JSON and builds with ESM/strict settings        |
 
 Multiple languages can be selected at once, and the output is written into per-language directories.
+
+Supported data sources are centralized in
+[`LanguageDataLoadConfig`](configtool-app/src/main/java/com/eouna/configtool/generator/LanguageDataLoadConfig.java).
+Currently `js` and `ts` support JSON only; the other code templates support both Excel and JSON. Multi-language exports
+automatically choose a data source supported by every selected language.
 
 # Advantages
 
 1. **Simple** - Export with a single click in the UI, or a single command from the CLI. The generated code ships with a
    data manager, so reading configuration is straightforward.
-2. **Flexible** - 7 languages (with multi-language export at once), split tables, client/server per-endpoint export,
+2. **Flexible** - 9 languages (with multi-language export at once), split tables, client/server per-endpoint export,
    constant configuration, Excel directory mapping and pre-checks cover many project scenarios.
 3. **Designer-friendly** - Configure directly in Excel; the description row, type row and data-range row are clear and
    consistent. Format and data validation runs before generation, so problems surface early.

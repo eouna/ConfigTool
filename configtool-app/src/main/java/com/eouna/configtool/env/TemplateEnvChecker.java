@@ -3,6 +3,7 @@ package com.eouna.configtool.env;
 import com.eouna.configtool.core.factory.anno.Component;
 import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
+import com.eouna.configtool.utils.ProcessCommandUtils;
 import com.eouna.configtool.utils.ProcessOutputUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -24,8 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 各导出语言模板的运行环境检测。
  *
- * <p>检测方式: 尝试执行对应工具链的版本命令, 能正常输出即视为可用。检测结果由
- * {@link TemplateEnvContext} 缓存在内存中。
+ * <p>检测方式: 尝试执行对应工具链的版本命令, 能正常输出即视为可用。检测结果由 {@link TemplateEnvContext} 缓存在内存中。
  *
  * <p>本类通过 {@code @Component} 注册到容器中, 使用时请通过 {@code @AutoInject} 注入, 不要再新增静态单例。
  *
@@ -46,7 +46,8 @@ public class TemplateEnvChecker {
   static {
     // java: 生成的是源码, 需要JDK(优先javac, 退回java)
     LANG_NAMES.put("java", "Java");
-    PROBE_COMMANDS.put("java", List.of(new String[] {"javac", "-version"}, new String[] {"java", "-version"}));
+    PROBE_COMMANDS.put(
+        "java", List.of(new String[] {"javac", "-version"}, new String[] {"java", "-version"}));
     // json: 纯数据, 不需要运行环境
     LANG_NAMES.put("json", "JSON");
     PROBE_COMMANDS.put("json", List.<String[]>of());
@@ -81,7 +82,16 @@ public class TemplateEnvChecker {
             new String[] {"cl", "/?"}));
     // javascript
     LANG_NAMES.put("js", "JavaScript");
-    PROBE_COMMANDS.put("js", List.of(new String[] {"node", "--version"}, new String[] {"nodejs", "--version"}));
+    PROBE_COMMANDS.put(
+        "js", List.of(new String[] {"node", "--version"}, new String[] {"nodejs", "--version"}));
+    // typescript: 优先使用全局 tsc; 没有全局命令时, 可通过 npm 安装工程内 TypeScript 依赖后构建
+    LANG_NAMES.put("ts", "TypeScript");
+    PROBE_COMMANDS.put(
+        "ts",
+        List.of(
+            new String[] {"tsc", "--version"},
+            new String[] {"npm", "--version"},
+            new String[] {"npm.cmd", "--version"}));
   }
 
   public TemplateEnvChecker() {}
@@ -141,8 +151,7 @@ public class TemplateEnvChecker {
     List<String[]> commands = PROBE_COMMANDS.get(langId);
     if (commands == null || commands.isEmpty()) {
       // 没有探测命令的语言(如json)视为不需要运行环境
-      return new TemplateEnvResult(
-          langId, langName, false, true, "-", "-", "", "该语言模板无需运行环境");
+      return new TemplateEnvResult(langId, langName, false, true, "-", "-", "", "该语言模板无需运行环境");
     }
     List<String> triedCommands = new ArrayList<>();
     for (String[] command : commands) {
@@ -190,7 +199,7 @@ public class TemplateEnvChecker {
   private static ProbeOutput execute(String[] command) {
     Process process = null;
     try {
-      ProcessBuilder processBuilder = new ProcessBuilder(command);
+      ProcessBuilder processBuilder = new ProcessBuilder(ProcessCommandUtils.prepare(command));
       processBuilder.redirectErrorStream(true);
       process = processBuilder.start();
       ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -238,7 +247,8 @@ public class TemplateEnvChecker {
     if (pathEnv == null || pathEnv.isEmpty()) {
       return null;
     }
-    boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("windows");
+    boolean windows =
+        System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("windows");
     List<String> extensions = new ArrayList<>();
     if (windows) {
       String pathExt = System.getenv("PATHEXT");

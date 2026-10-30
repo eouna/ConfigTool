@@ -2,6 +2,7 @@ package com.eouna.configtool.generator.template.json;
 
 import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.constant.DefaultEnvConfigConstant;
+import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
 import com.eouna.configtool.generator.base.ExcelFileStructure;
@@ -15,7 +16,6 @@ import com.eouna.configtool.generator.template.AbstractTemplateHandler;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.generator.template.ExcelFieldParseAdapter;
 import com.eouna.configtool.utils.ExcelUtils;
-import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.utils.MemUsageUtils;
 import com.eouna.configtool.utils.StrUtils;
 import com.google.gson.Gson;
@@ -59,8 +59,7 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
   /**
    * 常量表数据(数据表名 -> 常量行, 首行为excel常量表的表头)。
    *
-   * <p>常量表在excel中单独维护, json导出时按excel同样的行列布局放进该表json的 {@code const} 段,
-   * 各语言json数据源据此还原常量。
+   * <p>常量表在excel中单独维护, json导出时按excel同样的行列布局放进该表json的 {@code const} 段, 各语言json数据源据此还原常量。
    */
   private final Map<String, List<List<String>>> constantSheetRowsBySheet =
       new ConcurrentSkipListMap<>();
@@ -131,8 +130,8 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
   /**
    * 收集常量表数据。
    *
-   * <p>常量表(excel中的 {@code dataConstantSheetName} 工作薄)按excel的行列布局收集: 第0行为表头(容器解析时
-   * 会跳过), 其余行为常量行; 同名常量以最后出现的行为准(与excel逐行赋值的行为一致)。
+   * <p>常量表(excel中的 {@code dataConstantSheetName} 工作薄)按excel的行列布局收集: 第0行为表头(容器解析时 会跳过), 其余行为常量行;
+   * 同名常量以最后出现的行为准(与excel逐行赋值的行为一致)。
    *
    * @param workbook 当前excel工作薄
    */
@@ -198,9 +197,8 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
   /**
    * 组装单张表的json内容。
    *
-   * <p>结构: {@code {"const": [[常量表行]], "data": {"<id>": {字段: 值}}}}。
-   * {@code const} 为该表所在excel文件里常量表的内容(字符串表, 首行为表头), 没有常量时为空数组;
-   * {@code data} 为excel里的配置数据(与旧版json内容一致)。
+   * <p>结构: {@code {"const": [[常量表行]], "data": {"<id>": {字段: 值}}}}。 {@code const}
+   * 为该表所在excel文件里常量表的内容(字符串表, 首行为表头), 没有常量时为空数组; {@code data} 为excel里的配置数据(与旧版json内容一致)。
    *
    * @param sheetName 表名
    * @param sheetData 配置数据(id -> 行数据)
@@ -433,13 +431,14 @@ public class JsonTemplateGenerator extends AbstractTemplateGenerator {
       // 合并模式: 每个表名对应 {const, data}
       Map<String, Object> allSheetJsonData = new LinkedHashMap<>(jsonDataKeeper.size());
       for (Entry<String, HashMap<Integer, Object>> entry : jsonDataKeeper.entrySet()) {
-        allSheetJsonData.put(
-            entry.getKey(), buildSheetJsonData(entry.getKey(), entry.getValue()));
+        allSheetJsonData.put(entry.getKey(), buildSheetJsonData(entry.getKey(), entry.getValue()));
       }
       Gson gson = getGsonSerialize();
       String luaDataJsonStr = gson.toJson(allSheetJsonData);
       FileUtils.writeStringToFile(outJsonFile, luaDataJsonStr, StandardCharsets.UTF_8);
-      textAreaLogger.info("生成json文件模板结束,文件大小: {}", MemUsageUtils.humanSizeOf(luaDataJsonStr));
+      textAreaLogger.info(
+          "生成json文件模板结束,文件大小: {}",
+          MemUsageUtils.humanReadableUnits(luaDataJsonStr.getBytes(StandardCharsets.UTF_8).length));
     } catch (IOException ioException) {
       textAreaLogger.error("导出json文件错误");
     }

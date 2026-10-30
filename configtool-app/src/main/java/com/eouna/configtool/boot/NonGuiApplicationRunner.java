@@ -1,8 +1,8 @@
 package com.eouna.configtool.boot;
 
 import com.eouna.configtool.configholder.ConfigDataBean.ExcelGenPathConf;
-import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.configholder.SystemConfigHolder;
+import com.eouna.configtool.constant.DefaultEnvConfigConstant;
 import com.eouna.configtool.core.annotaion.AutoInject;
 import com.eouna.configtool.core.boot.env.CommandLineAndArgs;
 import com.eouna.configtool.core.boot.env.EnvironmentConstant;
@@ -11,6 +11,7 @@ import com.eouna.configtool.core.logger.LoggerUtils;
 import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.DataLoadSourceHolder;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
+import com.eouna.configtool.generator.LanguageDataLoadConfig;
 import com.eouna.configtool.generator.MainEntryExportHolder;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.utils.FileUtils;
@@ -43,6 +44,7 @@ import org.apache.commons.lang3.StringUtils;
  *   <li>{@code --excel_path=./example} excel目录或单个excel文件, 支持相对路径(基于工作目录)
  *   <li>{@code --dest_path=./out} 导出目录, 支持相对路径(基于工作目录)
  *   <li>{@code --lang=java} 导出语言, 逗号分隔, 不设置默认java
+ *   <li>{@code --load_source=excel|json} 数据加载方式, 多种语言时会自动协商共同支持的数据源
  * </ul>
  *
  * <p>示例: {@code ConfigTool --mode=none_gui --excel_path=./example --dest_path=./out --lang=go}
@@ -101,9 +103,10 @@ public class NonGuiApplicationRunner {
           "  --dest_path=<路径>    模板导出目录, 支持相对路径(基于工作目录)",
           "                        不设置时读取系统配置中的导出路径",
           "  --lang=<语言列表>     导出语言, 逗号分隔, 不设置默认java",
-          "                        可选: java / json / go / rust / csharp / lua / cpp",
+          "                        可选: java / json / go / rust / csharp / lua / cpp / js / ts",
           "                        例: --lang=java,go",
           "  --load_source=<方式>  数据加载选项: excel(默认) / json",
+          "                        js/ts 只支持 json; 多语言组合会自动使用共同支持的数据源",
           "  --export_mode=<模式>  导出选项: client(客户端导出, 默认) / server(服务端导出)",
           "                        决定数据范围行中哪些字段不导出(跳过字段名见 ToolConfig.yaml 的 excelConf)",
           "                        不设置时读取 ToolConfig.yaml 的 exportConf.exportMode",
@@ -115,7 +118,8 @@ public class NonGuiApplicationRunner {
           "  1. 参数需使用 --key=value 形式",
           "  2. 非GUI模式会固定追加json生成器, 保证至少完整走一次配置检查逻辑",
           "  3. 非GUI模式不会把excel_path/dest_path写回系统配置文件",
-          "  4. 退出码: 0成功, 1生成失败, 2未找到excel文件",
+          "  4. js/ts 只支持 json; 例如 --lang=java,ts 会自动把数据源切换为 json",
+          "  5. 退出码: 0成功, 1生成失败, 2未找到excel文件",
           "",
           "示例:",
           "  ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out",
@@ -144,13 +148,26 @@ public class NonGuiApplicationRunner {
       File excelTarget = resolveExcelTarget(arguments);
       // 2. 导出目录, 支持相对路径
       String targetDir = applyTargetDir(arguments);
-      // 3. 导出语言, 不设置默认java; 非GUI固定追加json
-      Set<ETemplateGenerator> generators = resolveGenerators(arguments);
-      // 数据读取方式(excel/json), 与界面「数据加载选项」等价
-      String loadSource = getOption(arguments, ARG_LOAD_SOURCE);
-      if (StringUtils.isNotBlank(loadSource)) {
-        DataLoadSourceHolder.getInstance().setLoadSource(loadSource);
+      // 3. 导出语言与数据读取方式(excel/json), 与界面「数据加载选项」等价
+      List<String> langIds = resolveLangIds(arguments);
+      String requestedSource = getOption(arguments, ARG_LOAD_SOURCE);
+      if (StringUtils.isNotBlank(requestedSource)
+          && !LanguageDataLoadConfig.isKnownSource(requestedSource)) {
+        String error = "--load_source 取值错误: " + requestedSource + ", 只支持 excel / json";
+        LoggerUtils.getLogger().error(error);
+        System.err.println(error);
+        return 1;
       }
+      String loadSource = LanguageDataLoadConfig.resolveCommonSource(langIds, requestedSource);
+      if (StringUtils.isBlank(loadSource)) {
+        String error = "语言组合没有共同支持的数据源: " + langIds + ", 请检查 LanguageDataLoadConfig 配置";
+        LoggerUtils.getLogger().error(error);
+        System.err.println(error);
+        return 1;
+      }
+      DataLoadSourceHolder.getInstance().setLoadSource(loadSource);
+      // 非GUI固定追加json, 保证至少完整走一次配置检查逻辑
+      Set<ETemplateGenerator> generators = resolveGenerators(langIds);
       LoggerUtils.getLogger()
           .info("数据读取方式: {}", DataLoadSourceHolder.getInstance().getLoadSource());
       // 导出模式(client/server), 与界面「导出选项」等价; 不设置时用配置文件里的值
@@ -274,16 +291,27 @@ public class NonGuiApplicationRunner {
     return pathConf.getTemplateFileGenTargetDir();
   }
 
-  /** 解析导出语言, 不设置默认java; 非GUI模式固定追加json生成器 */
-  private Set<ETemplateGenerator> resolveGenerators(CommandLineAndArgs arguments) {
+  /** 解析导出语言, 不设置默认java。 */
+  private List<String> resolveLangIds(CommandLineAndArgs arguments) {
     String langArg = getOption(arguments, ARG_LANG);
     String langValue = StringUtils.isBlank(langArg) ? DEFAULT_LANG : langArg;
-    EnumSet<ETemplateGenerator> generators = EnumSet.noneOf(ETemplateGenerator.class);
+    List<String> langIds = new ArrayList<>();
     for (String lang : langValue.split(",")) {
       String langName = lang.trim();
-      if (langName.isEmpty()) {
-        continue;
+      if (!langName.isEmpty()) {
+        langIds.add(langName);
       }
+    }
+    if (langIds.isEmpty()) {
+      langIds.add(DEFAULT_LANG);
+    }
+    return langIds;
+  }
+
+  /** 解析导出语言, 非GUI模式固定追加json生成器。 */
+  private Set<ETemplateGenerator> resolveGenerators(List<String> langIds) {
+    EnumSet<ETemplateGenerator> generators = EnumSet.noneOf(ETemplateGenerator.class);
+    for (String langName : langIds) {
       generators.add(ETemplateGenerator.getTemplateGeneratorByType(langName));
     }
     // 非GUI模式固定追加json, 保证至少完整走一次配置检查逻辑

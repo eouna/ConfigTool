@@ -18,6 +18,7 @@ import com.eouna.configtool.env.TemplateEnvResult;
 import com.eouna.configtool.generator.DataLoadSourceHolder;
 import com.eouna.configtool.generator.DefaultFuture;
 import com.eouna.configtool.generator.ExcelTemplateGenUtils;
+import com.eouna.configtool.generator.LanguageDataLoadConfig;
 import com.eouna.configtool.generator.TemplateMainEntrySupport;
 import com.eouna.configtool.generator.template.ETemplateGenerator;
 import com.eouna.configtool.update.VersionCheckResult;
@@ -223,11 +224,10 @@ public class ExcelGenWindowController extends BaseWindowController {
   private static final String DIGITAL_REG = "\\d+";
 
   /** 加载选项: excel */
-  private static final String LOAD_SOURCE_EXCEL = "excel";
+  private static final String LOAD_SOURCE_EXCEL = LanguageDataLoadConfig.SOURCE_EXCEL;
 
   /** 加载选项: json */
-  private static final String LOAD_SOURCE_JSON = "json";
-
+  private static final String LOAD_SOURCE_JSON = LanguageDataLoadConfig.SOURCE_JSON;
 
   /** 模板文件生成按钮锁 */
   private static final AtomicBoolean TEMPLATE_IN_PROGRESS = new AtomicBoolean(true);
@@ -424,10 +424,6 @@ public class ExcelGenWindowController extends BaseWindowController {
   /** 语言模板单选变化 */
   @FXML
   protected void onTemplateLangChanged() {
-    // js模板的数据源必须是json
-    if (isJsLangSelected()) {
-      forceLoadSourceJson();
-    }
     // 语言变化: 第一步/第二步的操作结果作废, 「下一步」重新置灰
     invalidateGeneratedResult();
     refreshLangOptionUsage();
@@ -450,19 +446,21 @@ public class ExcelGenWindowController extends BaseWindowController {
   /**
    * 刷新语言/加载选项的联动约束。
    *
-   * <p>约束: 语言模板为js时只能选中json(js读取的是工具导出的json数据); 加载选项为excel时不可选择js。
+   * <p>语言支持的数据源统一由 {@link LanguageDataLoadConfig} 决定。当前 js/ts 只支持 json, 选中时会 自动切换到 json。
    */
   private void refreshLangOptionUsage() {
-    boolean jsLang = isJsLangSelected();
-    boolean excelLoad = isExcelLoadSelected();
-    if (jsLang && excelLoad) {
-      // 兜底: 选中js时把加载选项切到json
-      forceLoadSourceJson();
-      excelLoad = false;
-    }
-    // js 选中时禁止选择 excel(只能 json); 其余语言两个选项都可用
+    String langId = getSelectedLangId();
+    boolean supportsExcel = LanguageDataLoadConfig.supports(langId, LOAD_SOURCE_EXCEL);
+    boolean supportsJson = LanguageDataLoadConfig.supports(langId, LOAD_SOURCE_JSON);
     if (loadSourceExcelRadio != null) {
-      loadSourceExcelRadio.setDisable(jsLang);
+      loadSourceExcelRadio.setDisable(!supportsExcel);
+    }
+    if (loadSourceJsonRadio != null) {
+      loadSourceJsonRadio.setDisable(!supportsJson);
+    }
+    String actualSource = LanguageDataLoadConfig.resolveSource(langId, getSelectedLoadSource());
+    if (!actualSource.equalsIgnoreCase(getSelectedLoadSource())) {
+      selectLoadSource(actualSource);
     }
   }
 
@@ -516,11 +514,6 @@ public class ExcelGenWindowController extends BaseWindowController {
     return ETemplateGenerator.getTemplateGeneratorByType(getSelectedLangId());
   }
 
-  /** 是否选中了js语言模板 */
-  private boolean isJsLangSelected() {
-    return ETemplateGenerator.JS_GENERATOR == getSelectedLangGenerator();
-  }
-
   /** 当前选中的加载选项 */
   private String getSelectedLoadSource() {
     if (loadSourceGroup == null || loadSourceGroup.getSelectedToggle() == null) {
@@ -535,14 +528,14 @@ public class ExcelGenWindowController extends BaseWindowController {
     return LOAD_SOURCE_EXCEL.equalsIgnoreCase(getSelectedLoadSource());
   }
 
-  /** 强制把加载选项切换为json */
-  private void forceLoadSourceJson() {
+  /** 切换加载选项 */
+  private void selectLoadSource(String loadSource) {
     if (loadSourceGroup == null) {
       return;
     }
     for (Toggle toggle : loadSourceGroup.getToggles()) {
       Object userData = toggle.getUserData();
-      if (userData != null && LOAD_SOURCE_JSON.equalsIgnoreCase(userData.toString())) {
+      if (userData != null && loadSource.equalsIgnoreCase(userData.toString())) {
         toggle.setSelected(true);
         return;
       }
@@ -552,14 +545,15 @@ public class ExcelGenWindowController extends BaseWindowController {
   /**
    * 本次需要生成的模板集合。
    *
-   * <p>语言模板为单选; 若选择js或数据读取方式选择json, 则同时生成json数据文件。
+   * <p>语言模板为单选; 当该语言实际使用json数据源时, 同时生成json数据文件。
    */
   private Set<ETemplateGenerator> getSelectedGenerators() {
     Set<ETemplateGenerator> generators = new HashSet<>();
     ETemplateGenerator selected = getSelectedLangGenerator();
     generators.add(selected);
-    if (selected == ETemplateGenerator.JS_GENERATOR
-        || LOAD_SOURCE_JSON.equalsIgnoreCase(getSelectedLoadSource())) {
+    String actualSource =
+        LanguageDataLoadConfig.resolveSource(getSelectedLangId(), getSelectedLoadSource());
+    if (LOAD_SOURCE_JSON.equalsIgnoreCase(actualSource)) {
       generators.add(ETemplateGenerator.JSON_GENERATOR);
     }
     return generators;
@@ -933,12 +927,16 @@ public class ExcelGenWindowController extends BaseWindowController {
    * @return excel目录 或 json数据目录
    */
   private String getPreloadDataPath() {
-    if (isExcelLoadSelected()) {
+    String actualSource =
+        LanguageDataLoadConfig.resolveSource(getSelectedLangId(), getSelectedLoadSource());
+    if (LOAD_SOURCE_EXCEL.equalsIgnoreCase(actualSource)) {
       return SystemConfigHolder.getInstance().getExcelConf().getPath().getExcelConfigLoadPath();
     }
-    return SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplateFileGenTargetDir()
-        + File.separator
-        + "json";
+    String targetDir =
+        SystemConfigHolder.getInstance().getExcelConf().getPath().getTemplateFileGenTargetDir();
+    return SystemConfigHolder.getInstance().getJsonTemplateConf().isSplitMultiJson()
+        ? targetDir + File.separator + "json"
+        : targetDir;
   }
 
   /** 预加载: 执行当前语言生成的主入口, 读取当前选择的数据源 */
@@ -1560,7 +1558,9 @@ public class ExcelGenWindowController extends BaseWindowController {
         // 本次选中的语言模板(单选, 选择js时同时生成json)
         Set<ETemplateGenerator> selectedGenerators = getSelectedGenerators();
         // 记录本次选择的数据读取方式, 各语言模板据此选择 excel/json 数据源模板
-        dataLoadSourceHolder.setLoadSource(getSelectedLoadSource());
+        String actualSource =
+            LanguageDataLoadConfig.resolveSource(getSelectedLangId(), getSelectedLoadSource());
+        dataLoadSourceHolder.setLoadSource(actualSource);
         textAreaLogger.info("本次数据读取方式: {}", dataLoadSourceHolder.getLoadSource());
         textAreaLogger.info("本次导出语言: {}", selectedGenerators);
         // excel文件生成java文件 并行处理

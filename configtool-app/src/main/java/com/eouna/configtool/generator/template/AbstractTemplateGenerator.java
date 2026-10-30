@@ -1,7 +1,7 @@
 package com.eouna.configtool.generator.template;
 
-import com.eouna.configtool.configholder.ConfigDataBean.ExcelGenPathConf;
 import com.eouna.configtool.configholder.ConfigDataBean.CommonTemplateConf;
+import com.eouna.configtool.configholder.ConfigDataBean.ExcelGenPathConf;
 import com.eouna.configtool.configholder.SystemConfigHolder;
 import com.eouna.configtool.core.logger.TextAreaLogger;
 import com.eouna.configtool.generator.DataLoadSourceHolder;
@@ -78,12 +78,16 @@ public abstract class AbstractTemplateGenerator {
   /**
    * 主入口默认读取目录。
    *
-   * <p>Excel数据源指向原始Excel目录; JSON数据源指向本次模板导出的 {@code <导出目录>/json}, 方便主入口直接运行和预加载。
+   * <p>Excel数据源指向原始Excel目录; JSON分表模式指向 {@code <导出目录>/json}, 合并模式指向导出目录根路径 (读取 {@code out.json}),
+   * 方便主入口直接运行和预加载。
    */
   protected String getMainEntryDataPath() {
     ExcelGenPathConf pathConf = SystemConfigHolder.getInstance().getExcelConf().getPath();
     if (isJsonLoadSource()) {
-      return pathConf.getTemplateFileGenTargetDir() + File.separator + "json";
+      String targetDir = pathConf.getTemplateFileGenTargetDir();
+      return SystemConfigHolder.getInstance().getJsonTemplateConf().isSplitMultiJson()
+          ? targetDir + File.separator + "json"
+          : targetDir;
     }
     return pathConf.getExcelConfigLoadPath();
   }

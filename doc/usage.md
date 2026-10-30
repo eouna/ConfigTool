@@ -213,8 +213,8 @@
 
 1. 运行 `ConfigTool.exe`(或 `java -jar ...` / IDEA 中启动 `ConfigToolGenApplication`), 不传 `--mode` 时即为 GUI 模式.
 2. 在界面上选择 excel 目录与模板导出目录.
-3. 勾选需要导出的语言(可多选): `java` / `json` / `go` / `rust` / `csharp` / `lua` / `cpp` / `js`(勾选 js 或数据源选择
-   json 时会自动带上 json).
+3. 勾选需要导出的语言(可多选): `java` / `json` / `go` / `rust` / `csharp` / `lua` / `cpp` / `js` / `ts`
+   (勾选 js/ts 或数据源选择 json 时会自动带上 json).
 4. 第一步右下角有**数据加载选项**(`excel` / `json`)与**导出选项**(`客户端` / `服务端`)两个小模块:
    前者决定生成的代码读 excel 还是 json; 后者决定导出哪些字段(见 [7. 数据范围](#7-数据范围-这个字段给谁用)).
 5. 点击生成, 生成结果与日志显示在主界面日志区.
@@ -245,9 +245,10 @@ ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=g
 | `--export_mode=<模式>`        | 否  | 导出选项: `client`(客户端导出) / `server`(服务端导出)    | 读取配置文件中的导出模式      |
 | `--help` / `--usage` / `-h` | 否  | 打印用法说明并退出                                  | -                 |
 
-`--lang` 可选值: `java` / `json` / `go` / `rust` / `csharp` / `lua` / `cpp` / `js`.
+`--lang` 可选值: `java` / `json` / `go` / `rust` / `csharp` / `lua` / `cpp` / `js` / `ts`.
 
-> `js` 模板的读取源是 json 数据, 需与 `json` 一起导出(非GUI模式会自动追加 json, 不会缺).
+> `js` / `ts` 模板的读取源是 json 数据, 需与 `json` 一起导出(非GUI模式会自动追加 json, 不会缺).
+> 即使传入 `--load_source=excel`, 包含 `js` / `ts` 的语言组合也会自动改用 json.
 
 > 注意: 参数必须使用 `--key=value` 形式(例如 `--excel_path=./example`), 不支持 `--excel_path ./example` 这种空格分隔写法.
 
@@ -274,6 +275,9 @@ ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=g
 
 # 7. json 数据加载 + 客户端导出
 ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=java --load_source=json --export_mode=client
+
+# 8. 同时导出 Java 与 TypeScript(自动选择两者共同支持的 json)
+ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=java,ts
 ```
 
 ### 2.4 非GUI模式约定
@@ -296,13 +300,17 @@ ConfigTool.exe --mode=none_gui --excel_path=./example --dest_path=./out --lang=j
 
 ## 三、生成结果目录结构
 
-生成后按语言分目录存放, 例如 `--lang=java,go --dest_path=./out`:
+生成后按语言分目录存放, 例如 `--lang=java,go,ts --dest_path=./out`:
 
 ```
 out/
 ├── java/       # java bean / container / manager 等
 ├── go/         # go bean / container / manager 等
 ├── js/         # javascript 读取代码(数据源为 json)
+├── ts/         # typescript 读取代码(数据源为 json)
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── src/
 └── json/       # 每张表对应的 json 数据(结构: { const: [常量行], data: { id: {字段: 值} } })
 ```
 
@@ -311,6 +319,7 @@ out/
 1. 每种语言的 bean / container 等文件放在各自的子目录中.
 2. `--excel_path` 指向目录时会收集该目录下所有 `.xlsx` 文件; 指向单个文件时只生成该文件.
 3. 分表(表名包含 `_`)会自动合并生成总表与子表.
+4. `jsonTemplateConf.isSplitMultiJson=true` 时 JSON 位于 `json/`; 设为 `false` 时合并为导出目录根部的 `out.json`.
 
 ---
 
@@ -323,8 +332,16 @@ out/
 | `excel` | 生成的代码直接读 xlsx(需要 xlsx 解析库, 如 java 的 POI)                                                         |
 | `json`  | 生成的代码读取 `<导出目录>/json/<表名>.json`(结构 `{ const: [...], data: {...} }`); 选择 json 数据源时工具会自动追加 json 导出 |
 
-> 选择 `json` 数据源时, 生成的主入口会将默认数据目录写成 `<导出目录>/json`, 因此可以直接运行主入口完成预加载,
-> 也可以由预加载流程显式传入同一目录。
+每种语言支持的数据加载方式统一配置在
+[`LanguageDataLoadConfig`](../configtool-app/src/main/java/com/eouna/configtool/generator/LanguageDataLoadConfig.java):
+
+| 语言 | Excel | JSON |
+|------|:-----:|:----:|
+| `java` / `go` / `rust` / `csharp` / `lua` / `cpp` | 支持 | 支持 |
+| `json` / `js` / `ts` | 不支持 | 支持 |
+
+> 选择 `json` 数据源时, 分表模式的主入口默认读取 `<导出目录>/json`, 合并模式默认读取 `<导出目录>/out.json`,
+> 因此可以直接运行主入口完成预加载, 也可以由预加载流程显式传入同一目录。
 
 界面「导出选项」或 `ToolConfig.yaml` 的 `exportConf.exportMode` 决定导出哪些字段(支持全部语言模板):
 
@@ -346,7 +363,18 @@ out/
 3. 时间类型按类型里写的格式还原（`Date<yyyy-MM-dd HH:mm>` → `2023-12-14 19:01`）。
 4. 每张表的 json 分为两段: `const`(该表所在 excel 文件里常量表的行, 按 excel 行列布局的字符串二维数组, 首行为表头)与
    `data`(excel 里的配置数据, 与旧版 json 内容一致)。java / go / csharp / rust / cpp 的 json 数据源会分别读取这两段;
-   没有常量时 `const` 为空数组(`js` / `lua` 的常量写在生成代码里)。
+   没有常量时 `const` 为空数组(`js` / `ts` / `lua` 的常量写在生成代码里)。
+
+TypeScript 输出可直接构建和运行:
+
+```shell
+cd out/ts
+npm install
+npm run build
+npm start
+```
+
+`ts/src/JsonLoader.ts` 同时提供 Node 文件、浏览器 `fetch` 和内存数据三种加载器; 分表与 `out.json` 合并模式均兼容.
 
 ## 四、源码方式运行(开发)
 
@@ -404,6 +432,10 @@ excelConf:
 exportConf:
   # client=客户端导出(跳过 dataRangeClientSkipStr 标记的字段); server=服务端导出(跳过 dataRangeServerSkipStr 标记的字段)
   exportMode: client
+
+jsonTemplateConf:
+  # true=每张表一个 json/<表名>.json; false=合并为导出目录根部的 out.json
+  isSplitMultiJson: true
 ```
 
 > 两个"跳过字段名"都可在设置界面或该配置文件里改成任意名字(例如 `c` / `s`, 或中文),

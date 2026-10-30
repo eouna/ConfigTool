@@ -16,6 +16,8 @@ import com.eouna.configtool.generator.template.lua.LuaTemplateGenerator;
 import com.eouna.configtool.generator.template.lua.LuaTemplateHandler;
 import com.eouna.configtool.generator.template.rust.RustTemplateGenerator;
 import com.eouna.configtool.generator.template.rust.RustTemplateHandler;
+import com.eouna.configtool.generator.template.ts.TsTemplateGenerator;
+import com.eouna.configtool.generator.template.ts.TsTemplateHandler;
 
 /**
  * 模板生成器枚举
@@ -40,6 +42,8 @@ public enum ETemplateGenerator {
   CPP_GENERATOR(CppTemplateHandler.getInstance(), CppTemplateGenerator.getInstance()),
   /** JavaScript生成器(数据源: json) */
   JS_GENERATOR(JsTemplateHandler.getInstance(), JsTemplateGenerator.getInstance()),
+  /** TypeScript生成器(数据源: json) */
+  TS_GENERATOR(TsTemplateHandler.getInstance(), TsTemplateGenerator.getInstance()),
   ;
 
   /** 模板处理handler */

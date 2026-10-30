@@ -6,11 +6,11 @@ import com.eouna.configtool.utils.FxApplicationContextHolder;
 /**
  * 当前选择的数据读取方式(excel / json)。
  *
- * <p>由界面「数据加载选项」设置, 生成模板时读取: 各语言模板会按该选项选择对应的数据源读取模板
- * (例如 {@code XxxDataSourceExcel.ftl} / {@code XxxDataSourceJson.ftl})。
+ * <p>由界面「数据加载选项」设置, 生成模板时读取: 各语言模板会按该选项选择对应的数据源读取模板 (例如 {@code XxxDataSourceExcel.ftl} / {@code
+ * XxxDataSourceJson.ftl})。
  *
- * <p>本类通过 {@code @Component} 注册到容器统一管理; 因模板生成器是枚举单例(非容器bean), 这里提供
- * {@link #getInstance()} 从容器取实例, 与 {@code SystemConfigHolder} 一致。
+ * <p>本类通过 {@code @Component} 注册到容器统一管理; 因模板生成器是枚举单例(非容器bean), 这里提供 {@link #getInstance()} 从容器取实例, 与
+ * {@code SystemConfigHolder} 一致。
  *
  * @author CCL
  */
@@ -18,10 +18,10 @@ import com.eouna.configtool.utils.FxApplicationContextHolder;
 public class DataLoadSourceHolder {
 
   /** 数据源: excel */
-  public static final String SOURCE_EXCEL = "excel";
+  public static final String SOURCE_EXCEL = LanguageDataLoadConfig.SOURCE_EXCEL;
 
   /** 数据源: json */
-  public static final String SOURCE_JSON = "json";
+  public static final String SOURCE_JSON = LanguageDataLoadConfig.SOURCE_JSON;
 
   /** 当前选择的数据源 */
   private volatile String loadSource = SOURCE_EXCEL;
