@@ -148,7 +148,7 @@ public class VersionChecker {
   }
 
   /**
-   * 版本号比较(只比较数字段: v1.0.10 > v1.0.9)。
+   * 版本号比较(只比较数字段: v1.0.11 > v1.0.9)。
    *
    * @param left 版本号
    * @param right 版本号
@@ -276,7 +276,7 @@ public class VersionChecker {
     return jsonObject.get(fieldName).getAsString();
   }
 
-  /** 提取版本号中的数字段(如 v1.0.10 -> [1, 0, 10]) */
+  /** 提取版本号中的数字段(如 v1.0.11 -> [1, 0, 11]) */
   private static List<Long> splitVersionNumbers(String version) {
     List<Long> numbers = new ArrayList<>();
     if (StringUtils.isEmpty(version)) {
