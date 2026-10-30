@@ -262,10 +262,10 @@
                         <Separator prefHeight="1.0" styleClass="theme-separator"/>
 
                         <!-- 语言导出模板(独立区域 + 背景色) -->
-                        <VBox styleClass="option-block" spacing="6.0" style="-fx-padding: 10 12 10 12;">
+                        <VBox styleClass="option-block" spacing="4.0" style="-fx-padding: 6 12 6 12;">
                             <Label styleClass="option-block-title" text="语言导出模板(单选)"/>
                             <FlowPane fx:id="templateLangPane" alignment="CENTER_LEFT" hgap="6.0" vgap="6.0"
-                                      prefHeight="96.0" minHeight="96.0">
+                                      prefHeight="54.0" minHeight="54.0" maxHeight="54.0">
                                 <RadioButton fx:id="langJavaRadio" mnemonicParsing="false" prefWidth="56.0"
                                              text="java" userData="java" toggleGroup="$templateLangGroup"
                                              selected="true" onAction="#onTemplateLangChanged"/>
